@@ -1,0 +1,46 @@
+{
+  "assignees": [],
+  "dateFormat": "yyyy-MM-dd",
+  "idSeparator": "none",
+  "labels": [],
+  "name": "Oxidoc",
+  "nextMilestoneNumber": 8,
+  "nextTaskNumber": 30,
+  "priorities": [
+    {
+      "id": "high",
+      "name": "High"
+    },
+    {
+      "id": "normal",
+      "name": "Medium"
+    },
+    {
+      "id": "low",
+      "name": "Low"
+    }
+  ],
+  "schemaVersion": 1,
+  "taskPrefix": "W",
+  "taskTypeColors": {
+    "bug": "#d73a4a",
+    "chore": "#6c757d",
+    "docs": "#1d76db",
+    "feature": "#a2eeef",
+    "improvement": "#f29a4e",
+    "spike": "#d4c5f9",
+    "task": "#e3dede"
+  },
+  "taskTypes": [
+    "feature",
+    "bug",
+    "improvement",
+    "task",
+    "docs",
+    "spike",
+    "chore"
+  ],
+  "timeFormat": "24h",
+  "useEffort": false,
+  "nextEpicNumber": 5
+}

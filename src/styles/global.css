@@ -1,0 +1,23 @@
+:root {
+  font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+  color: var(--color-text);
+  background: var(--color-background);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --color-background: #181818;
+  --color-surface: #242424;
+  --color-border: #3c3c3c;
+  --color-text: #e8e8e8;
+  --color-muted: #a0a0a0;
+  --color-accent: #7dbbff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+}

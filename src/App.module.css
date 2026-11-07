@@ -1,0 +1,76 @@
+.workspace {
+  display: grid;
+  min-height: 100vh;
+  padding: 40px 24px;
+  place-items: center;
+}
+
+.welcome {
+  width: min(100%, 520px);
+  text-align: center;
+}
+
+.mark {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 32px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  color: var(--color-accent);
+  font-size: 36px;
+  font-weight: 600;
+  place-items: center;
+}
+
+.eyebrow {
+  color: var(--color-muted);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+}
+
+.welcome h1 {
+  margin: 12px 0;
+  font-size: clamp(40px, 8vw, 56px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.description {
+  margin: 0 0 32px;
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
+.button {
+  padding: 10px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.status {
+  min-height: 40px;
+  margin-top: 20px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
