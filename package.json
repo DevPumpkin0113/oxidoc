@@ -27,18 +27,25 @@
     "lint:rust": "cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
     "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml",
     "format:rust:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build && npm run format:check && npm run format:rust:check && npm run lint:rust && npm run test:rust",
-    "tauri": "tauri"
+    "check": "npm run version:check && npm run test:version && npm run typecheck && npm run lint && npm run test && npm run build && npm run format:check && npm run format:rust:check && npm run lint:rust && npm run test:rust",
+    "tauri": "tauri",
+    "version:check": "node scripts/version.mjs --check",
+    "version:set": "node scripts/version.mjs",
+    "test:version": "node --test scripts/version.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",
     "@tauri-apps/plugin-fs": "2.7.1",
     "@tauri-apps/plugin-store": "2.5.0",
+    "@vscode/codicons": "0.0.46-24",
+    "material-icon-theme": "5.40.0",
     "monaco-editor": "0.57.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "unified": "11.0.5",
     "zustand": "5.1.0"
   },
   "devDependencies": {
@@ -61,5 +68,13 @@
     "typescript-eslint": "8.72.1",
     "vite": "8.3.6",
     "vitest": "5.1.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DevPumpkin0113/oxidoc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DevPumpkin0113/oxidoc/issues"
+  },
+  "homepage": "https://github.com/DevPumpkin0113/oxidoc"
 }

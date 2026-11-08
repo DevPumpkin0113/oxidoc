@@ -55,4 +55,5 @@
 
 - 환경 구성·실행·검증 시 [README](README.md)의 실제 명령을 따른다.
 - 앱 기반 구성과 기능 변경 시 [기술 스택](docs/plan/TECH_STACK.md)의 확정 기술 및 역할 분담을 따른다.
+- 레이아웃과 타이틀바 변경 시 [작업 공간 UI](docs/plan/UI.md)의 구성·상호작용·구현 경계를 확인한다.
 - Worktree 작업 등록·진행·완료 처리 시 [작업 구성 기준](docs/plan/WORKTREE.md)을 따른다. 문서 배치만으로 Worktree를 초기화하지 않는다.

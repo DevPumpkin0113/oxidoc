@@ -1,0 +1,170 @@
+export interface Theme {
+  id: string;
+  name: string;
+  kind: "light" | "dark";
+  background: string;
+  surface: string;
+  text: string;
+  muted: string;
+  border: string;
+  accent: string;
+  keyword: string;
+  string: string;
+}
+// Curated palette adaptations; sources and attribution in docs/plan/SETTINGS.md.
+export const themes: Theme[] = [
+  {
+    id: "light-modern",
+    name: "VS Code Light Modern",
+    kind: "light",
+    background: "#ffffff",
+    surface: "#f8f8f8",
+    text: "#3b3b3b",
+    muted: "#616161",
+    border: "#cecece",
+    accent: "#005fb8",
+    keyword: "#0000ff",
+    string: "#a31515",
+  },
+  {
+    id: "github-light",
+    name: "GitHub Light",
+    kind: "light",
+    background: "#ffffff",
+    surface: "#f6f8fa",
+    text: "#24292f",
+    muted: "#57606a",
+    border: "#d0d7de",
+    accent: "#0969da",
+    keyword: "#cf222e",
+    string: "#0a3069",
+  },
+  {
+    id: "one-light",
+    name: "One Light",
+    kind: "light",
+    background: "#fafafa",
+    surface: "#f0f0f0",
+    text: "#383a42",
+    muted: "#696c77",
+    border: "#d4d4d4",
+    accent: "#4078f2",
+    keyword: "#a626a4",
+    string: "#50a14f",
+  },
+  {
+    id: "solarized-light",
+    name: "Solarized Light",
+    kind: "light",
+    background: "#fdf6e3",
+    surface: "#eee8d5",
+    text: "#586e75",
+    muted: "#657b83",
+    border: "#c9c5b4",
+    accent: "#007eaa",
+    keyword: "#859900",
+    string: "#2aa198",
+  },
+  {
+    id: "catppuccin-latte",
+    name: "Catppuccin Latte",
+    kind: "light",
+    background: "#eff1f5",
+    surface: "#e6e9ef",
+    text: "#4c4f69",
+    muted: "#5c5f77",
+    border: "#bcc0cc",
+    accent: "#1e66f5",
+    keyword: "#8839ef",
+    string: "#387f23",
+  },
+  {
+    id: "dark-modern",
+    name: "VS Code Dark Modern",
+    kind: "dark",
+    background: "#1f1f1f",
+    surface: "#181818",
+    text: "#cccccc",
+    muted: "#9d9d9d",
+    border: "#454545",
+    accent: "#4daafc",
+    keyword: "#c586c0",
+    string: "#ce9178",
+  },
+  {
+    id: "github-dark",
+    name: "GitHub Dark",
+    kind: "dark",
+    background: "#0d1117",
+    surface: "#161b22",
+    text: "#c9d1d9",
+    muted: "#8b949e",
+    border: "#30363d",
+    accent: "#58a6ff",
+    keyword: "#ff7b72",
+    string: "#a5d6ff",
+  },
+  {
+    id: "one-dark-pro",
+    name: "One Dark Pro",
+    kind: "dark",
+    background: "#282c34",
+    surface: "#21252b",
+    text: "#abb2bf",
+    muted: "#9299a6",
+    border: "#4b5263",
+    accent: "#61afef",
+    keyword: "#c678dd",
+    string: "#98c379",
+  },
+  {
+    id: "dracula",
+    name: "Dracula",
+    kind: "dark",
+    background: "#282a36",
+    surface: "#21222c",
+    text: "#f8f8f2",
+    muted: "#a4acd2",
+    border: "#55586f",
+    accent: "#bd93f9",
+    keyword: "#ff79c6",
+    string: "#f1fa8c",
+  },
+  {
+    id: "catppuccin-mocha",
+    name: "Catppuccin Mocha",
+    kind: "dark",
+    background: "#1e1e2e",
+    surface: "#181825",
+    text: "#cdd6f4",
+    muted: "#a6adc8",
+    border: "#45475a",
+    accent: "#89b4fa",
+    keyword: "#cba6f7",
+    string: "#a6e3a1",
+  },
+];
+export function themeById(id: string) {
+  return themes.find((theme) => theme.id === id) ?? themes[5];
+}
+export function themeVariables(theme: Theme): Record<string, string> {
+  return {
+    "--canvas": theme.surface,
+    "--sidebar": theme.background,
+    "--editor": theme.background,
+    "--preview": theme.background,
+    "--surface": theme.surface,
+    "--text": theme.text,
+    "--muted": theme.muted,
+    "--border": theme.border,
+    "--panel-border": theme.border,
+    "--accent": theme.accent,
+    "--accent-contrast": theme.kind === "light" ? "#ffffff" : theme.background,
+    "--hover": `color-mix(in srgb, ${theme.text} 8%, ${theme.background})`,
+    "--selection": `color-mix(in srgb, ${theme.accent} 20%, ${theme.background})`,
+    "--danger": theme.kind === "light" ? "#b42318" : "#ff9b96",
+    "--danger-bg": theme.kind === "light" ? "#fff0ee" : "#422c2c",
+    "--warning": theme.kind === "light" ? "#795500" : "#e4c7ad",
+    "--warning-bg": theme.kind === "light" ? "#fff8df" : "#3b3028",
+  };
+}

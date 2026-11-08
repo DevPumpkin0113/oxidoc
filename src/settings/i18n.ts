@@ -1,0 +1,286 @@
+import { effectiveLanguage, useSettings } from "./store";
+export const english: Record<string, string> = {
+  "태그 없음": "Untagged",
+  "문서 개요 닫기": "Close document outline",
+  "명령 팔레트 닫기": "Close command palette",
+  탐색기: "Explorer",
+  검색: "Search",
+  프로젝트: "Projects",
+  "프로젝트 목록": "Project list",
+  편집: "Edit",
+  "분할 보기": "Split View",
+  미리보기: "Preview",
+  "새 폴더 이름": "New folder name",
+  "새 문서 이름": "New document name",
+  "새 폴더": "New folder",
+  "새 문서.md": "Untitled.md",
+  만들기: "Create",
+  "새 문서": "New document",
+  "이름 변경": "Rename",
+  "휴지통으로 이동": "Move to Recycle Bin",
+  "휴지통으로 이동할까요?": "Move to Recycle Bin?",
+  " · 하위 항목 포함": " · including contents",
+  "프로젝트 이름 변경": "Rename project",
+  "태그 편집": "Edit tags",
+  "프로젝트 태그": "Project tags",
+  "쉼표로 구분해 입력하세요. 비우면 태그가 제거됩니다.":
+    "Separate tags with commas. Leave empty to remove all tags.",
+  "폴더 경로 다시 연결": "Relink project folder",
+  "목록에서 제거": "Remove from list",
+  "프로젝트를 목록에서 제거할까요?": "Remove project from list?",
+  "{0} · 실제 폴더와 파일은 유지됩니다.":
+    "{0} · Your folder and files will be kept.",
+  "지원하지 않는 링크 또는 프로젝트 외부 경로입니다.":
+    "Unsupported link or path outside the project.",
+  설정: "Settings",
+  "프로젝트 폴더 열기": "Open project folder",
+  "사이드바 표시/숨기기": "Toggle sidebar",
+  "프로젝트 전체 검색": "Search project",
+  "문서 저장": "Save document",
+  "다른 이름으로 저장": "Save As",
+  "문서 내 찾기": "Find in document",
+  "문서 내 바꾸기": "Replace in document",
+  "문서 개요 표시/숨기기": "Toggle document outline",
+  "프로젝트 열기: {0}": "Open project: {0}",
+  "문서 전환: {0}": "Switch document: {0}",
+  "작업 영역": "Workspace",
+  "프로젝트 없음": "No project",
+  "브라우저 샘플": "Browser demo",
+  "폴더 열기": "Open folder",
+  새로고침: "Refresh",
+  "프로젝트 폴더를 열어 문서를 편집하세요.":
+    "Open a project folder to edit documents.",
+  "열린 문서": "Open documents",
+  "설정 탭 닫기": "Close Settings tab",
+  "{0} 탭 닫기": "Close {0} tab",
+  "명령 팔레트 (Ctrl Shift P)": "Command Palette (Ctrl Shift P)",
+  "명령 팔레트": "Command Palette",
+  "알림 닫기": "Dismiss notification",
+  "작업 공간": "Workspace",
+  "찾기 (Ctrl F)": "Find (Ctrl F)",
+  바꾸기: "Replace",
+  "바꾸기 (Ctrl H)": "Replace (Ctrl H)",
+  "실행 취소": "Undo",
+  "실행 취소 (Ctrl Z)": "Undo (Ctrl Z)",
+  "다시 실행": "Redo",
+  "다시 실행 (Ctrl Y)": "Redo (Ctrl Y)",
+  "문서 개요": "Document outline",
+  "스크롤 동기화": "Sync scrolling",
+  "다른 이름으로 저장 (Ctrl Shift S)": "Save As (Ctrl Shift S)",
+  "저장 (Ctrl S)": "Save (Ctrl S)",
+  저장: "Save",
+  "문서 보기 방식": "Document view",
+  "편집 영역": "Editor pane",
+  "편집기 준비 중…": "Loading editor…",
+  "미리보기 영역": "Preview pane",
+  "실시간 미리보기": "Live preview",
+  "미리보기 준비 중…": "Loading preview…",
+  "제목이 없습니다.": "No headings.",
+  "생각이 머무는 공간": "A space for your ideas",
+  "탐색기에서 문서를 선택해 시작하세요.":
+    "Select a document in Explorer to get started.",
+  "프로젝트 폴더를 열어 시작하세요.": "Open a project folder to get started.",
+  "문서 검색": "Search documents",
+  "샘플 작업 공간을 둘러보고 있어요. 변경 내용은 이번 실행 동안만 유지됩니다.":
+    "You are exploring a demo workspace. Changes are kept for this session only.",
+  "샘플 안내 닫기": "Dismiss demo notice",
+  "설정 (Ctrl ,)": "Settings (Ctrl ,)",
+  "사이드바 닫기": "Hide sidebar",
+  "사이드바 열기": "Show sidebar",
+  "처리 중…": "Working…",
+  "저장하지 않은 변경 있음": "Unsaved changes",
+  "줄 {0}, 열 {1}": "Ln {0}, Col {1}",
+  "공백: 2": "Spaces: 2",
+  "열린 문서 없음": "No open documents",
+  취소: "Cancel",
+  확인: "Confirm",
+  "명령 또는 프로젝트 검색": "Search commands or projects",
+  "명령, 문서 또는 프로젝트 검색…": "Search commands, documents or projects…",
+  "일치하는 명령이 없습니다.": "No matching commands.",
+  "↑ ↓ 선택 · Enter 실행 · Esc 닫기": "↑ ↓ Select · Enter Run · Esc Close",
+  "Markdown 편집기": "Markdown editor",
+  "외부 이미지 또는 지원하지 않는 경로": "Remote image or unsupported path",
+  "이미지를 표시할 수 없습니다.": "Unable to display image.",
+  이미지: "Image",
+  " · 불러오는 중…": " · Loading…",
+  "기본 브라우저에서 열기": "Open in default browser",
+  "Markdown 미리보기": "Markdown preview",
+  "폴더 없음": "Folder missing",
+  "접근 권한 없음": "Access denied",
+  "접근 불가": "Unavailable",
+  "열려 있음": "Open",
+  "프로젝트 등록": "Add project",
+  "프로젝트 검색": "Search projects",
+  "이름 또는 경로": "Name or path",
+  "프로젝트 정렬": "Sort projects",
+  "최근 사용순": "Recently opened",
+  이름순: "Name",
+  "태그 필터": "Filter by tag",
+  "모든 태그": "All tags",
+  즐겨찾기만: "Favorites only",
+  "{0}개의 프로젝트": "{0} projects",
+  "{0} 즐겨찾기": "Favorite {0}",
+  "{0} 프로젝트 관리": "Manage project {0}",
+  "검색 조건에 맞는 프로젝트가 없습니다.": "No projects match your filters.",
+  "폴더를 등록하면 여기에 표시됩니다.":
+    "Add a folder to see your projects here.",
+  "파일 내용 검색": "Search file contents",
+  "대소문자 구분": "Match case",
+  "검색 중…": "Searching…",
+  "{0}개 결과": "{0} results",
+  "검색어를 입력하세요.": "Enter a search term.",
+  "최대 500개 결과 / 20,000개 항목 범위입니다. 검색어를 좁혀 주세요.":
+    "Limited to 500 results and 20,000 entries. Refine your search.",
+  "읽을 수 없거나 지원 범위를 넘는 항목 {0}개 제외":
+    "Skipped {0} unreadable or unsupported entries",
+  "검색 결과가 없습니다.": "No results found.",
+  인터페이스: "Interface",
+  편집기: "Editor",
+  "나에게 맞는 작업 공간": "Make this workspace yours",
+  일반: "General",
+  "표시 언어": "Display language",
+  "시스템 언어에 맞춰 한국어 또는 영어 자동 선택":
+    "Automatically select Korean or English based on your system language",
+  시스템: "System",
+  한국어: "한국어",
+  "현재 언어: 한국어": "Current language: Korean",
+  "현재 언어: 영어": "Current language: English",
+  테마: "Appearance",
+  "색상 모드": "Color mode",
+  "시스템 모드 변경 시 라이트·다크 테마 자동 전환":
+    "Follow system changes using your selected light and dark themes",
+  라이트: "Light",
+  다크: "Dark",
+  "라이트 테마": "Light theme",
+  "다크 테마": "Dark theme",
+  "글꼴 크기": "Font sizes",
+  "변경 즉시 적용·자동 저장":
+    "Changes apply immediately and save automatically",
+  "앱 정보 및 업데이트": "About & Updates",
+  "현재 버전": "Current version",
+  업데이트: "Updates",
+  "GitHub Releases 기반 업데이트 기능 준비 중":
+    "GitHub Releases updates are coming later",
+  "준비 중": "Coming soon",
+  "업데이트 기능 준비 중": "Updates are not available yet",
+  "업데이트 확인": "Check for updates",
+  "다운로드 및 설치": "Download & Install",
+  "모든 설정을 기본값으로 되돌릴까요?": "Reset all settings to their defaults?",
+  "초기화 확인": "Confirm reset",
+  "기본값으로 초기화": "Reset to defaults",
+  "창 상태 확인 실패": "Unable to read window state",
+  "창 상태 변경 감지 실패": "Unable to track window state",
+  "창 제어 실패 · 다시 시도해 주세요":
+    "Window action failed · Please try again",
+  최소화: "Minimize",
+  "데스크톱 앱에서 사용": "Available in the desktop app",
+  "창 크기 복원": "Restore window",
+  최대화: "Maximize",
+  "창 닫기": "Close window",
+  "오류 알림 닫기": "Dismiss error",
+  "변경 내용을 저장할까요?": "Save your changes?",
+  "저장하지 않은 변경 내용이 있습니다.": "You have unsaved changes.",
+  "저장 안 함": "Don't Save",
+  "불러오는 중…": "Loading…",
+  "빈 폴더": "Empty folder",
+  "{0} 관리": "Manage {0}",
+  "변경 있음": "Modified",
+  "이전 프로젝트에 접근할 수 없습니다. 프로젝트에서 경로를 다시 연결해 주세요.":
+    "The previous project is unavailable. Relink its folder in Projects.",
+  "브라우저 샘플에서는 디스크에 저장할 수 없습니다.":
+    "Saving to disk is unavailable in the browser demo.",
+  "대상 문서에 미저장 변경이 있습니다. 먼저 저장하거나 닫아 주세요.":
+    "The destination has unsaved changes. Save or close it first.",
+  "설정 불러오기 실패": "Unable to load settings",
+  "설정 저장 실패": "Unable to save settings",
+  "복원하지 못한 문서": "Documents not restored",
+  "최근 사용 정보 저장 실패": "Unable to save recent activity",
+  "작업 상태 저장 실패": "Unable to save workspace state",
+  "사용할 수 없는 파일·폴더 이름입니다.": "Invalid file or folder name.",
+  "파일 이름이 필요합니다.": "A file name is required.",
+  "대상 폴더가 아닙니다.": "The destination is not a folder.",
+  "프로젝트 외부 경로입니다.": "Path is outside the project.",
+  "이름이 없습니다.": "Name is missing.",
+  "폴더 생성 실패": "Unable to create folder",
+  "문서 생성 실패": "Unable to create document",
+  "프로젝트 루트는 이름을 변경할 수 없습니다.":
+    "The project root cannot be renamed.",
+  "상위 폴더가 없습니다.": "Parent folder is missing.",
+  "같은 이름의 항목이 이미 있습니다.":
+    "An entry with this name already exists.",
+  "이름 변경 실패": "Unable to rename entry",
+  "프로젝트 루트는 삭제할 수 없습니다.": "The project root cannot be deleted.",
+  "휴지통 이동 실패": "Unable to move entry to Recycle Bin",
+  "폴더를 선택해 주세요.": "Please select a folder.",
+  "현재 프로젝트 안에 저장해 주세요.":
+    "Please save inside the current project.",
+  "5MB 이하 문서만 저장할 수 있습니다.":
+    "Only documents up to 5 MB can be saved.",
+  "대상 파일이 새로 생성되었습니다. 다시 확인해 주세요.":
+    "The destination was created externally. Please check again.",
+  "저장 대상이 외부에서 삭제되었습니다.":
+    "The destination was deleted externally.",
+  "상위 경로가 없습니다.": "Parent path is missing.",
+  "프로젝트를 찾을 수 없습니다.": "Project not found.",
+  "프로젝트 이름은 1~200자로 입력해 주세요.":
+    "Project names must contain 1–200 characters.",
+  "태그는 30개 이하, 각각 80자 이하로 입력해 주세요.":
+    "Use up to 30 tags, each up to 80 characters.",
+  "이미 등록한 프로젝트 경로입니다.":
+    "This project folder is already registered.",
+  "등록되지 않은 프로젝트입니다.": "This project is not registered.",
+  "세션 데이터가 너무 큽니다.": "Session data is too large.",
+  "검색어가 너무 깁니다.": "The search term is too long.",
+  "지원하지 않는 이미지 형식입니다. PNG/JPEG/GIF/WebP/AVIF/BMP를 사용해 주세요.":
+    "Unsupported image format. Use PNG/JPEG/GIF/WebP/AVIF/BMP.",
+  "이미지는 10MB 이하만 지원합니다.": "Images must be 10 MB or smaller.",
+  "HTTP/HTTPS 링크만 열 수 있습니다.": "Only HTTP/HTTPS links can be opened.",
+  "프로젝트 목록 형식이 올바르지 않습니다.": "Invalid project registry format.",
+  "등록되지 않은 프로젝트입니다. 폴더를 먼저 선택해 주세요.":
+    "Project is not registered. Select a folder first.",
+  "프로젝트 폴더를 찾거나 접근할 수 없습니다.":
+    "The project folder is missing or inaccessible.",
+  "프로젝트 외부 경로에는 접근할 수 없습니다.":
+    "Paths outside the project cannot be accessed.",
+  "경로 접근 실패": "Unable to access path",
+  "폴더 읽기 실패": "Unable to read folder",
+  "폴더 항목이 너무 많습니다(최대 10,000개).":
+    "Folder exceeds the 10,000-entry limit.",
+  "문서 열기 실패": "Unable to open document",
+  "5MB 이하 문서만 열 수 있습니다.": "Only documents up to 5 MB can be opened.",
+  "바이너리 파일은 편집할 수 없습니다.": "Binary files cannot be edited.",
+  "UTF-8 문서만 편집할 수 있습니다.": "Only UTF-8 documents can be edited.",
+  "파일이 외부에서 변경되었습니다. 변경 내용을 복사한 뒤 문서를 다시 열어 주세요.":
+    "The file changed externally. Copy your changes before reopening it.",
+  "저장 경로가 올바르지 않습니다.": "Invalid save path.",
+  "읽기 전용 파일입니다.": "The file is read-only.",
+  "저장 준비 실패": "Unable to prepare save",
+  "파일 저장 실패": "Unable to save file",
+  "프로젝트 폴더를 선택해 주세요.": "Select a project folder.",
+  "프로젝트 목록 저장 실패": "Unable to save project registry",
+  "유효하지 않은 설정 값입니다.": "Invalid settings value.",
+};
+export function translate(
+  text: string,
+  language: "ko" | "en",
+  ...values: (string | number)[]
+): string {
+  const translated = language === "en" ? (english[text] ?? text) : text;
+  return translated.replace(/\{(\d+)\}/g, (placeholder, index: string) =>
+    String(values[Number(index)] ?? placeholder),
+  );
+}
+export function t(text: string, ...values: (string | number)[]) {
+  return translate(text, effectiveLanguage(useSettings.getState()), ...values);
+}
+// Only translate known messages or prefixes; never translate file names or document text.
+export function translateError(text: string): string {
+  if (effectiveLanguage(useSettings.getState()) === "ko") return text;
+  if (english[text]) return english[text];
+  const separator = text.indexOf(": ");
+  if (separator > 0 && english[text.slice(0, separator)])
+    return english[text.slice(0, separator)] + ": " + text.slice(separator + 2);
+  if (text.startsWith("Error: "))
+    return "Error: " + translateError(text.slice(7));
+  return text;
+}

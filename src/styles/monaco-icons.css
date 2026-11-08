@@ -1,0 +1,16 @@
+/* Monaco's own icon font must match its pinned glyph definitions.
+   App chrome uses the separate Codicons SVG sprite. */
+@font-face {
+  font-family: "codicon";
+  src: url("../../node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.ttf")
+    format("truetype");
+  font-display: block;
+}
+.codicon[class*="codicon-"] {
+  font-family: "codicon";
+  font-style: normal;
+  font-weight: normal;
+  font-size: 16px;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+}

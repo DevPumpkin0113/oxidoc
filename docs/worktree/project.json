@@ -4,8 +4,8 @@
   "idSeparator": "none",
   "labels": [],
   "name": "Oxidoc",
-  "nextMilestoneNumber": 8,
-  "nextTaskNumber": 30,
+  "nextMilestoneNumber": 14,
+  "nextTaskNumber": 52,
   "priorities": [
     {
       "id": "high",
@@ -42,5 +42,5 @@
   ],
   "timeFormat": "24h",
   "useEffort": false,
-  "nextEpicNumber": 5
+  "nextEpicNumber": 6
 }
