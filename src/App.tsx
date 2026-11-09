@@ -53,6 +53,7 @@ import type { Navigation, ScrollTarget } from "./components/MarkdownPreview";
 import type { EditorCommand, EditorContext } from "./components/MarkdownEditor";
 import styles from "./App.module.css";
 import SettingsPanel from "./components/SettingsPanel";
+import { useUpdater } from "./settings/updater";
 import {
   effectiveLanguage,
   effectiveTheme,
@@ -86,6 +87,8 @@ export default function App() {
   ];
 
   const preferences = useSettings();
+  const updatePhase = useUpdater((state) => state.phase);
+  const updateVersion = useUpdater((state) => state.version);
   const language = effectiveLanguage(preferences);
   const theme = effectiveTheme(preferences);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -93,6 +96,14 @@ export default function App() {
   useEffect(() => {
     void initializeSettings();
   }, [initializeSettings]);
+  useEffect(() => {
+    if (!isTauri() || !preferences.initialized) return;
+    const timer = setTimeout(() => {
+      if (useUpdater.getState().phase === "idle")
+        void useUpdater.getState().check();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [preferences.initialized]);
   useEffect(() => {
     const root = document.documentElement;
     root.lang = language;
@@ -448,6 +459,43 @@ export default function App() {
   function resolveAction(value: string | null) {
     actionRequest?.resolve(value);
     setActionRequest(null);
+  }
+  async function installUpdate() {
+    const state = useWorkspace.getState();
+    if (state.busy || modalOpen.current) return;
+    let locked = false;
+    try {
+      await useUpdater.getState().install(async () => {
+        if (state.recoveryCandidates.length || state.recoveryError) {
+          throw Error(t("문서 복구를 먼저 완료해 주세요."));
+        }
+        const accepted = await requestAction({
+          title: t("업데이트 설치"),
+          body: t("설치 중 앱이 종료되고 완료 후 다시 시작됩니다."),
+          label: t("계속"),
+        });
+        if (
+          accepted === null ||
+          !(await confirmDocuments(useWorkspace.getState().documents))
+        )
+          return false;
+        if (useWorkspace.getState().busy) return false;
+        useWorkspace.setState({ busy: true });
+        locked = true;
+        await useWorkspace.getState().persist();
+        await useSettings.getState().flush();
+        await useWorkspace.getState().flushRecovery(true);
+        return true;
+      });
+    } finally {
+      if (locked) {
+        useWorkspace.setState({ busy: false });
+        await useWorkspace
+          .getState()
+          .flushRecovery()
+          .catch(() => {});
+      }
+    }
   }
   function editorAction(id: EditorCommand["id"]) {
     setSettingsOpen(false);
@@ -1633,7 +1681,7 @@ export default function App() {
                   aria-labelledby="settings-tab"
                   className={styles.settingsContainer}
                 >
-                  <SettingsPanel />
+                  <SettingsPanel onInstallUpdate={installUpdate} />
                 </div>
               ) : activeDocument ? (
                 <>
@@ -2039,6 +2087,17 @@ export default function App() {
             ) : null}
           </div>
           <div className={styles.statusRight}>
+            {updateVersion &&
+            ["available", "downloading", "ready", "error"].includes(
+              updatePhase,
+            ) ? (
+              <button
+                onClick={() => setSettingsOpen(true)}
+                title={t("업데이트 설정 열기")}
+              >
+                {t("업데이트 {0}", updateVersion)}
+              </button>
+            ) : null}
             {activeDocument ? (
               <>
                 <span>{t("줄 {0}, 열 {1}", cursor.line, cursor.column)}</span>

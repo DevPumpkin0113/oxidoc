@@ -1,6 +1,6 @@
 {
   "name": "oxidoc",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "overrides": {
@@ -27,16 +27,20 @@
     "lint:rust": "cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
     "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml",
     "format:rust:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
-    "check": "npm run version:check && npm run test:version && npm run typecheck && npm run lint && npm run test && npm run build && npm run format:check && npm run format:rust:check && npm run lint:rust && npm run test:rust",
+    "check": "npm run version:check && npm run test:version && npm run test:release && npm run typecheck && npm run lint && npm run test && npm run build && npm run format:check && npm run format:rust:check && npm run lint:rust && npm run test:rust",
     "tauri": "tauri",
     "version:check": "node scripts/version.mjs --check",
     "version:set": "node scripts/version.mjs",
-    "test:version": "node --test scripts/version.test.mjs"
+    "test:version": "node --test scripts/version.test.mjs",
+    "build:release": "node scripts/release-build.mjs",
+    "release:manifest": "node scripts/updater-manifest.mjs",
+    "test:release": "node --test scripts/updater-manifest.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",
     "@tauri-apps/plugin-fs": "2.7.1",
     "@tauri-apps/plugin-store": "2.5.0",
+    "@tauri-apps/plugin-updater": "2.14.1",
     "@vscode/codicons": "0.0.46-24",
     "material-icon-theme": "5.40.0",
     "monaco-editor": "0.57.0",

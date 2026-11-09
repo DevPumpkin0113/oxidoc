@@ -7,7 +7,12 @@ import {
 } from "../settings/store";
 import { themes } from "../settings/themes";
 import styles from "../App.module.css";
-export default function SettingsPanel() {
+import AppUpdate from "./AppUpdate";
+export default function SettingsPanel({
+  onInstallUpdate,
+}: {
+  onInstallUpdate: () => Promise<void>;
+}) {
   const state = useSettings();
   const { settings, update, reset, error, version, initialized } = state;
   const [confirmReset, setConfirmReset] = useState(false);
@@ -169,21 +174,7 @@ export default function SettingsPanel() {
           </div>
           <span className={styles.versionBadge}>v{version}</span>
         </div>
-        <div className={styles.settingRow}>
-          <div>
-            <strong>{t("업데이트")}</strong>
-            <p>{t("GitHub Releases 기반 업데이트 기능 준비 중")}</p>
-          </div>
-          <span className={styles.preparingBadge}>{t("준비 중")}</span>
-        </div>
-        <div className={styles.updateButtons}>
-          <button disabled title={t("업데이트 기능 준비 중")}>
-            {t("업데이트 확인")}
-          </button>
-          <button disabled title={t("업데이트 기능 준비 중")}>
-            {t("다운로드 및 설치")}
-          </button>
-        </div>
+        <AppUpdate onInstall={onInstallUpdate} />
       </fieldset>
       <div className={styles.settingsReset}>
         {confirmReset ? (

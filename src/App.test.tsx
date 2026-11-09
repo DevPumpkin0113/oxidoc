@@ -13,6 +13,7 @@ import App from "./App";
 import { useWorkspace } from "./workspace/store";
 import { useSettings } from "./settings/store";
 import packageInfo from "../package.json";
+import { useUpdater } from "./settings/updater";
 
 const nativeWindow = vi.hoisted(() => ({
   minimize: vi.fn(),
@@ -44,6 +45,7 @@ vi.mock("./components/MarkdownEditor", () => ({
 }));
 
 beforeEach(() => {
+  useUpdater.setState(useUpdater.getInitialState(), true);
   useWorkspace.setState(useWorkspace.getInitialState(), true);
   vi.mocked(invoke).mockReset();
   vi.mocked(invoke).mockImplementation(<T,>(command: string) =>
@@ -82,12 +84,14 @@ it("Ctrl P 파일 검색·키보드 열기에서 기존 탭 재사용", async ()
   expect(useWorkspace.getState().documents).toHaveLength(2);
 });
 
-it("외부 변경 안내에서 재읽기 및 미저장 편집 유지 선택", async () => {
+it("외부 변경 자동 반영 및 미저장 편집 유지 선택", async () => {
   const user = userEvent.setup();
   render(<App />);
   const id = useWorkspace.getState().activeId!;
   act(() => useWorkspace.getState().noticeExternal(id, "external original"));
-  await user.click(screen.getByRole("button", { name: "다시 읽기" }));
+  expect(
+    screen.queryByRole("button", { name: "다시 읽기" }),
+  ).not.toBeInTheDocument();
   expect(
     useWorkspace.getState().documents.find((document) => document.id === id)
       ?.content,
@@ -110,6 +114,81 @@ it("외부 변경 안내에서 재읽기 및 미저장 편집 유지 선택", as
     savedContent: "external next",
     diskContent: undefined,
   });
+});
+
+it("업데이트 설치 확인·미저장 취소·설정 저장 실패 시 설치 중단 및 버퍼 유지", async () => {
+  const user = userEvent.setup();
+  vi.mocked(isTauri).mockReturnValue(true);
+  useWorkspace.setState({
+    initialized: true,
+    desktop: true,
+    project: { name: "Notes", path: "C:/notes" },
+    documents: [
+      {
+        id: "a.md",
+        name: "a.md",
+        folder: "",
+        content: "unsaved",
+        savedContent: "before",
+      },
+    ],
+    activeId: "a.md",
+    recoveryReady: true,
+  });
+  const installer = vi.fn();
+  useUpdater.setState({
+    phase: "ready",
+    version: "0.3.0",
+    install: async (prepare) => {
+      try {
+        if (await prepare()) installer();
+      } catch (error) {
+        useUpdater.setState({ error: String(error) });
+      }
+    },
+  });
+  const flush = vi
+    .spyOn(useSettings.getState(), "flush")
+    .mockRejectedValue(Error("settings write failed"));
+  render(<App />);
+  await user.click(screen.getByRole("button", { name: "설정" }));
+  await user.click(screen.getByRole("button", { name: "설치 및 재시작" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", {
+      name: "취소",
+    }),
+  );
+  expect(installer).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "설치 및 재시작" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", {
+      name: "계속",
+    }),
+  );
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", {
+      name: "취소",
+    }),
+  );
+  expect(installer).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "설치 및 재시작" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", {
+      name: "계속",
+    }),
+  );
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", {
+      name: "저장 안 함",
+    }),
+  );
+  await waitFor(() =>
+    expect(useUpdater.getState().error).toContain("settings write failed"),
+  );
+  expect(installer).not.toHaveBeenCalled();
+  expect(useWorkspace.getState().busy).toBe(false);
+  expect(useWorkspace.getState().documents[0].content).toBe("unsaved");
+  flush.mockRestore();
 });
 
 it("닫은 탭 단축키 복원 및 문서 위치의 상위 폴더 펼침", async () => {
@@ -579,8 +658,8 @@ describe("작업 공간 UI", () => {
       screen.getByRole("button", { name: "업데이트 확인" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "다운로드 및 설치" }),
-    ).toBeDisabled();
+      screen.getByText("업데이트는 데스크톱 앱에서 사용할 수 있습니다."),
+    ).toBeInTheDocument();
     expect(screen.getByText(`v${packageInfo.version}`)).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("색상 모드"), "dark");
     await user.click(screen.getByRole("button", { name: "Dracula" }));

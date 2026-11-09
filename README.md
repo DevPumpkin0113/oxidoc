@@ -83,7 +83,7 @@ Markdown: GFM 표·체크리스트·코드 블록, 문서 개요 및 위치 이�
 
 상태 표시줄 톱니바퀴·명령 팔레트·`Ctrl ,`에서 설정 탭 열기. 시스템/한국어/English 선택, 시스템/라이트/다크 모드 및 라이트·다크 테마 각 5종, UI·편집기·미리보기 글꼴 크기 조절. 변경 즉시 적용·자동 저장 및 기본값 초기화 지원.
 
-앱 정보에 실제 버전 표시. 업데이트는 준비 중 UI만 제공하며 확인·다운로드·설치 기능은 비활성화. 세부 범위·저장 방식·테마 출처: [앱 설정](docs/plan/SETTINGS.md).
+앱 정보에 실제 버전 표시. v0.3.0부터 GitHub 최신 정식 릴리즈 확인·다운로드·서명 검증·설치 및 재시작 기능 포함. 기존 v0.2.0에는 해당 기능이 없어 v0.3.0 수동 설치 필요. 업데이트 배포에는 설치 파일·서명·latest.json 게시 필요. 세부 범위·저장 방식·테마 출처: [앱 설정](docs/plan/SETTINGS.md).
 
 ## 폴더 구성
 
@@ -121,4 +121,4 @@ docs/worktree/        Worktree CLI 관리 데이터
 
 ## 버전 관리
 
-현재 공개 버전 `v0.2.0`. 개발 브랜치 `develop`, 공개 기준 `main`. 버전 변경은 `npm run version:set -- 0.2.1`, 정합성 확인은 `npm run version:check`. [릴리즈 절차](docs/plan/RELEASING.md). Windows x64 EXE·MSI 설치 파일 제공.
+현재 공개 버전 `v0.3.0`. 개발 브랜치 `develop`, 공개 기준 `main`. 버전 변경은 `npm run version:set -- 0.3.1`, 정합성 확인은 `npm run version:check`. [릴리즈 절차](docs/plan/RELEASING.md). Windows x64 EXE·MSI 설치 파일 제공.

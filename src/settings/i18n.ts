@@ -1,5 +1,31 @@
 import { effectiveLanguage, useSettings } from "./store";
 export const english: Record<string, string> = {
+  "GitHub Releases에서 최신 정식 버전을 확인합니다.":
+    "Check GitHub Releases for the latest stable version.",
+  "업데이트 확인 중…": "Checking for updates…",
+  "최신 버전입니다.": "You are up to date.",
+  "새 버전을 사용할 수 있습니다.": "A new version is available.",
+  "업데이트 다운로드 및 검증 중…": "Downloading and verifying the update…",
+  "다운로드와 서명 검증이 완료되었습니다.":
+    "Download and signature verification complete.",
+  "업데이트 설치 준비 중…": "Preparing to install the update…",
+  "업데이트를 확인하거나 다운로드하지 못했습니다. 네트워크와 릴리즈 배포 상태를 확인해 주세요.":
+    "Could not check or download the update. Check your connection and release availability.",
+  "업데이트는 데스크톱 앱에서 사용할 수 있습니다.":
+    "Updates are available in the desktop app.",
+  "새 버전: {0}": "New version: {0}",
+  "다운로드 진행률": "Download progress",
+  "{0} MB 다운로드": "{0} MB downloaded",
+  "릴리즈 내용": "Release notes",
+  "업데이트 다운로드": "Download update",
+  "설치 및 재시작": "Install and restart",
+  "문서 복구를 먼저 완료해 주세요.": "Complete document recovery first.",
+  "업데이트 설치": "Install update",
+  "설치 중 앱이 종료되고 완료 후 다시 시작됩니다.":
+    "The app will close during installation and restart when finished.",
+  계속: "Continue",
+  "업데이트 설정 열기": "Open update settings",
+  "업데이트 {0}": "Update {0}",
   "검색어 지우기": "Clear search",
   "프로젝트를 먼저 열어 주세요.": "Open a project first.",
   "검색 결과": "Search results",

@@ -288,6 +288,16 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
               savedContent: diskContent,
               diskContent: undefined,
             };
+          if (
+            typeof diskContent === "string" &&
+            document.content === document.savedContent
+          )
+            return {
+              ...document,
+              content: diskContent,
+              savedContent: diskContent,
+              diskContent: undefined,
+            };
           return { ...document, diskContent };
         }),
       })),

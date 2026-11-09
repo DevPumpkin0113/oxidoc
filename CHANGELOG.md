@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-10
+
+업데이트 기능 지원 첫 버전. 기존 v0.2.0에서 수동 설치 필요, 이후 서명된 정식 릴리즈 대상으로 앱 내 업데이트 제공.
+
+- 미편집 문서의 외부 수정 자동 반영·미저장 편집 충돌 보호
+- GitHub 릴리즈 기반 업데이트 확인·다운로드·서명 검증·설치 및 재시작, 서명 패키지/메타데이터 생성 명령 추가
+
 ## [0.2.0] - 2026-11-09
 
 문서 작업·파일 관리·검색 기능 확장. Windows x64 EXE·MSI 설치 파일 및 SHA-256 제공. 코드 서명·앱 내 자동 업데이트 제외.
@@ -40,6 +47,7 @@
 
 업데이트 확인·다운로드·자동 설치 및 설치 파일 배포는 이번 릴리즈 범위 외.
 
-[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.2.0...develop
+[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.3.0...develop
+[0.3.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.3.0
 [0.2.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.2.0
 [0.1.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.1.0

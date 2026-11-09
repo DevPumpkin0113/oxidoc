@@ -17,6 +17,7 @@ fn runtime_info() -> RuntimeInfo {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
@@ -62,4 +63,6 @@ pub fn run() {
         .expect("failed to run Oxidoc");
 }
 mod settings;
+#[cfg(test)]
+mod updater_tests;
 mod workspace;

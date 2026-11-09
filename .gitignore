@@ -32,5 +32,6 @@ dist-ssr
 .codex/
 .agents/
 .aws/
+.local/
 *.pem
 *.key

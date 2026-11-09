@@ -91,3 +91,52 @@ it("삭제 파일 버퍼 유지 및 감지 중 프로젝트 전환/종료 뒤 �
   expect(store.getState().documents[0].content).toBe("my edits");
   expect(store.getState().documents[0].diskContent).toBeNull();
 });
+
+it("미편집 문서 외부 변경 자동 반영 및 변경 표시 제거", async () => {
+  vi.useFakeTimers();
+  const { api, store } = fixture();
+  store.setState({
+    documents: [{ ...store.getState().documents[0], content: "before" }],
+  });
+  const stop = startWorkspaceMonitor("C:/notes", store, api);
+  try {
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(store.getState().documents[0]).toMatchObject({
+      content: "external",
+      savedContent: "external",
+      diskContent: undefined,
+    });
+    expect(isDirty(store.getState().documents[0])).toBe(false);
+  } finally {
+    stop();
+  }
+});
+
+it("외부 읽기 대기 중 시작한 편집 보호", async () => {
+  vi.useFakeTimers();
+  const { api, store } = fixture();
+  store.setState({
+    documents: [{ ...store.getState().documents[0], content: "before" }],
+  });
+  let finish!: (value: string) => void;
+  api.read.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const stop = startWorkspaceMonitor("C:/notes", store, api);
+  try {
+    await vi.advanceTimersByTimeAsync(3000);
+    store.getState().edit("a.md", "typing now");
+    finish("external");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.getState().documents[0]).toMatchObject({
+      content: "typing now",
+      savedContent: "before",
+      diskContent: "external",
+    });
+  } finally {
+    stop();
+  }
+});
