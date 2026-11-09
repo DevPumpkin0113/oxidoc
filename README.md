@@ -21,6 +21,10 @@ VS Code 스타일 UI 기반 로컬 Markdown 에디터 및 프로젝트 관리 �
 
 ## 설치 및 실행
 
+Windows x64 설치 파일은 [최신 릴리즈](https://github.com/DevPumpkin0113/oxidoc/releases/latest)의 Assets에서 제공. 일반 설치는 `Oxidoc_*_x64-setup.exe`, MSI 설치는 `Oxidoc_*_x64_en-US.msi` 선택. SHA-256은 같은 릴리즈의 `SHA256SUMS.txt`에서 확인. 현재 패키지는 코드 서명 미적용.
+
+소스에서 개발 실행:
+
 ```powershell
 npm ci
 npm run dev:desktop
@@ -117,4 +121,4 @@ docs/worktree/        Worktree CLI 관리 데이터
 
 ## 버전 관리
 
-현재 공개 버전 `v0.2.0`. 개발 브랜치 `develop`, 공개 기준 `main`. 버전 변경은 `npm run version:set -- 0.2.1`, 정합성 확인은 `npm run version:check`. [릴리즈 절차](docs/plan/RELEASING.md). 현재 릴리즈는 소스 공개이며 설치 파일은 별도 제공 전.
+현재 공개 버전 `v0.2.0`. 개발 브랜치 `develop`, 공개 기준 `main`. 버전 변경은 `npm run version:set -- 0.2.1`, 정합성 확인은 `npm run version:check`. [릴리즈 절차](docs/plan/RELEASING.md). Windows x64 EXE·MSI 설치 파일 제공.

@@ -25,5 +25,8 @@ CHANGELOG.md의 Unreleased 내용을 해당 버전으로 이동하고 날짜·�
 3. `git tag -a v0.1.1 -m "Oxidoc v0.1.1"`
 4. `git push origin main develop` 및 `git push origin v0.1.1`
 5. GitHub Release에 같은 버전의 변경 이력 게시
+6. 게시 태그와 동일한 소스에서 `npm ci`, `npm run build:desktop -- --bundles nsis,msi` 실행
+7. `src-tauri/target/release/bundle/nsis`의 설치 EXE와 `bundle/msi`의 MSI 버전 확인, SHA-256 생성
+8. 설치 파일과 `SHA256SUMS.txt`를 해당 GitHub Release에 업로드, 다운로드 후 원본 해시 대조
 
-초기 v0.1.0은 소스 릴리즈. 설치 파일·서명·앱 내 업데이트는 별도 작업. CI는 main push와 main/develop 대상 PR, 수동 실행에서 전체 검사 수행. 비밀값과 테스트 산출물은 저장소에 포함하지 않음.
+초기 v0.1.0은 소스 릴리즈, v0.2.0부터 Windows x64 EXE·MSI 제공. 설치 파일은 Git에 포함하지 않고 Release 자산으로 배포. 서명·앱 내 업데이트는 별도 작업, 서명 미적용 여부는 릴리즈 안내에 명시. 게시된 태그는 유지하며 같은 태그의 설치 파일을 추가할 때도 동일 소스 여부 확인. CI는 main push와 main/develop 대상 PR, 수동 실행에서 전체 검사 수행. 비밀값과 테스트 산출물은 저장소에 포함하지 않음.
