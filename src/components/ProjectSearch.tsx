@@ -12,9 +12,13 @@ import styles from "../App.module.css";
 export default function ProjectSearch({
   onResult,
   inputRef,
+  folder = "",
+  onClearFolder,
 }: {
   onResult: (match: SearchMatch) => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
+  folder?: string;
+  onClearFolder?: () => void;
 }) {
   const { project, desktop } = useWorkspace();
   const [query, setQuery] = useState("");
@@ -39,26 +43,30 @@ export default function ProjectSearch({
       setLoading(true);
       setError("");
       const searching = desktop
-        ? workspaceApi.advanced!.search(project.path, query, sensitive)
+        ? workspaceApi.advanced!.search(project.path, query, sensitive, folder)
         : Promise.resolve({
-            matches: sampleDocuments.flatMap((document) =>
-              document.content.split("\n").flatMap((text, index) => {
-                const column = (sensitive ? text : text.toLowerCase()).indexOf(
-                  sensitive ? query : query.toLowerCase(),
-                );
-                return column < 0
-                  ? []
-                  : [
-                      {
-                        path: document.id,
-                        name: document.name,
-                        line: index + 1,
-                        column: column + 1,
-                        text,
-                      },
-                    ];
-              }),
-            ),
+            matches: sampleDocuments
+              .filter(
+                (document) => !folder || document.id.startsWith(folder + "/"),
+              )
+              .flatMap((document) =>
+                document.content.split("\n").flatMap((text, index) => {
+                  const column = (
+                    sensitive ? text : text.toLowerCase()
+                  ).indexOf(sensitive ? query : query.toLowerCase());
+                  return column < 0
+                    ? []
+                    : [
+                        {
+                          path: document.id,
+                          name: document.name,
+                          line: index + 1,
+                          column: column + 1,
+                          text,
+                        },
+                      ];
+                }),
+              ),
             truncated: false,
             skipped: 0,
           });
@@ -78,9 +86,17 @@ export default function ProjectSearch({
       clearTimeout(timer);
       cancelled = true;
     };
-  }, [query, sensitive, project, desktop]);
+  }, [query, sensitive, project, desktop, folder]);
   return (
     <div className={styles.searchPanel}>
+      {folder ? (
+        <div className={styles.searchScope}>
+          <span title={folder}>{t("검색 폴더: {0}", folder)}</span>
+          <button aria-label={t("전체 폴더에서 검색")} onClick={onClearFolder}>
+            <Icon name="close" size={13} />
+          </button>
+        </div>
+      ) : null}
       <label htmlFor="document-search">{t("프로젝트 전체 검색")}</label>
       <div className={styles.searchField}>
         <Icon name="search" size={15} />

@@ -32,6 +32,14 @@ const icons = {
   branch: "git-branch",
   dot: "circle-filled",
   more: "kebab-vertical",
+  rename: "edit",
+  trash: "trash",
+  tag: "tag",
+  external: "link-external",
+  copy: "copy",
+  cut: "cut",
+  paste: "paste",
+  collapse: "collapse-all",
 } as const;
 
 export type IconName = keyof typeof icons;

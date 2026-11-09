@@ -1441,20 +1441,27 @@ summary:focus-within > .treeAction {
 .menuBackdrop {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 110;
 }
 .contextMenu {
   position: absolute;
-  width: 200px;
+  width: max-content;
+  min-width: min(240px, calc(100vw - 12px));
+  max-width: calc(100vw - 12px);
+  max-height: calc(100vh - 12px);
+  overflow: auto;
   padding: 5px;
-  background: var(--hover);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 6px 25px #0007;
 }
 .contextMenu button {
   width: 100%;
-  display: block;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
   text-align: left;
   padding: 8px 10px;
   border-radius: 4px;
@@ -1464,6 +1471,79 @@ summary:focus-within > .treeAction {
 .contextMenu button:hover,
 .contextMenu button:focus {
   background: var(--hover);
+  outline: none;
+}
+.contextMenu button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.contextMenu button:disabled {
+  color: var(--muted);
+  opacity: 0.6;
+  cursor: default;
+  background: none;
+}
+.contextMenu .menuDanger {
+  color: var(--danger);
+}
+.contextMenu .menuDanger:hover,
+.contextMenu .menuDanger:focus {
+  background: var(--danger-bg);
+}
+.menuIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.menuLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menuShortcut {
+  color: var(--muted);
+  font: inherit;
+  margin-left: 20px;
+}
+.menuSeparator {
+  height: 1px;
+  margin: 5px 3px;
+  background: var(--border);
+}
+.contextMenuTitle {
+  padding: 5px 10px 7px;
+  color: var(--muted);
+  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.searchScope {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.searchScope > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.searchScope button {
+  margin-left: auto;
+  flex: none;
+  display: flex;
+  padding: 3px;
+}
+.commandPalette [role="option"][aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
 }
 @media (max-width: 850px) {
   .documentToolbar {

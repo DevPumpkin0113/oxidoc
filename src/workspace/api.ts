@@ -53,6 +53,8 @@ export interface AdvancedApi {
   ) => Promise<Entry>;
   rename: (root: string, path: string, name: string) => Promise<Entry>;
   moveFile: (root: string, path: string, parent: string) => Promise<Entry>;
+  entryPath: (root: string, path: string) => Promise<string>;
+  explorer: (root: string, path: string) => Promise<void>;
   trash: (root: string, path: string) => Promise<void>;
   pickSave: (root: string, path: string) => Promise<string | null>;
   target: (root: string, path: string) => Promise<string | null>;
@@ -76,6 +78,7 @@ export interface AdvancedApi {
     root: string,
     query: string,
     caseSensitive: boolean,
+    folder?: string,
   ) => Promise<SearchResults>;
   image: (root: string, path: string) => Promise<string>;
   external: (url: string) => Promise<void>;
@@ -88,6 +91,8 @@ export const workspaceApi: WorkspaceApi = {
     rename: (root, path, name) => invoke("rename_entry", { root, path, name }),
     moveFile: (root, path, parent) =>
       invoke("move_file", { root, path, parent }),
+    entryPath: (root, path) => invoke("entry_path", { root, path }),
+    explorer: (root, path) => invoke("open_in_explorer", { root, path }),
     trash: (root, path) => invoke("delete_entry", { root, path }),
     pickSave: (root, path) => invoke("pick_save_path", { root, path }),
     target: (root, path) => invoke("target_content", { root, path }),
@@ -100,8 +105,8 @@ export const workspaceApi: WorkspaceApi = {
     loadSession: (root) => invoke("load_session", { root }),
     saveSession: (root, session, layout) =>
       invoke("save_session", { root, session, layout }),
-    search: (root, query, caseSensitive) =>
-      invoke("search_project", { root, query, caseSensitive }),
+    search: (root, query, caseSensitive, folder = "") =>
+      invoke("search_project", { root, query, caseSensitive, folder }),
     image: (root, path) => invoke("read_image", { root, path }),
     external: (url) => invoke("open_external", { url }),
   },

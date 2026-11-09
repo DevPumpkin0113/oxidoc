@@ -2,18 +2,20 @@ import { t } from "../settings/i18n";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import Icon from "./Icon";
 import styles from "../App.module.css";
-export interface PaletteCommand {
-  id: string;
-  label: string;
-  detail?: string;
-  run: () => void;
-}
+import {
+  canExecuteCommand,
+  executeCommand,
+  type Command,
+} from "../workspace/commands";
+export type PaletteCommand = Command;
 export default function CommandPalette({
   commands,
   onClose,
+  suspended = false,
 }: {
   commands: PaletteCommand[];
   onClose: () => void;
+  suspended?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
@@ -21,7 +23,7 @@ export default function CommandPalette({
   const input = useRef<HTMLInputElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const handleEscape = useEffectEvent((event: KeyboardEvent) => {
-    if (event.key !== "Escape" || event.isComposing) return;
+    if (suspended || event.key !== "Escape" || event.isComposing) return;
     event.preventDefault();
     event.stopPropagation();
     onClose();
@@ -54,6 +56,7 @@ export default function CommandPalette({
   return (
     <div
       className={styles.modalBackdrop}
+      inert={suspended}
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -89,7 +92,7 @@ export default function CommandPalette({
           }
           if (event.key === "Enter") {
             event.preventDefault();
-            filtered[index]?.run();
+            if (filtered[index]) void executeCommand(filtered[index]);
           }
         }}
       >
@@ -128,10 +131,11 @@ export default function CommandPalette({
               id={`palette-${command.id}`}
               role="option"
               aria-selected={index === i}
+              aria-disabled={!canExecuteCommand(command)}
               data-index={i}
               className={index === i ? styles.selectedCommand : ""}
               onMouseEnter={() => setIndex(i)}
-              onClick={command.run}
+              onClick={() => void executeCommand(command)}
             >
               <span>{command.label}</span>
               <small>{command.detail}</small>

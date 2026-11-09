@@ -507,7 +507,20 @@ pub struct SearchResults {
     truncated: bool,
     skipped: usize,
 }
+#[cfg(test)]
 fn search_at(root: &Path, query: &str, case_sensitive: bool) -> Result<SearchResults, String> {
+    search_within(root, "", query, case_sensitive)
+}
+fn search_within(
+    root: &Path,
+    folder: &str,
+    query: &str,
+    case_sensitive: bool,
+) -> Result<SearchResults, String> {
+    let directory = contained_path(root, folder)?;
+    if !directory.is_dir() {
+        return Err("대상 폴더가 아닙니다.".into());
+    }
     let mut result = SearchResults {
         matches: Vec::new(),
         truncated: false,
@@ -523,7 +536,7 @@ fn search_at(root: &Path, query: &str, case_sensitive: bool) -> Result<SearchRes
         .case_insensitive(!case_sensitive)
         .build()
         .map_err(|e| e.to_string())?;
-    let mut pending = vec![(root.to_path_buf(), 0usize)];
+    let mut pending = vec![(directory, 0usize)];
     let mut visited = 0;
     while let Some((directory, depth)) = pending.pop() {
         if depth > 64 {
@@ -602,8 +615,17 @@ pub async fn search_project(
     root: String,
     query: String,
     case_sensitive: bool,
+    folder: Option<String>,
 ) -> Result<SearchResults, String> {
-    io(move || search_at(&authorized_root(&app, &root)?, &query, case_sensitive)).await
+    io(move || {
+        search_within(
+            &authorized_root(&app, &root)?,
+            folder.as_deref().unwrap_or(""),
+            &query,
+            case_sensitive,
+        )
+    })
+    .await
 }
 #[tauri::command]
 pub async fn read_image(app: AppHandle, root: String, path: String) -> Result<String, String> {
@@ -653,10 +675,71 @@ pub async fn open_external(app: AppHandle, url: String) -> Result<(), String> {
         .open_url(url, None::<&str>)
         .map_err(|e| e.to_string())
 }
+fn explorer_target(root: &Path, path: &str) -> Result<PathBuf, String> {
+    let path = contained_path(root, path)?;
+    if !path.is_file() && !path.is_dir() {
+        return Err("지원하지 않는 파일 형식입니다.".into());
+    }
+    Ok(path)
+}
+fn display_path(path: &Path) -> String {
+    let value = path.to_string_lossy();
+    if let Some(unc) = value.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{unc}")
+    } else {
+        value.trim_start_matches(r"\\?\").into()
+    }
+}
+#[tauri::command]
+pub async fn entry_path(app: AppHandle, root: String, path: String) -> Result<String, String> {
+    io(move || {
+        explorer_target(&authorized_root(&app, &root)?, &path).map(|path| display_path(&path))
+    })
+    .await
+}
+#[tauri::command]
+pub async fn open_in_explorer(app: AppHandle, root: String, path: String) -> Result<(), String> {
+    io(move || {
+        let path = explorer_target(&authorized_root(&app, &root)?, &path)?;
+        if path.is_dir() {
+            app.opener().open_path(display_path(&path), None::<&str>)
+        } else {
+            app.opener().reveal_item_in_dir(path)
+        }
+        .map_err(|e| format!("탐색기 열기 실패: {e}"))
+    })
+    .await
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn explorer_paths_and_search_folder_stay_inside_registered_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        fs::create_dir(root.join("docs")).unwrap();
+        fs::write(root.join("docs/a.md"), "needle").unwrap();
+        fs::write(root.join("b.md"), "needle").unwrap();
+        assert_eq!(explorer_target(&root, "").unwrap(), root);
+        assert!(explorer_target(&root, "docs").unwrap().is_dir());
+        assert!(explorer_target(&root, "docs/a.md").unwrap().is_file());
+        assert!(explorer_target(&root, "../outside").is_err());
+        assert!(explorer_target(&root, "missing").is_err());
+        assert_eq!(
+            display_path(Path::new(r"\\?\C:\notes\a.md")),
+            r"C:\notes\a.md"
+        );
+        assert_eq!(
+            display_path(Path::new(r"\\?\UNC\server\share")),
+            r"\\server\share"
+        );
+        let found = search_within(&root, "docs", "needle", false).unwrap();
+        assert_eq!(found.matches.len(), 1);
+        assert_eq!(found.matches[0].path, "docs/a.md");
+        assert!(search_within(&root, "..", "needle", false).is_err());
+        assert!(search_within(&root, "b.md", "needle", false).is_err());
+    }
     #[test]
     fn move_file_preserves_bytes_supports_root_and_rejects_conflicts_and_escape() {
         let dir = tempfile::tempdir().unwrap();

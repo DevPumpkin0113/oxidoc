@@ -1,4 +1,4 @@
-import type { ComponentProps, DragEvent } from "react";
+import { useEffect, useRef, type ComponentProps, type DragEvent } from "react";
 import { sameDocumentPath, useWorkspace } from "../workspace/store";
 import {
   dragType,
@@ -8,12 +8,25 @@ import {
 } from "../workspace/treeDrag";
 import styles from "../App.module.css";
 
+const FOLDER_HOVER_DELAY_MS = 700;
+
 export default function TreeDropTarget({
   folderPath,
   className = "",
   ...props
 }: ComponentProps<"summary"> & { folderPath: string }) {
   const highlighted = useTreeDrag((state) => state.over === folderPath);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function cancelHover() {
+    if (hoverTimer.current !== null) clearTimeout(hoverTimer.current);
+    hoverTimer.current = null;
+  }
+  useEffect(() => {
+    if (!highlighted) cancelHover();
+  }, [highlighted]);
+  useEffect(() => {
+    return cancelHover;
+  }, [folderPath]);
   function sourceFor(event: DragEvent): DragSource | null {
     const { desktop, busy, project } = useWorkspace.getState();
     const { source } = useTreeDrag.getState();
@@ -33,11 +46,37 @@ export default function TreeDropTarget({
       {...props}
       className={`${className} ${highlighted ? styles.treeDropTarget : ""}`}
       onDragOver={(event) => {
-        if (!sourceFor(event)) return;
+        const source = sourceFor(event);
+        if (!source) {
+          cancelHover();
+          return;
+        }
         event.preventDefault();
         event.stopPropagation();
         event.dataTransfer.dropEffect = "move";
         useTreeDrag.setState({ over: folderPath });
+        const details = event.currentTarget.parentElement;
+        if (
+          hoverTimer.current === null &&
+          details instanceof HTMLDetailsElement &&
+          !details.open
+        ) {
+          hoverTimer.current = setTimeout(() => {
+            hoverTimer.current = null;
+            const drag = useTreeDrag.getState();
+            const state = useWorkspace.getState();
+            if (
+              drag.source === source &&
+              drag.over === folderPath &&
+              state.desktop &&
+              !state.busy &&
+              state.project?.path === source.root &&
+              details.isConnected &&
+              !details.open
+            )
+              details.open = true;
+          }, FOLDER_HOVER_DELAY_MS);
+        }
       }}
       onDragLeave={(event) => {
         if (
@@ -45,10 +84,12 @@ export default function TreeDropTarget({
           event.currentTarget.contains(event.relatedTarget)
         )
           return;
+        cancelHover();
         if (useTreeDrag.getState().over === folderPath)
           useTreeDrag.setState({ over: null });
       }}
       onDrop={(event) => {
+        cancelHover();
         const source = sourceFor(event);
         if (!source) return;
         event.preventDefault();

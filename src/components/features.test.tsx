@@ -9,6 +9,23 @@ import { workspaceApi } from "../workspace/api";
 
 beforeEach(() => useWorkspace.setState(useWorkspace.getInitialState(), true));
 describe("프로젝트·명령 팔레트", () => {
+  it("팔레트에서 비활성 명령 미실행 및 실행 시점 상태 재검사", async () => {
+    const user = userEvent.setup(),
+      run = vi.fn();
+    useWorkspace.setState({ busy: false });
+    render(
+      <CommandPalette
+        commands={[{ id: "guarded", label: "Guarded", run }]}
+        onClose={vi.fn()}
+      />,
+    );
+    useWorkspace.setState({ busy: true });
+    await user.click(screen.getByRole("option", { name: "Guarded" }));
+    expect(run).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("combobox"));
+    await user.keyboard("{Enter}");
+    expect(run).not.toHaveBeenCalled();
+  });
   it("목록 로드 실패 상태에서 다시 불러오기 제공", async () => {
     const initialize = vi.fn().mockResolvedValue(undefined);
     useWorkspace.setState({ desktop: true, initialized: false, initialize });

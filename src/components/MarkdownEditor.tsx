@@ -16,6 +16,9 @@ import "../styles/monaco-icons.css";
 import EditorWorker from "monaco-editor/editor/editor.worker.js?worker";
 import type { ScrollTarget, Navigation } from "./MarkdownPreview";
 import { scrollEdge, type ScrollEdge } from "../workspace/scroll";
+import { editorTextAction } from "../workspace/editorTextActions";
+import type { TextAction } from "../workspace/textContext";
+import { useWorkspace } from "../workspace/store";
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 interface CachedModel {
   model: monaco.editor.ITextModel;
@@ -23,8 +26,14 @@ interface CachedModel {
 }
 const models = new Map<string, CachedModel>();
 export interface EditorCommand {
-  id: "find" | "replace" | "undo" | "redo";
+  id: "find" | "replace" | "undo" | "redo" | TextAction;
   token: number;
+}
+export interface EditorContext {
+  x: number;
+  y: number;
+  hasSelection: boolean;
+  readOnly: boolean;
 }
 interface Props {
   documentId: string;
@@ -38,6 +47,7 @@ interface Props {
   navigation?: Navigation;
   command?: EditorCommand;
   onCommandHandled?: () => void;
+  onContextMenu?: (context: EditorContext) => void;
 }
 export default function MarkdownEditor({
   documentId,
@@ -51,6 +61,7 @@ export default function MarkdownEditor({
   navigation,
   command,
   onCommandHandled,
+  onContextMenu,
 }: Props) {
   const preferences = useSettings();
   const theme = effectiveTheme(preferences);
@@ -59,8 +70,9 @@ export default function MarkdownEditor({
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const suppress = useRef(false);
+  const updatingModel = useRef(false);
   const frame = useRef(0);
-  const callbacks = useRef({ onChange, onCursor, onScrollLine });
+  const callbacks = useRef({ onChange, onCursor, onScrollLine, onContextMenu });
   useEffect(() => {
     setMonacoLanguage(language);
   }, [language]);
@@ -95,8 +107,8 @@ export default function MarkdownEditor({
     });
   }, [theme, fontSize]);
   useEffect(() => {
-    callbacks.current = { onChange, onCursor, onScrollLine };
-  }, [onChange, onCursor, onScrollLine]);
+    callbacks.current = { onChange, onCursor, onScrollLine, onContextMenu };
+  }, [onChange, onCursor, onScrollLine, onContextMenu]);
   useEffect(() => {
     editor.current?.updateOptions({ readOnly });
   }, [readOnly]);
@@ -118,6 +130,7 @@ export default function MarkdownEditor({
     const instance = monaco.editor.create(container.current, {
       model: cached.model,
       readOnly,
+      contextmenu: false,
       theme: "oxidoc",
       automaticLayout: true,
       fontFamily: "'Cascadia Code', Consolas, 'Malgun Gothic', monospace",
@@ -137,11 +150,28 @@ export default function MarkdownEditor({
       scrollbar: { verticalScrollbarSize: 7, horizontalScrollbarSize: 7 },
     });
     editor.current = instance;
+    const contextMenu = instance.onContextMenu((event) => {
+      if (!callbacks.current.onContextMenu) return;
+      const target = event.event.browserEvent.target;
+      if (target instanceof HTMLInputElement && target.selectionStart !== null)
+        return;
+      event.event.preventDefault();
+      event.event.stopPropagation();
+      callbacks.current.onContextMenu({
+        x: event.event.posx,
+        y: event.event.posy,
+        hasSelection:
+          instance.getSelections()?.some((selection) => !selection.isEmpty()) ??
+          false,
+        readOnly: instance.getOption(monaco.editor.EditorOption.readOnly),
+      });
+    });
     const stopLocalizing = localizeFindWidget(container.current, language);
     if (cached.view) instance.restoreViewState(cached.view);
-    const changes = instance.onDidChangeModelContent(() =>
-      callbacks.current.onChange(instance.getValue()),
-    );
+    const changes = instance.onDidChangeModelContent(() => {
+      if (!updatingModel.current)
+        callbacks.current.onChange(instance.getValue());
+    });
     const cursor = instance.onDidChangeCursorPosition((event) =>
       callbacks.current.onCursor(
         event.position.lineNumber,
@@ -171,6 +201,7 @@ export default function MarkdownEditor({
       changes.dispose();
       cursor.dispose();
       scrolling.dispose();
+      contextMenu.dispose();
       cancelAnimationFrame(frame.current);
       suppress.current = false;
       instance.dispose();
@@ -187,7 +218,15 @@ export default function MarkdownEditor({
   }, [documentId, projectPath, language]);
   useEffect(() => {
     const model = editor.current?.getModel();
-    if (model && model.getValue() !== value) model.setValue(value);
+    if (model && model.getValue() !== value) {
+      // Monaco normalizes mixed line endings; loading props is not a user edit.
+      updatingModel.current = true;
+      try {
+        model.setValue(value);
+      } finally {
+        updatingModel.current = false;
+      }
+    }
   }, [value]);
   useEffect(() => {
     const instance = editor.current;
@@ -233,6 +272,10 @@ export default function MarkdownEditor({
     if (command.id === "find") void instance.getAction("actions.find")?.run();
     else if (command.id === "replace")
       void instance.getAction("editor.action.startFindReplaceAction")?.run();
+    else if (["cut", "copy", "paste", "selectAll"].includes(command.id))
+      void editorTextAction(instance, command.id as TextAction, () =>
+        instance.getOption(monaco.editor.EditorOption.readOnly),
+      ).catch((error) => useWorkspace.setState({ error: String(error) }));
     else instance.trigger("toolbar", command.id, null);
     onCommandHandled?.();
   }, [command, onCommandHandled]);

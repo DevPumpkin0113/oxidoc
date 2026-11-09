@@ -28,6 +28,11 @@ export default function WorkspaceTree({
   function manage(entry: Entry, event: React.MouseEvent<HTMLElement>) {
     event.preventDefault();
     event.stopPropagation();
+    const target = event.currentTarget;
+    (target.matches("button,summary")
+      ? target
+      : target.querySelector<HTMLElement>("button")
+    )?.focus();
     const rect = event.currentTarget.getBoundingClientRect();
     onManage?.(
       entry,

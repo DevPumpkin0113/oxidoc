@@ -39,9 +39,15 @@ import CommandPalette, {
   type PaletteCommand,
 } from "./components/CommandPalette";
 import ContextMenu, { type MenuItem } from "./components/ContextMenu";
+import {
+  executeCommand,
+  matchesShortcut,
+  scopeMenu,
+  type CommandTarget,
+} from "./workspace/commands";
 import { headings, type LinkTarget } from "./workspace/markdown";
 import type { Navigation, ScrollTarget } from "./components/MarkdownPreview";
-import type { EditorCommand } from "./components/MarkdownEditor";
+import type { EditorCommand, EditorContext } from "./components/MarkdownEditor";
 import styles from "./App.module.css";
 import SettingsPanel from "./components/SettingsPanel";
 import {
@@ -50,6 +56,7 @@ import {
   useSettings,
 } from "./settings/store";
 import { themeVariables } from "./settings/themes";
+import { copyText, inputMenu } from "./workspace/textContext";
 
 const MarkdownEditor = lazy(() => import("./components/MarkdownEditor"));
 const MarkdownPreview = lazy(() => import("./components/MarkdownPreview"));
@@ -166,6 +173,13 @@ export default function App() {
     x: number;
     y: number;
     items: MenuItem[];
+    returnFocus: HTMLElement | null;
+    title?: string;
+  } | null>(null);
+  const explorerTree = useRef<HTMLDetailsElement>(null);
+  const [searchScope, setSearchScope] = useState<{
+    root: string;
+    path: string;
   } | null>(null);
   const [command, setCommand] = useState<EditorCommand>();
   const clearCommand = useCallback(() => setCommand(undefined), []);
@@ -280,75 +294,280 @@ export default function App() {
   function editorAction(id: EditorCommand["id"]) {
     setSettingsOpen(false);
     if (view === "preview") setView("split");
-    setCommand({ id, token: Date.now() });
+    setCommand((previous) => ({ id, token: (previous?.token ?? 0) + 1 }));
   }
   async function createEntry(parent: string, directory: boolean) {
+    const sourceRoot = useWorkspace.getState().project?.path;
     const name = await requestAction({
       title: directory ? t("새 폴더 이름") : t("새 문서 이름"),
       input: true,
       initial: directory ? t("새 폴더") : t("새 문서.md"),
       label: t("만들기"),
     });
-    if (name !== null)
+    if (name !== null && useWorkspace.getState().project?.path === sourceRoot)
       await useWorkspace.getState().createEntry(parent, name, directory);
     if (name !== null && !directory) setSettingsOpen(false);
   }
+  function showContext(
+    title: string,
+    items: MenuItem[],
+    x: number,
+    y: number,
+    returnFocus?: HTMLElement,
+  ) {
+    setMenu({
+      title,
+      items,
+      x,
+      y,
+      returnFocus:
+        returnFocus ??
+        (document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null),
+    });
+  }
+  function searchFolder(path: string) {
+    const root = useWorkspace.getState().project?.path;
+    setSearchScope(root && path ? { root, path } : null);
+    setActivity("search");
+    setSidebar(true);
+    requestAnimationFrame(() => searchInput.current?.focus());
+  }
+  function locationActions(root: string, path: string): MenuItem[] {
+    return [
+      {
+        label: t("탐색기에서 열기"),
+        icon: "folder",
+        run: () => workspaceApi.advanced!.explorer(root, path),
+      },
+      {
+        label: t("경로 복사"),
+        icon: "copy",
+        run: async () =>
+          copyText(await workspaceApi.advanced!.entryPath(root, path)),
+      },
+      {
+        label: t("상대 경로 복사"),
+        icon: "copy",
+        run: () => copyText(path || "."),
+      },
+    ];
+  }
+  function manageExplorer(x: number, y: number) {
+    const current = useWorkspace.getState().project;
+    if (!current) {
+      showContext(
+        t("탐색기"),
+        buildPaletteCommands().filter((command) =>
+          ["open", "settings"].includes(command.id),
+        ),
+        x,
+        y,
+      );
+      return;
+    }
+    const items: MenuItem[] = [
+      { label: t("새 문서"), icon: "add", run: () => createEntry("", false) },
+      { label: t("새 폴더"), icon: "folder", run: () => createEntry("", true) },
+      { type: "separator", id: "root-paths" },
+      ...locationActions(current.path, ""),
+      { type: "separator", id: "root-view" },
+      {
+        label: t("새로고침"),
+        icon: "refresh",
+        run: () => useWorkspace.getState().refresh(),
+      },
+      {
+        label: t("모두 접기"),
+        icon: "collapse",
+        run: () => {
+          explorerTree.current
+            ?.querySelectorAll("details")
+            .forEach((details) => {
+              details.open = false;
+            });
+        },
+      },
+    ];
+    const origin = explorerTree.current?.querySelector<HTMLElement>("summary");
+    origin?.focus();
+    showContext(
+      current.name,
+      scopeMenu(items, { kind: "project", path: current.path }),
+      x,
+      y,
+      origin ?? undefined,
+    );
+  }
+  function manageEditor(context: EditorContext) {
+    const state = useWorkspace.getState();
+    if (!state.project || !state.activeId) return;
+    const target: CommandTarget = {
+      kind: "document",
+      root: state.project.path,
+      id: state.activeId,
+      active: true,
+    };
+    const items: MenuItem[] = [
+      {
+        label: t("잘라내기"),
+        icon: "cut",
+        disabled: !context.hasSelection || context.readOnly,
+        run: () => editorAction("cut"),
+      },
+      {
+        label: t("복사"),
+        icon: "copy",
+        disabled: !context.hasSelection,
+        allowBusy: true,
+        run: () => editorAction("copy"),
+      },
+      {
+        label: t("붙여넣기"),
+        icon: "paste",
+        disabled: context.readOnly,
+        run: () => editorAction("paste"),
+      },
+      { type: "separator", id: "editor-select" },
+      {
+        label: t("모두 선택"),
+        allowBusy: true,
+        run: () => editorAction("selectAll"),
+      },
+      {
+        label: t("문서 내 찾기"),
+        icon: "search",
+        run: () => editorAction("find"),
+      },
+      { label: t("문서 내 바꾸기"), run: () => editorAction("replace") },
+    ];
+    showContext(
+      t("Markdown 편집기"),
+      items.map((item) =>
+        item.type === "separator" ? item : { ...item, target },
+      ),
+      context.x,
+      context.y,
+    );
+  }
   function manageEntry(entry: Entry, x: number, y: number) {
+    const root = useWorkspace.getState().project?.path;
+    if (!root) return;
     const items: MenuItem[] = [];
+    items.push(...locationActions(root, entry.path), {
+      type: "separator",
+      id: "entry-location",
+    });
     if (entry.isDirectory) {
       items.push(
-        { label: t("새 문서"), run: () => void createEntry(entry.path, false) },
-        { label: t("새 폴더"), run: () => void createEntry(entry.path, true) },
+        {
+          label: t("새 문서"),
+          icon: "add",
+          run: () => createEntry(entry.path, false),
+        },
+        {
+          label: t("새 폴더"),
+          icon: "folder",
+          run: () => createEntry(entry.path, true),
+        },
+        { type: "separator", id: "entry-create" },
+        {
+          label: t("이 폴더에서 검색"),
+          icon: "search",
+          run: () => searchFolder(entry.path),
+        },
+        { type: "separator", id: "entry-search" },
       );
     }
     items.push(
       {
         label: t("이름 변경"),
-        run: () =>
-          void (async () => {
-            const name = await requestAction({
-              title: t("이름 변경"),
-              initial: entry.name,
-              input: true,
-            });
-            if (name !== null)
-              await useWorkspace.getState().renameEntry(entry.path, name);
-          })(),
+        icon: "rename",
+        run: async () => {
+          const name = await requestAction({
+            title: t("이름 변경"),
+            initial: entry.name,
+            input: true,
+          });
+          if (name !== null && useWorkspace.getState().project?.path === root)
+            await useWorkspace.getState().renameEntry(entry.path, name);
+        },
       },
+      { type: "separator", id: "entry-trash" },
       {
         label: t("휴지통으로 이동"),
-        run: () =>
-          void (async () => {
-            const affected = useWorkspace
-              .getState()
-              .documents.filter((document) =>
-                isDocumentUnder(document.id, entry.path),
-              );
-            if (!(await confirmDocuments(affected))) return;
-            const confirm = await requestAction({
-              title: t("휴지통으로 이동할까요?"),
-              body: t(
-                "{0}{1}",
-                entry.path,
-                entry.isDirectory ? t(" · 하위 항목 포함") : "",
-              ),
-              label: t("휴지통으로 이동"),
-            });
-            if (confirm) await useWorkspace.getState().trashEntry(entry.path);
-          })(),
+        icon: "trash",
+        danger: true,
+        run: async () => {
+          const affected = useWorkspace
+            .getState()
+            .documents.filter((document) =>
+              isDocumentUnder(document.id, entry.path),
+            );
+          if (!(await confirmDocuments(affected))) return;
+          const confirm = await requestAction({
+            title: t("휴지통으로 이동할까요?"),
+            body: t(
+              "{0}{1}",
+              entry.path,
+              entry.isDirectory ? t(" · 하위 항목 포함") : "",
+            ),
+            label: t("휴지통으로 이동"),
+          });
+          if (confirm && useWorkspace.getState().project?.path === root)
+            await useWorkspace.getState().trashEntry(entry.path);
+        },
       },
     );
-    setMenu({ x, y, items });
+    setMenu({
+      x,
+      y,
+      title: entry.name,
+      returnFocus:
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null,
+      items: scopeMenu(items, { kind: "entry", root, path: entry.path }),
+    });
   }
   function manageProject(item: Project, x: number, y: number) {
     setMenu({
       x,
       y,
-      items: [
-        {
-          label: t("이름 변경"),
-          run: () =>
-            void (async () => {
+      title: item.name,
+      returnFocus:
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null,
+      items: scopeMenu(
+        [
+          {
+            label: t("프로젝트 열기"),
+            icon: "projects",
+            run: () => activateProject(item),
+          },
+          {
+            label: t(item.favorite ? "즐겨찾기에서 제거" : "즐겨찾기에 추가"),
+            icon: "star",
+            checked: Boolean(item.favorite),
+            run: () => {
+              const latest = useWorkspace
+                .getState()
+                .projects.find((project) => project.path === item.path);
+              if (latest)
+                return useWorkspace
+                  .getState()
+                  .updateProject(item.path, { favorite: !latest.favorite });
+            },
+          },
+          { type: "separator", id: "project-location" },
+          ...locationActions(item.path, "").slice(0, 2),
+          { type: "separator", id: "project-details" },
+          {
+            label: t("표시 이름 변경"),
+            icon: "rename",
+            run: async () => {
               const name = await requestAction({
                 title: t("프로젝트 이름 변경"),
                 initial: item.name,
@@ -358,12 +577,12 @@ export default function App() {
                 await useWorkspace
                   .getState()
                   .updateProject(item.path, { name });
-            })(),
-        },
-        {
-          label: t("태그 편집"),
-          run: () =>
-            void (async () => {
+            },
+          },
+          {
+            label: t("태그 편집"),
+            icon: "tag",
+            run: async () => {
               const tags = await requestAction({
                 title: t("프로젝트 태그"),
                 body: t("쉼표로 구분해 입력하세요. 비우면 태그가 제거됩니다."),
@@ -378,24 +597,26 @@ export default function App() {
                     .map((tag) => tag.trim())
                     .filter(Boolean),
                 });
-            })(),
-        },
-        {
-          label: t("폴더 경로 다시 연결"),
-          run: () =>
-            void (async () => {
+            },
+          },
+          {
+            label: t("폴더 경로 다시 연결"),
+            icon: "folder",
+            run: async () => {
               if (
                 project?.path === item.path &&
                 !(await confirmDocuments(documents))
               )
                 return;
               await useWorkspace.getState().relocateProject(item.path);
-            })(),
-        },
-        {
-          label: t("목록에서 제거"),
-          run: () =>
-            void (async () => {
+            },
+          },
+          { type: "separator", id: "project-remove" },
+          {
+            label: t("목록에서 제거"),
+            icon: "close",
+            danger: true,
+            run: async () => {
               if (
                 project?.path === item.path &&
                 !(await confirmDocuments(documents))
@@ -408,9 +629,11 @@ export default function App() {
               });
               if (confirm)
                 await useWorkspace.getState().removeProject(item.path);
-            })(),
-        },
-      ],
+            },
+          },
+        ],
+        { kind: "project", path: item.path },
+      ),
     });
   }
   async function jump(match: SearchMatch) {
@@ -476,33 +699,48 @@ export default function App() {
       });
   }
   function buildPaletteCommands(): PaletteCommand[] {
-    return [
+    const documentTarget: CommandTarget | undefined =
+      activeDocument && project
+        ? {
+            kind: "document",
+            root: project.path,
+            id: activeDocument.id,
+            active: true,
+          }
+        : undefined;
+    const commands: PaletteCommand[] = [
       {
         id: "settings",
         label: t("설정"),
         detail: "Ctrl ,",
+        shortcut: "Ctrl+,",
+        allowBusy: true,
         run: () => setSettingsOpen(true),
       },
       {
         id: "open",
         label: t("프로젝트 폴더 열기"),
         detail: "Ctrl O",
-        run: () => void chooseProject(),
+        shortcut: "Ctrl+O",
+        requiresDesktop: true,
+        run: () => chooseProject(),
       },
       {
         id: "sidebar",
         label: t("사이드바 표시/숨기기"),
         detail: "Ctrl B",
+        shortcut: "Ctrl+B",
+        allowBusy: true,
         run: () => setSidebar((value) => !value),
       },
       {
         id: "search",
         label: t("프로젝트 전체 검색"),
         detail: "Ctrl K",
+        shortcut: "Ctrl+K",
+        allowBusy: true,
         run: () => {
-          setActivity("search");
-          setSidebar(true);
-          requestAnimationFrame(() => searchInput.current?.focus());
+          searchFolder("");
         },
       },
       ...(project && desktop
@@ -510,12 +748,18 @@ export default function App() {
             {
               id: "new-file",
               label: t("새 문서"),
-              run: () => void createEntry("", false),
+              requiresDesktop: true,
+              enabled: () =>
+                useWorkspace.getState().project?.path === project.path,
+              run: () => createEntry("", false),
             },
             {
               id: "new-folder",
               label: t("새 폴더"),
-              run: () => void createEntry("", true),
+              requiresDesktop: true,
+              enabled: () =>
+                useWorkspace.getState().project?.path === project.path,
+              run: () => createEntry("", true),
             },
           ]
         : []),
@@ -525,31 +769,44 @@ export default function App() {
               id: "save",
               label: t("문서 저장"),
               detail: "Ctrl S",
-              run: () => void save(activeDocument.id),
+              shortcut: "Ctrl+S",
+              requiresDesktop: true,
+              target: documentTarget,
+              run: () => save(activeDocument.id),
             },
             {
               id: "save-as",
               label: t("다른 이름으로 저장"),
               detail: "Ctrl Shift S",
-              run: () => void useWorkspace.getState().saveAs(activeDocument.id),
+              shortcut: "Ctrl+Shift+S",
+              requiresDesktop: true,
+              target: documentTarget,
+              run: () => useWorkspace.getState().saveAs(activeDocument.id),
             },
             {
               id: "find",
               label: t("문서 내 찾기"),
               detail: "Ctrl F",
+              shortcut: "Ctrl+F",
+              target: documentTarget,
               run: () => editorAction("find"),
             },
             {
               id: "replace",
               label: t("문서 내 바꾸기"),
               detail: "Ctrl H",
+              shortcut: "Ctrl+H",
+              target: documentTarget,
               run: () => editorAction("replace"),
             },
             {
               id: "outline",
               label: t("문서 개요 표시/숨기기"),
+              target: documentTarget,
               run: () =>
-                useWorkspace.getState().setLayout({ outline: !layout.outline }),
+                useWorkspace.getState().setLayout({
+                  outline: !useWorkspace.getState().layout.outline,
+                }),
             },
           ]
         : []),
@@ -557,26 +814,107 @@ export default function App() {
         id: `project-${index}`,
         label: t("프로젝트 열기: {0}", item.name),
         detail: item.path,
-        run: () => void activateProject(item),
+        target: { kind: "project", path: item.path } as CommandTarget,
+        run: () => activateProject(item),
       })),
       ...documents.map((document, index) => ({
         id: `document-${index}`,
         label: t("문서 전환: {0}", document.name),
         detail: document.folder,
+        target: {
+          kind: "document",
+          root: project?.path ?? "",
+          id: document.id,
+        } as CommandTarget,
         run: () => openDocument(document.id),
       })),
-    ].map((item) => ({
+    ];
+    return commands.map((item) => ({
       ...item,
       run: () => {
         setPalette(false);
-        item.run();
+        return item.run();
       },
     }));
+  }
+  function runAppCommand(id: string) {
+    const command = buildPaletteCommands().find((command) => command.id === id);
+    if (command) void executeCommand(command);
   }
   function openPalette() {
     setPaletteCommands(buildPaletteCommands());
     setPalette(true);
   }
+  const handleContext = useEffectEvent((event: MouseEvent) => {
+    event.preventDefault();
+    if (menu || !(event.target instanceof Element)) return;
+    const target = event.target;
+    const input = target.closest<HTMLInputElement | HTMLTextAreaElement>(
+      "input,textarea",
+    );
+    if (
+      input &&
+      !input.classList.contains("inputarea") &&
+      input.selectionStart !== null
+    ) {
+      showContext(
+        t("텍스트 편집"),
+        inputMenu(input),
+        event.clientX,
+        event.clientY,
+        input,
+      );
+      return;
+    }
+    if (palette || confirmation || actionRequest) return;
+    if (target.closest('[data-explorer="true"]') && !target.closest("nav")) {
+      manageExplorer(event.clientX, event.clientY);
+      return;
+    }
+    const selection = window.getSelection()?.toString() ?? "";
+    const projectPanel = Boolean(target.closest("[data-projects-panel]"));
+    const ids =
+      projectPanel || !project
+        ? ["open", "sidebar", "settings"]
+        : [
+            "new-file",
+            "new-folder",
+            "save",
+            "find",
+            "outline",
+            "sidebar",
+            "settings",
+          ];
+    const commands = buildPaletteCommands()
+      .filter((command) => ids.includes(command.id))
+      .map((command) =>
+        projectPanel && command.id === "open"
+          ? { ...command, label: t("프로젝트 등록") }
+          : command,
+      );
+    const items: MenuItem[] = selection
+      ? [
+          {
+            label: t("복사"),
+            icon: "copy",
+            allowBusy: true,
+            run: () => copyText(selection),
+          },
+          { type: "separator", id: "selection" },
+          ...commands,
+        ]
+      : commands;
+    showContext(
+      target.closest("[data-projects-panel]") ? t("프로젝트") : "Oxidoc",
+      items,
+      event.clientX,
+      event.clientY,
+    );
+  });
+  useEffect(() => {
+    window.addEventListener("contextmenu", handleContext);
+    return () => window.removeEventListener("contextmenu", handleContext);
+  }, []);
 
   const handleKeyboard = useEffectEvent(function keydown(event: KeyboardEvent) {
     if (
@@ -591,67 +929,27 @@ export default function App() {
       return;
     }
     if (
-      (event.ctrlKey || event.metaKey) &&
-      event.key === "," &&
-      !event.altKey &&
-      !modalOpen.current
-    ) {
-      event.preventDefault();
-      setSettingsOpen(true);
-      return;
-    }
-    if (
-      !modalOpen.current &&
-      (event.ctrlKey || event.metaKey) &&
-      !event.altKey
-    ) {
-      const key = event.key.toLowerCase();
-      if (key === "p") {
-        event.preventDefault();
-        openPalette();
-        return;
-      }
-      if (key === "s" && event.shiftKey) {
-        event.preventDefault();
-        const state = useWorkspace.getState();
-        if (state.activeId) void state.saveAs(state.activeId);
-        return;
-      }
-      if (key === "f" || key === "h") {
-        event.preventDefault();
-        if (useWorkspace.getState().activeId) {
-          editorAction(key === "f" ? "find" : "replace");
-        }
-        return;
-      }
-    }
-    if (
       modalOpen.current ||
       confirmation ||
-      !(event.ctrlKey || event.metaKey) ||
-      event.altKey ||
-      event.shiftKey
+      event.isComposing ||
+      event.defaultPrevented
     )
       return;
-    const key = event.key.toLowerCase();
-    if (key === "k") {
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      !event.altKey &&
+      event.key.toLowerCase() === "p"
+    ) {
       event.preventDefault();
-      setActivity("search");
-      setSidebar(true);
-      requestAnimationFrame(() => searchInput.current?.focus());
+      openPalette();
+      return;
     }
-    if (key === "b") {
+    const command = buildPaletteCommands().find((command) =>
+      matchesShortcut(command, event),
+    );
+    if (command) {
       event.preventDefault();
-      setSidebar((value) => !value);
-    }
-    if (key === "s") {
-      event.preventDefault();
-      const state = useWorkspace.getState();
-      if (state.activeId) void state.save(state.activeId);
-    }
-    if (key === "o") {
-      event.preventDefault();
-      void chooseProject();
+      void executeCommand(command);
     }
   });
   useEffect(() => {
@@ -706,6 +1004,7 @@ export default function App() {
           {sidebar ? (
             <aside
               className={styles.sidebar}
+              data-explorer={activity === "files" ? "true" : undefined}
               aria-label={
                 activities.find((item) => item.id === activity)?.label
               }
@@ -761,11 +1060,19 @@ export default function App() {
                   ) : null}
                   {project ? (
                     <details
+                      ref={explorerTree}
                       className={styles.treeRoot}
                       open
                       key={project.path}
                     >
-                      <TreeDropTarget folderPath="">
+                      <TreeDropTarget
+                        folderPath=""
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          manageExplorer(event.clientX, event.clientY);
+                        }}
+                      >
                         <Icon name="down" size={12} />
                         <span title={project.path}>{projectFolderName}</span>
                         {desktop ? (
@@ -777,7 +1084,7 @@ export default function App() {
                               title={t("새 문서")}
                               aria-label={t("새 문서")}
                               disabled={busy}
-                              onClick={() => void createEntry("", false)}
+                              onClick={() => runAppCommand("new-file")}
                             >
                               <Icon name="add" size={14} />
                             </button>
@@ -785,7 +1092,7 @@ export default function App() {
                               title={t("새 폴더")}
                               aria-label={t("새 폴더")}
                               disabled={busy}
-                              onClick={() => void createEntry("", true)}
+                              onClick={() => runAppCommand("new-folder")}
                             >
                               <Icon name="folder" size={14} />
                             </button>
@@ -819,6 +1126,10 @@ export default function App() {
               ) : null}
               {activity === "search" ? (
                 <ProjectSearch
+                  folder={
+                    searchScope?.root === project?.path ? searchScope?.path : ""
+                  }
+                  onClearFolder={() => setSearchScope(null)}
                   inputRef={searchInput}
                   onResult={(match) => void jump(match)}
                 />
@@ -939,7 +1250,7 @@ export default function App() {
                         className={styles.toolButton}
                         aria-label={t("문서 내 찾기")}
                         title={t("찾기 (Ctrl F)")}
-                        onClick={() => editorAction("find")}
+                        onClick={() => runAppCommand("find")}
                       >
                         <Icon name="search" size={14} />
                       </button>
@@ -947,7 +1258,7 @@ export default function App() {
                         className={styles.toolButton}
                         aria-label={t("바꾸기")}
                         title={t("바꾸기 (Ctrl H)")}
-                        onClick={() => editorAction("replace")}
+                        onClick={() => runAppCommand("replace")}
                       >
                         <Icon name="code" size={14} />
                       </button>
@@ -1007,16 +1318,14 @@ export default function App() {
                         disabled={busy || !desktop}
                         aria-label={t("다른 이름으로 저장")}
                         title={t("다른 이름으로 저장 (Ctrl Shift S)")}
-                        onClick={() =>
-                          void useWorkspace.getState().saveAs(activeDocument.id)
-                        }
+                        onClick={() => runAppCommand("save-as")}
                       >
                         <Icon name="save" size={14} />
                       </button>
                       <button
                         className={styles.saveButton}
                         disabled={busy || !desktop || !isDirty(activeDocument)}
-                        onClick={() => void save(activeDocument.id)}
+                        onClick={() => runAppCommand("save")}
                         title={t("저장 (Ctrl S)")}
                       >
                         <Icon name="save" size={15} />
@@ -1068,6 +1377,7 @@ export default function App() {
                               }
                             >
                               <MarkdownEditor
+                                onContextMenu={manageEditor}
                                 documentId={activeDocument.id}
                                 projectPath={project?.path}
                                 command={command}
@@ -1296,6 +1606,7 @@ export default function App() {
       ) : null}
       {palette ? (
         <CommandPalette
+          suspended={Boolean(menu)}
           commands={paletteCommands}
           onClose={() => setPalette(false)}
         />

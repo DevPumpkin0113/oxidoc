@@ -1,4 +1,11 @@
-import { render, screen, within, waitFor, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  within,
+  waitFor,
+  act,
+  fireEvent,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -57,7 +64,254 @@ beforeEach(() => {
   nativeWindow.close.mockResolvedValue(undefined);
 });
 
+it("Monaco 찾기 입력 우클릭 붙여넣기는 본문 대신 검색어만 변경", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole("main");
+  const host = document.createElement("div");
+  host.className = "monaco-editor";
+  const input = document.createElement("input");
+  input.value = "query";
+  input.setAttribute("aria-label", "찾기 위젯 검색어");
+  host.append(input);
+  screen.getByRole("main").append(host);
+  const descriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { readText: vi.fn().mockResolvedValue("replacement") },
+  });
+  try {
+    input.focus();
+    input.setSelectionRange(0, 5);
+    const documents = useWorkspace.getState().documents;
+    fireEvent.contextMenu(input, { clientX: 100, clientY: 100 });
+    await user.click(screen.getByRole("menuitem", { name: "붙여넣기" }));
+    await waitFor(() => expect(input.value).toBe("replacement"));
+    expect(useWorkspace.getState().documents).toBe(documents);
+  } finally {
+    host.remove();
+    if (descriptor) Object.defineProperty(navigator, "clipboard", descriptor);
+    else Reflect.deleteProperty(navigator, "clipboard");
+  }
+});
+
 describe("작업 공간 UI", () => {
+  it("폴더 우클릭 검색 범위 전달 및 전체 검색으로 범위 해제", async () => {
+    const user = userEvent.setup();
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(invoke).mockImplementation(<T,>(name: string) =>
+      Promise.resolve(
+        (name === "search_project"
+          ? { matches: [], truncated: false, skipped: 0 }
+          : undefined) as T,
+      ),
+    );
+    useWorkspace.setState({
+      initialized: true,
+      desktop: true,
+      project: { name: "Notes", path: "C:/notes" },
+      projects: [{ name: "Notes", path: "C:/notes" }],
+      tree: { "": [{ name: "docs", path: "docs", isDirectory: true }] },
+    });
+    render(<App />);
+    fireEvent.contextMenu(screen.getByText("docs"), {
+      clientX: 30,
+      clientY: 150,
+    });
+    await user.click(
+      screen.getByRole("menuitem", { name: "이 폴더에서 검색" }),
+    );
+    const query = screen.getByRole("textbox", { name: "프로젝트 전체 검색" });
+    await user.type(query, "needle");
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("search_project", {
+        root: "C:/notes",
+        query: "needle",
+        caseSensitive: false,
+        folder: "docs",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "전체 폴더에서 검색" }),
+    );
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("search_project", {
+        root: "C:/notes",
+        query: "needle",
+        caseSensitive: false,
+        folder: "",
+      }),
+    );
+  });
+  it("파일·빈 공간 우클릭의 앱 메뉴와 탐색기 명령 대상 연결", async () => {
+    const user = userEvent.setup();
+    vi.mocked(isTauri).mockReturnValue(true);
+    useWorkspace.setState({
+      initialized: true,
+      desktop: true,
+      project: { name: "Notes", path: "C:/notes" },
+      projects: [{ name: "Notes", path: "C:/notes" }],
+      tree: {
+        "": [
+          { name: "a.md", path: "a.md", isDirectory: false },
+          { name: "folder", path: "folder", isDirectory: true },
+        ],
+        folder: [],
+      },
+    });
+    render(<App />);
+    fireEvent.contextMenu(screen.getByRole("button", { name: "a.md" }), {
+      clientX: 40,
+      clientY: 80,
+    });
+    await user.click(screen.getByRole("menuitem", { name: "탐색기에서 열기" }));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("open_in_explorer", {
+        root: "C:/notes",
+        path: "a.md",
+      }),
+    );
+    const aside = screen.getByRole("complementary", { name: "탐색기" });
+    const folder = within(aside)
+      .getByText("folder")
+      .closest("summary")!.parentElement!;
+    await user.click(within(aside).getByText("folder"));
+    expect(folder).toHaveAttribute("open");
+    expect(fireEvent.contextMenu(aside, { clientX: 35, clientY: 600 })).toBe(
+      false,
+    );
+    expect(
+      screen.getByRole("menuitem", { name: "새 문서" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "모두 접기" }));
+    expect(folder).not.toHaveAttribute("open");
+    expect(aside.querySelector("details")).toHaveAttribute("open");
+  });
+  it("프로젝트 행 우클릭의 열기·표시 이름·즐겨찾기 메뉴", async () => {
+    const user = userEvent.setup();
+    const project = { name: "Notes", path: "C:/notes", favorite: false };
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(invoke).mockImplementation(<T,>(name: string) =>
+      Promise.resolve(
+        (name === "update_project"
+          ? [{ ...project, favorite: true }]
+          : undefined) as T,
+      ),
+    );
+    useWorkspace.setState({
+      initialized: true,
+      desktop: true,
+      project,
+      projects: [project],
+      tree: { "": [] },
+    });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "프로젝트" }));
+    const card = screen
+      .getAllByRole("button")
+      .find(
+        (button) => button.querySelector("strong")?.textContent === "Notes",
+      )!;
+    fireEvent.contextMenu(card, { clientX: 80, clientY: 300 });
+    expect(
+      screen.getByRole("menuitem", { name: "프로젝트 열기" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "표시 이름 변경" }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("menuitemcheckbox", { name: "즐겨찾기에 추가" }),
+    );
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("update_project", {
+        path: project.path,
+        patch: { favorite: true },
+      }),
+    );
+  });
+  it("입력란 우클릭 텍스트 메뉴와 팔레트 위 메뉴의 Esc 계층 유지", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("textbox", { name: "Markdown 편집기" });
+    await user.keyboard("{Control>}p{/Control}");
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    await user.type(input, "abc");
+    input.setSelectionRange(0, 3);
+    expect(fireEvent.contextMenu(input, { clientX: 200, clientY: 150 })).toBe(
+      false,
+    );
+    expect(screen.getByRole("menuitem", { name: "복사" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toHaveFocus();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(
+      fireEvent.contextMenu(screen.getByRole("main"), {
+        clientX: 600,
+        clientY: 500,
+      }),
+    ).toBe(false);
+    expect(screen.getByRole("menuitem", { name: "설정" })).toBeInTheDocument();
+  });
+  it("우클릭 대상 이름 변경·휴지통 확인과 다른 활성 문서의 미저장 버퍼 보존", async () => {
+    const user = userEvent.setup(),
+      renameEntry = vi.fn().mockResolvedValue(undefined),
+      trashEntry = vi.fn().mockResolvedValue(undefined);
+    const entry = { name: "a.md", path: "a.md", isDirectory: false };
+    const other = { name: "b.md", path: "b.md", isDirectory: false };
+    vi.mocked(isTauri).mockReturnValue(true);
+    useWorkspace.setState({
+      initialized: true,
+      desktop: true,
+      projects: [{ name: "Notes", path: "C:/notes" }],
+      project: { name: "Notes", path: "C:/notes" },
+      tree: { "": [entry, other] },
+      documents: [
+        {
+          id: "a.md",
+          name: "a.md",
+          folder: "",
+          content: "a",
+          savedContent: "a",
+        },
+        {
+          id: "b.md",
+          name: "b.md",
+          folder: "",
+          content: "dirty b",
+          savedContent: "b",
+        },
+      ],
+      activeId: "b.md",
+      renameEntry,
+      trashEntry,
+    });
+    render(<App />);
+    fireEvent.contextMenu(screen.getByRole("button", { name: "a.md" }), {
+      clientX: 40,
+      clientY: 80,
+    });
+    await user.click(screen.getByRole("menuitem", { name: "이름 변경" }));
+    const rename = screen.getByRole("dialog");
+    await user.clear(within(rename).getByRole("textbox"));
+    await user.type(within(rename).getByRole("textbox"), "renamed.md");
+    await user.click(within(rename).getByRole("button", { name: "확인" }));
+    await waitFor(() =>
+      expect(renameEntry).toHaveBeenCalledWith("a.md", "renamed.md"),
+    );
+    expect(useWorkspace.getState().activeId).toBe("b.md");
+    fireEvent.contextMenu(screen.getByRole("button", { name: "a.md" }), {
+      clientX: 40,
+      clientY: 80,
+    });
+    await user.click(screen.getByRole("menuitem", { name: "휴지통으로 이동" }));
+    const trash = screen.getByRole("dialog");
+    expect(within(trash).getByText("a.md")).toBeInTheDocument();
+    await user.click(within(trash).getByRole("button", { name: "취소" }));
+    expect(trashEntry).not.toHaveBeenCalled();
+    expect(useWorkspace.getState().documents[1].content).toBe("dirty b");
+  });
   it("플로팅 개요의 제목 이동·닫기·Esc 및 호출 버튼 포커스 복원", async () => {
     const user = userEvent.setup();
     render(<App />);

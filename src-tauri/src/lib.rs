@@ -34,6 +34,8 @@ pub fn run() {
             workspace::create_entry,
             workspace::rename_entry,
             workspace::move_file,
+            workspace::entry_path,
+            workspace::open_in_explorer,
             workspace::delete_entry,
             workspace::pick_save_path,
             workspace::target_content,

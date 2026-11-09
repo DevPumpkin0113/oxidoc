@@ -70,7 +70,7 @@ export default function ProjectManager({
     a === null ? 1 : b === null ? -1 : a.localeCompare(b),
   );
   return (
-    <div className={styles.projectsPanel}>
+    <div className={styles.projectsPanel} data-projects-panel>
       <button
         className={styles.openProjectButton}
         disabled={busy || !desktop}
@@ -146,7 +146,23 @@ export default function ProjectManager({
             <small>{items.length}</small>
           </h3>
           {items.map((item) => (
-            <div className={styles.projectRow} key={item.path}>
+            <div
+              className={styles.projectRow}
+              key={item.path}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const target =
+                  event.target instanceof Element
+                    ? event.target.closest<HTMLButtonElement>("button")
+                    : null;
+                (
+                  target ??
+                  event.currentTarget.querySelector<HTMLButtonElement>("button")
+                )?.focus();
+                onManage(item, event.clientX, event.clientY);
+              }}
+            >
               <button
                 className={styles.projectCard}
                 disabled={busy}

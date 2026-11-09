@@ -9,6 +9,8 @@ function fixture() {
   const advanced: AdvancedApi = {
     create: vi.fn().mockResolvedValue(entry),
     moveFile: vi.fn().mockResolvedValue({ ...entry, path: "target/a.md" }),
+    entryPath: vi.fn().mockResolvedValue("C:/notes/a.md"),
+    explorer: vi.fn().mockResolvedValue(undefined),
     rename: vi
       .fn()
       .mockResolvedValue({ name: "new", path: "new", isDirectory: true }),

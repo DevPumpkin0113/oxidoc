@@ -1,5 +1,26 @@
 import { effectiveLanguage, useSettings } from "./store";
 export const english: Record<string, string> = {
+  "탐색기에서 열기": "Open in File Explorer",
+  "탐색기 열기 실패": "Unable to open File Explorer",
+  "경로 복사": "Copy path",
+  "상대 경로 복사": "Copy relative path",
+  "이 폴더에서 검색": "Find in this folder",
+  "모두 접기": "Collapse all folders",
+  "프로젝트 열기": "Open project",
+  "즐겨찾기에 추가": "Add to favorites",
+  "즐겨찾기에서 제거": "Remove from favorites",
+  "표시 이름 변경": "Rename display name",
+  "텍스트 편집": "Text editing",
+  잘라내기: "Cut",
+  복사: "Copy",
+  붙여넣기: "Paste",
+  "모두 선택": "Select all",
+  "클립보드를 사용할 수 없습니다.": "Clipboard is unavailable.",
+  "내용이 변경되어 텍스트 작업을 취소했습니다.":
+    "The content changed. Text operation canceled.",
+  "검색 폴더: {0}": "Search folder: {0}",
+  "전체 폴더에서 검색": "Search all folders",
+  "컨텍스트 메뉴": "Context menu",
   "프로젝트 목록 다시 불러오기": "Reload projects",
   "프로젝트 목록 불러오기 실패": "Unable to load project registry",
   "프로젝트 목록 파일이 읽기 전용입니다.":
