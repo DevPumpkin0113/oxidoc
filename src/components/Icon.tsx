@@ -40,6 +40,8 @@ const icons = {
   cut: "cut",
   paste: "paste",
   collapse: "collapse-all",
+  replace: "replace-all",
+  warning: "warning",
 } as const;
 
 export type IconName = keyof typeof icons;

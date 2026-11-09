@@ -18,6 +18,9 @@ import { FileIcon } from "./components/FileIcon";
 import WorkspaceTree from "./components/WorkspaceTree";
 import TreeDropTarget from "./components/TreeDropTarget";
 import { blockExternalFileDrop } from "./workspace/treeDrag";
+import { startWorkspaceMonitor } from "./workspace/monitor";
+import QuickOpen from "./components/QuickOpen";
+import ProjectReplace from "./components/ProjectReplace";
 import UnsavedDialog, { type UnsavedChoice } from "./components/UnsavedDialog";
 import {
   useWorkspace,
@@ -141,6 +144,8 @@ export default function App() {
     open,
     close,
     clearError,
+    recoveryCandidates,
+    recoveryError,
   } = useWorkspace();
   const layout = useWorkspace((state) => state.layout);
   const activity = layout.activity,
@@ -168,6 +173,8 @@ export default function App() {
     null,
   );
   const [palette, setPalette] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [replaceOpen, setReplaceOpen] = useState(false);
   const [paletteCommands, setPaletteCommands] = useState<PaletteCommand[]>([]);
   const [menu, setMenu] = useState<{
     x: number;
@@ -177,6 +184,7 @@ export default function App() {
     title?: string;
   } | null>(null);
   const explorerTree = useRef<HTMLDetailsElement>(null);
+  const [revealTarget, setRevealTarget] = useState<string | null>(null);
   const [searchScope, setSearchScope] = useState<{
     root: string;
     path: string;
@@ -204,6 +212,8 @@ export default function App() {
   }, []);
   const choicePromise = useRef<Promise<UnsavedChoice> | null>(null);
   const activeDocument = documents.find((document) => document.id === activeId);
+  const monitoredRoot = project?.path;
+  const projectStatus = project?.status;
   const projectFolderName =
     project?.path === "sample"
       ? project.name
@@ -220,6 +230,14 @@ export default function App() {
   useEffect(() => {
     void initialize(isTauri());
   }, [initialize]);
+  useEffect(() => {
+    if (
+      desktop &&
+      monitoredRoot &&
+      (!projectStatus || projectStatus === "available")
+    )
+      return startWorkspaceMonitor(monitoredRoot);
+  }, [desktop, monitoredRoot, projectStatus]);
   const confirmDocuments = useCallback(
     async (targets: Document[]) => {
       const modified = targets.filter(isDirty);
@@ -268,6 +286,141 @@ export default function App() {
     )
       close(id);
   }
+  async function closeDocuments(ids: string[]) {
+    const state = useWorkspace.getState();
+    if (state.busy) return;
+    const root = state.project?.path;
+    const targets = state.documents.filter((document) =>
+      ids.includes(document.id),
+    );
+    if (
+      !(await confirmDocuments(targets)) ||
+      useWorkspace.getState().project?.path !== root
+    )
+      return;
+    for (const document of targets) useWorkspace.getState().close(document.id);
+  }
+  async function saveAll() {
+    const state = useWorkspace.getState();
+    if (state.busy) return;
+    const root = state.project?.path;
+    for (const document of state.documents.filter(isDirty)) {
+      if (
+        useWorkspace.getState().project?.path !== root ||
+        !(await useWorkspace.getState().save(document.id))
+      )
+        return;
+    }
+  }
+  async function revealDocument(id: string) {
+    const root = useWorkspace.getState().project?.path;
+    useWorkspace.getState().setLayout({ sidebar: true, activity: "files" });
+    const parts = id.split("/").slice(0, -1);
+    for (let index = 1; index <= parts.length; index++) {
+      if (useWorkspace.getState().project?.path !== root) return;
+      await useWorkspace.getState().expand(parts.slice(0, index).join("/"));
+    }
+    if (useWorkspace.getState().project?.path === root) setRevealTarget(id);
+  }
+  useEffect(() => {
+    if (!revealTarget || !explorerTree.current) return;
+    const folder = useWorkspace
+      .getState()
+      .documents.find((document) =>
+        sameDocumentPath(document.id, revealTarget),
+      )?.folder;
+    explorerTree.current.open = true;
+    const rows =
+      explorerTree.current.querySelectorAll<HTMLElement>("[data-tree-path]");
+    for (const row of rows) {
+      const path = row.dataset.treePath;
+      if (
+        path &&
+        (isDocumentUnder(revealTarget, path) ||
+          (folder && isDocumentUnder(folder, path)))
+      ) {
+        if (
+          row.matches("summary") &&
+          row.parentElement instanceof HTMLDetailsElement
+        )
+          row.parentElement.open = true;
+        if (sameDocumentPath(path, revealTarget)) {
+          const target =
+            row.tagName === "SUMMARY"
+              ? row
+              : row.querySelector<HTMLElement>("button");
+          target?.focus();
+          target?.scrollIntoView?.({ block: "nearest" });
+        }
+      }
+    }
+    setRevealTarget(null);
+  }, [revealTarget]);
+  function manageTab(id: string, x: number, y: number) {
+    const state = useWorkspace.getState();
+    const document = state.documents.find((document) => document.id === id);
+    if (!document || !state.project) return;
+    const ids = state.documents.map((document) => document.id);
+    const index = ids.indexOf(id);
+    const items: MenuItem[] = [
+      { label: t("닫기"), run: () => closeDocuments([id]) },
+      {
+        label: t("다른 탭 닫기"),
+        disabled: ids.length < 2,
+        run: () => closeDocuments(ids.filter((other) => other !== id)),
+      },
+      {
+        label: t("오른쪽 탭 닫기"),
+        disabled: index === ids.length - 1,
+        run: () => closeDocuments(ids.slice(index + 1)),
+      },
+      { label: t("모든 탭 닫기"), run: () => closeDocuments(ids) },
+      { type: "separator", id: "tab-save" },
+      {
+        label: t("모두 저장"),
+        icon: "save",
+        requiresDesktop: true,
+        disabled: !state.documents.some(isDirty),
+        run: saveAll,
+      },
+      { type: "separator", id: "tab-path" },
+      { label: t("탐색기에서 위치 표시"), run: () => revealDocument(id) },
+      ...locationActions(state.project.path, id).map((item) =>
+        item.type === "separator" ? item : { ...item, requiresDesktop: true },
+      ),
+    ];
+    showContext(
+      document.name,
+      items.map((item) =>
+        item.type === "separator"
+          ? item
+          : {
+              ...item,
+              target: { kind: "document", root: state.project!.path, id },
+            },
+      ),
+      x,
+      y,
+    );
+  }
+  async function resolveDiskChange(id: string, reload: boolean) {
+    const state = useWorkspace.getState();
+    const root = state.project?.path;
+    const document = state.documents.find((document) => document.id === id);
+    if (!document || typeof document.diskContent !== "string") return;
+    if (
+      reload &&
+      isDirty(document) &&
+      !(await requestAction({
+        title: t("미저장 변경을 버리고 다시 읽을까요?"),
+        body: document.name,
+        label: t("다시 읽기"),
+      }))
+    )
+      return;
+    if (useWorkspace.getState().project?.path === root)
+      useWorkspace.getState().resolveExternal(id, reload);
+  }
   function openDocument(id: string) {
     setSettingsOpen(false);
     const document = documents.find((document) => document.id === id);
@@ -277,9 +430,14 @@ export default function App() {
 
   useEffect(() => {
     modalOpen.current = Boolean(
-      confirmation || actionRequest || palette || menu,
+      confirmation ||
+      actionRequest ||
+      palette ||
+      quickOpen ||
+      replaceOpen ||
+      menu,
     );
-  }, [confirmation, actionRequest, palette, menu]);
+  }, [confirmation, actionRequest, palette, quickOpen, replaceOpen, menu]);
   const requestAction = useCallback(
     (request: Omit<ActionRequest, "resolve">) =>
       new Promise<string | null>((resolve) =>
@@ -354,6 +512,70 @@ export default function App() {
       },
     ];
   }
+  async function pasteInto(parent: string) {
+    const state = useWorkspace.getState();
+    const clipboard = state.clipboard;
+    if (!clipboard || clipboard.root !== state.project?.path) return;
+    await state.expand(parent);
+    let name: string | undefined;
+    if (
+      useWorkspace
+        .getState()
+        .tree[parent]?.some(
+          (entry) =>
+            entry.name.toLowerCase() === clipboard.entry.name.toLowerCase(),
+        )
+    ) {
+      const result = await requestAction({
+        title: t("다른 이름으로 붙여넣기"),
+        body: t("같은 이름의 항목이 이미 있습니다."),
+        initial: clipboard.entry.name,
+        input: true,
+      });
+      if (result === null) return;
+      name = result;
+    }
+    if (
+      useWorkspace.getState().clipboard === clipboard &&
+      useWorkspace.getState().project?.path === clipboard.root
+    )
+      await useWorkspace.getState().pasteEntry(parent, name);
+  }
+  function pasteAction(parent: string): MenuItem {
+    const state = useWorkspace.getState();
+    return {
+      id: "entry-paste",
+      label: t("붙여넣기"),
+      icon: "paste",
+      shortcut: "Ctrl+V",
+      disabled:
+        !state.clipboard || state.clipboard.root !== state.project?.path,
+      run: () => pasteInto(parent),
+    };
+  }
+  function entryClipboardActions(entry: Entry): MenuItem[] {
+    const parent = entry.isDirectory
+      ? entry.path
+      : entry.path.split("/").slice(0, -1).join("/");
+    return [
+      {
+        id: "entry-cut",
+        label: t("잘라내기"),
+        icon: "cut",
+        shortcut: "Ctrl+X",
+        run: () => useWorkspace.getState().copyEntry(entry, true),
+      },
+      {
+        id: "entry-copy",
+        label: t("복사"),
+        icon: "copy",
+        shortcut: "Ctrl+C",
+        run: () => useWorkspace.getState().copyEntry(entry, false),
+      },
+      pasteAction(parent),
+      { type: "separator", id: "entry-clipboard" },
+    ];
+  }
   function manageExplorer(x: number, y: number) {
     const current = useWorkspace.getState().project;
     if (!current) {
@@ -370,6 +592,7 @@ export default function App() {
     const items: MenuItem[] = [
       { label: t("새 문서"), icon: "add", run: () => createEntry("", false) },
       { label: t("새 폴더"), icon: "folder", run: () => createEntry("", true) },
+      pasteAction(""),
       { type: "separator", id: "root-paths" },
       ...locationActions(current.path, ""),
       { type: "separator", id: "root-view" },
@@ -451,10 +674,10 @@ export default function App() {
       context.y,
     );
   }
-  function manageEntry(entry: Entry, x: number, y: number) {
+  function entryMenuItems(entry: Entry): MenuItem[] {
     const root = useWorkspace.getState().project?.path;
-    if (!root) return;
-    const items: MenuItem[] = [];
+    if (!root) return [];
+    const items: MenuItem[] = entryClipboardActions(entry);
     items.push(...locationActions(root, entry.path), {
       type: "separator",
       id: "entry-location",
@@ -482,8 +705,10 @@ export default function App() {
     }
     items.push(
       {
+        id: "entry-rename",
         label: t("이름 변경"),
         icon: "rename",
+        shortcut: "F2",
         run: async () => {
           const name = await requestAction({
             title: t("이름 변경"),
@@ -496,9 +721,11 @@ export default function App() {
       },
       { type: "separator", id: "entry-trash" },
       {
+        id: "entry-delete",
         label: t("휴지통으로 이동"),
         icon: "trash",
         danger: true,
+        shortcut: "Delete",
         run: async () => {
           const affected = useWorkspace
             .getState()
@@ -520,6 +747,9 @@ export default function App() {
         },
       },
     );
+    return scopeMenu(items, { kind: "entry", root, path: entry.path });
+  }
+  function manageEntry(entry: Entry, x: number, y: number) {
     setMenu({
       x,
       y,
@@ -528,7 +758,7 @@ export default function App() {
         document.activeElement instanceof HTMLElement
           ? document.activeElement
           : null,
-      items: scopeMenu(items, { kind: "entry", root, path: entry.path }),
+      items: entryMenuItems(entry),
     });
   }
   function manageProject(item: Project, x: number, y: number) {
@@ -726,6 +956,21 @@ export default function App() {
         run: () => chooseProject(),
       },
       {
+        id: "quick-open",
+        label: t("빠른 파일 열기"),
+        detail: "Ctrl P",
+        enabled: () => Boolean(useWorkspace.getState().project),
+        run: () => setQuickOpen(true),
+      },
+      {
+        id: "replace-project",
+        label: t("프로젝트 전체 바꾸기"),
+        shortcut: "Ctrl+Shift+H",
+        requiresDesktop: true,
+        enabled: () => Boolean(useWorkspace.getState().project),
+        run: () => setReplaceOpen(true),
+      },
+      {
         id: "sidebar",
         label: t("사이드바 표시/숨기기"),
         detail: "Ctrl B",
@@ -810,6 +1055,59 @@ export default function App() {
             },
           ]
         : []),
+      {
+        id: "save-all",
+        label: t("모두 저장"),
+        shortcut: "Ctrl+Alt+S",
+        requiresDesktop: true,
+        run: saveAll,
+      },
+      {
+        id: "reopen-tab",
+        label: t("닫은 탭 다시 열기"),
+        shortcut: "Ctrl+Shift+T",
+        enabled: () => {
+          const state = useWorkspace.getState();
+          return Boolean(
+            state.project && state.closedEntries[state.project.path]?.length,
+          );
+        },
+        run: () => useWorkspace.getState().reopenClosed(),
+      },
+      ...(activeDocument
+        ? [
+            {
+              id: "reveal-document",
+              label: t("탐색기에서 위치 표시"),
+              target: documentTarget,
+              run: () => revealDocument(activeDocument.id),
+            },
+          ]
+        : []),
+      {
+        id: "close-tab",
+        label: t("현재 탭 닫기"),
+        shortcut: "Ctrl+W",
+        enabled: () =>
+          settingsOpen || Boolean(useWorkspace.getState().activeId),
+        run: () => {
+          if (settingsOpen) {
+            setSettingsOpen(false);
+            return;
+          }
+          const id = useWorkspace.getState().activeId;
+          if (id) return closeDocuments([id]);
+        },
+      },
+      {
+        id: "close-all-tabs",
+        label: t("모든 탭 닫기"),
+        enabled: () => useWorkspace.getState().documents.length > 0,
+        run: () =>
+          closeDocuments(
+            useWorkspace.getState().documents.map((document) => document.id),
+          ),
+      },
       ...projects.map((item, index) => ({
         id: `project-${index}`,
         label: t("프로젝트 열기: {0}", item.name),
@@ -866,7 +1164,8 @@ export default function App() {
       );
       return;
     }
-    if (palette || confirmation || actionRequest) return;
+    if (palette || quickOpen || replaceOpen || confirmation || actionRequest)
+      return;
     if (target.closest('[data-explorer="true"]') && !target.closest("nav")) {
       manageExplorer(event.clientX, event.clientY);
       return;
@@ -935,13 +1234,65 @@ export default function App() {
       event.defaultPrevented
     )
       return;
+    const element = event.target instanceof HTMLElement ? event.target : null;
+    if (
+      element?.closest('[data-explorer="true"]') &&
+      !element.closest('input,textarea,[contenteditable="true"],.monaco-editor')
+    ) {
+      const node = element.closest<HTMLElement>("[data-tree-path]");
+      const path = node?.dataset.treePath;
+      if (path !== undefined) {
+        const entry = Object.values(useWorkspace.getState().tree)
+          .flat()
+          .find((entry) => sameDocumentPath(entry.path, path));
+        const operation =
+          (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey
+            ? { c: "entry-copy", x: "entry-cut", v: "entry-paste" }[
+                event.key.toLowerCase() as "c" | "x" | "v"
+              ]
+            : undefined;
+        if (operation) {
+          const items = entry
+            ? entryClipboardActions(entry)
+            : [pasteAction("")];
+          const action = items.find(
+            (item) => item.type !== "separator" && item.id === operation,
+          );
+          if (action && action.type !== "separator") {
+            event.preventDefault();
+            void executeCommand({ ...action, requiresDesktop: true });
+            return;
+          }
+        }
+        if (
+          entry &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey &&
+          !event.shiftKey &&
+          ["F2", "Delete"].includes(event.key)
+        ) {
+          event.preventDefault();
+          const action = entryMenuItems(entry).find(
+            (item) =>
+              item.type !== "separator" &&
+              item.id ===
+                (event.key === "F2" ? "entry-rename" : "entry-delete"),
+          );
+          if (action && action.type !== "separator")
+            void executeCommand(action);
+          return;
+        }
+      }
+    }
     if (
       (event.ctrlKey || event.metaKey) &&
       !event.altKey &&
       event.key.toLowerCase() === "p"
     ) {
       event.preventDefault();
-      openPalette();
+      if (event.shiftKey || !useWorkspace.getState().project) openPalette();
+      else setQuickOpen(true);
       return;
     }
     const command = buildPaletteCommands().find((command) =>
@@ -972,9 +1323,14 @@ export default function App() {
           if (await confirmDocuments(state.documents)) {
             await useWorkspace.getState().persist();
             await useSettings.getState().flush();
+            await useWorkspace.getState().flushRecovery(true);
             await appWindow.destroy();
           }
         } catch (error) {
+          await useWorkspace
+            .getState()
+            .flushRecovery()
+            .catch(() => {});
           useWorkspace.setState({ error: String(error) });
         } finally {
           confirming = false;
@@ -995,7 +1351,14 @@ export default function App() {
     <>
       <div
         className={styles.app}
-        inert={Boolean(confirmation || actionRequest || palette || menu)}
+        inert={Boolean(
+          confirmation ||
+          actionRequest ||
+          palette ||
+          quickOpen ||
+          replaceOpen ||
+          menu,
+        )}
       >
         <div
           className={`${styles.workbench} ${!sidebar ? styles.sidebarHidden : ""}`}
@@ -1067,6 +1430,7 @@ export default function App() {
                     >
                       <TreeDropTarget
                         folderPath=""
+                        data-tree-path=""
                         onContextMenu={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
@@ -1126,6 +1490,7 @@ export default function App() {
               ) : null}
               {activity === "search" ? (
                 <ProjectSearch
+                  onReplace={() => setReplaceOpen(true)}
                   folder={
                     searchScope?.root === project?.path ? searchScope?.path : ""
                   }
@@ -1176,6 +1541,14 @@ export default function App() {
                     <div
                       className={`${styles.tab} ${!settingsOpen && activeId === id ? styles.activeTab : ""}`}
                       key={id}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        event.currentTarget
+                          .querySelector<HTMLElement>('[role="tab"]')
+                          ?.focus();
+                        manageTab(id, event.clientX, event.clientY);
+                      }}
                     >
                       <button
                         role="tab"
@@ -1213,6 +1586,38 @@ export default function App() {
               <Titlebar />
             </div>
             <div className={styles.contentPanel} aria-busy={busy}>
+              {recoveryCandidates.length || recoveryError ? (
+                <div className={styles.externalNotice} role="status">
+                  <span>
+                    {recoveryError
+                      ? t(
+                          "복구 데이터를 읽지 못했습니다. 기존 임시본은 보존됩니다.",
+                        )
+                      : t(
+                          "복구 가능한 미저장 문서 {0}개",
+                          String(recoveryCandidates.length),
+                        )}
+                  </span>
+                  {!recoveryError ? (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void useWorkspace.getState().decideRecovery(true)
+                      }
+                    >
+                      {t("복구")}
+                    </button>
+                  ) : null}
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void useWorkspace.getState().decideRecovery(false)
+                    }
+                  >
+                    {t("임시본 버리기")}
+                  </button>
+                </div>
+              ) : null}
               {error ? (
                 <div className={styles.workspaceError} role="alert">
                   <span>{translateError(error)}</span>
@@ -1352,6 +1757,51 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                  {activeDocument.diskContent !== undefined ? (
+                    <div className={styles.externalNotice} role="status">
+                      <span>
+                        {t(
+                          activeDocument.diskContent === null
+                            ? "파일이 삭제되었거나 읽을 수 없습니다. 편집 내용은 유지됩니다."
+                            : "파일이 외부에서 변경되었습니다.",
+                        )}
+                      </span>
+                      {typeof activeDocument.diskContent === "string" ? (
+                        <>
+                          <button
+                            disabled={busy}
+                            onClick={() =>
+                              void resolveDiskChange(activeDocument.id, true)
+                            }
+                          >
+                            {t("다시 읽기")}
+                          </button>
+                          <button
+                            disabled={busy}
+                            title={t(
+                              "내 편집을 유지하고 다음 저장 시 외부 내용을 덮어씁니다.",
+                            )}
+                            onClick={() =>
+                              void resolveDiskChange(activeDocument.id, false)
+                            }
+                          >
+                            {t("내 편집 유지")}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            void useWorkspace
+                              .getState()
+                              .saveAs(activeDocument.id)
+                          }
+                        >
+                          {t("다른 이름으로 저장")}
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
                   <div className={styles.documentBody}>
                     <div
                       id="document-panel"
@@ -1397,7 +1847,11 @@ export default function App() {
                                   scroll("editor", line, edge)
                                 }
                                 value={activeDocument.content}
-                                readOnly={busy}
+                                readOnly={
+                                  busy ||
+                                  recoveryCandidates.length > 0 ||
+                                  Boolean(recoveryError)
+                                }
                                 onChange={(content) =>
                                   edit(activeDocument.id, content)
                                 }
@@ -1609,6 +2063,22 @@ export default function App() {
           suspended={Boolean(menu)}
           commands={paletteCommands}
           onClose={() => setPalette(false)}
+        />
+      ) : null}
+      {quickOpen && project ? (
+        <QuickOpen
+          key={project.path}
+          root={project.path}
+          suspended={Boolean(menu)}
+          onClose={() => setQuickOpen(false)}
+        />
+      ) : null}
+      {replaceOpen && project ? (
+        <ProjectReplace
+          key={project.path}
+          root={project.path}
+          suspended={Boolean(menu)}
+          onClose={() => setReplaceOpen(false)}
         />
       ) : null}
       {menu ? <ContextMenu {...menu} onClose={() => setMenu(null)} /> : null}

@@ -12,14 +12,18 @@ import { useEffect, useRef } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/languages/definitions/markdown/register.js";
 import "monaco-editor/editor/contrib/find/browser/findController.js";
+import "monaco-editor/editor/contrib/suggest/browser/suggestController.js";
+import "monaco-editor/editor/contrib/hover/browser/hoverContribution.js";
 import "../styles/monaco-icons.css";
-import EditorWorker from "monaco-editor/editor/editor.worker.js?worker";
+import "../workspace/monacoEnvironment";
+import { applyMonacoTheme } from "../settings/monacoTheme";
 import type { ScrollTarget, Navigation } from "./MarkdownPreview";
 import { scrollEdge, type ScrollEdge } from "../workspace/scroll";
 import { editorTextAction } from "../workspace/editorTextActions";
+import { pasteEditorImage } from "../workspace/editorImages";
+import { attachMarkdownLinks } from "../workspace/editorLinks";
 import type { TextAction } from "../workspace/textContext";
 import { useWorkspace } from "../workspace/store";
-self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 interface CachedModel {
   model: monaco.editor.ITextModel;
   view: monaco.editor.ICodeEditorViewState | null;
@@ -71,36 +75,14 @@ export default function MarkdownEditor({
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const suppress = useRef(false);
   const updatingModel = useRef(false);
+  const imagePasting = useRef(false);
   const frame = useRef(0);
   const callbacks = useRef({ onChange, onCursor, onScrollLine, onContextMenu });
   useEffect(() => {
     setMonacoLanguage(language);
   }, [language]);
   useEffect(() => {
-    monaco.editor.defineTheme("oxidoc", {
-      base: theme.kind === "dark" ? "vs-dark" : "vs",
-      inherit: true,
-      rules: [
-        { token: "keyword", foreground: theme.keyword.slice(1) },
-        { token: "string", foreground: theme.string.slice(1) },
-        { token: "comment", foreground: theme.muted.slice(1) },
-      ],
-      colors: {
-        "editor.background": theme.background,
-        "editor.foreground": theme.text,
-        "editorLineNumber.foreground": theme.muted,
-        "editorLineNumber.activeForeground": theme.text,
-        "editorCursor.foreground": theme.accent,
-        "editorWidget.background": theme.surface,
-        "editorWidget.border": theme.border,
-        "input.background": theme.background,
-        "input.foreground": theme.text,
-        "input.border": theme.border,
-        focusBorder: theme.accent,
-        "editorIndentGuide.background1": theme.border,
-      },
-    });
-    monaco.editor.setTheme("oxidoc");
+    applyMonacoTheme(monaco, theme);
     editor.current?.updateOptions({
       fontSize,
       lineHeight: Math.round(fontSize * 1.9),
@@ -150,6 +132,36 @@ export default function MarkdownEditor({
       scrollbar: { verticalScrollbarSize: 7, horizontalScrollbarSize: 7 },
     });
     editor.current = instance;
+    const stopLinkTools = attachMarkdownLinks(
+      monaco,
+      instance,
+      projectPath,
+      documentId,
+    );
+    const pasteImage = (event: ClipboardEvent) => {
+      if (event.target instanceof HTMLInputElement) return;
+      const item = Array.from(event.clipboardData?.items ?? []).find(
+        (item) => item.kind === "file" && item.type.startsWith("image/"),
+      );
+      if (!item) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (
+        imagePasting.current ||
+        instance.getOption(monaco.editor.EditorOption.readOnly)
+      )
+        return;
+      const file = item.getAsFile();
+      if (!file) return;
+      imagePasting.current = true;
+      void pasteEditorImage(instance, file, projectPath, documentId)
+        .catch((error) => useWorkspace.setState({ error: String(error) }))
+        .finally(() => {
+          imagePasting.current = false;
+        });
+    };
+    const pasteContainer = container.current;
+    pasteContainer.addEventListener("paste", pasteImage, true);
     const contextMenu = instance.onContextMenu((event) => {
       if (!callbacks.current.onContextMenu) return;
       const target = event.event.browserEvent.target;
@@ -199,9 +211,11 @@ export default function MarkdownEditor({
       cached.view = instance.saveViewState();
       stopLocalizing();
       changes.dispose();
+      stopLinkTools();
       cursor.dispose();
       scrolling.dispose();
       contextMenu.dispose();
+      pasteContainer.removeEventListener("paste", pasteImage, true);
       cancelAnimationFrame(frame.current);
       suppress.current = false;
       instance.dispose();

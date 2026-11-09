@@ -6,6 +6,9 @@ import {
   type Project,
   type Entry,
   type ProjectPatch,
+  type RecoveryDocument,
+  type Replacement,
+  type ReplaceResult,
 } from "./api";
 export interface Document {
   id: string;
@@ -13,6 +16,7 @@ export interface Document {
   folder: string;
   content: string;
   savedContent: string;
+  diskContent?: string | null;
 }
 export interface Layout {
   sidebar: boolean;
@@ -34,6 +38,19 @@ interface Session {
   layout: Layout;
 }
 interface State {
+  applyReplacements: (files: Replacement[]) => Promise<ReplaceResult[]>;
+  recoveryCandidates: RecoveryDocument[];
+  recoveryError: string;
+  recoveryReady: boolean;
+  decideRecovery: (restore: boolean) => Promise<void>;
+  flushRecovery: (clear?: boolean) => Promise<void>;
+  noticeExternal: (id: string, content: string | null) => void;
+  resolveExternal: (id: string, reload: boolean) => void;
+  closedEntries: Record<string, Entry[]>;
+  reopenClosed: () => Promise<void>;
+  clipboard: { root: string; entry: Entry; cut: boolean } | null;
+  copyEntry: (entry: Entry, cut: boolean) => void;
+  pasteEntry: (parent: string, name?: string) => Promise<boolean>;
   initialized: boolean;
   desktop: boolean;
   busy: boolean;
@@ -111,7 +128,7 @@ function parseSession(value: unknown, layout: Layout): Session {
   };
 }
 export const isDirty = (document: Document) =>
-  document.content !== document.savedContent;
+  document.content !== document.savedContent || document.diskContent === null;
 // Windows is the supported desktop target; use the same identity for links,
 // explorer paths, save targets and descendant operations.
 const pathKey = (path: string) => path.replace(/\\/g, "/").toLowerCase();
@@ -129,7 +146,256 @@ const documentFrom = (path: string, content: string): Document => ({
 });
 export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
   let persistQueue: Promise<void> = Promise.resolve();
+  let recoveryQueue: Promise<void> = Promise.resolve();
+  let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
+  const recoveryDocuments = (documents: Document[]) =>
+    documents.filter(isDirty).map((document) => ({
+      path: document.id,
+      content: document.content,
+      savedContent: document.savedContent,
+    }));
+  const queueRecovery = (root: string, documents: RecoveryDocument[]) => {
+    recoveryQueue = recoveryQueue
+      .catch(() => {})
+      .then(() => api.advanced?.saveRecovery(root, documents));
+    return recoveryQueue;
+  };
   const store = create<State>((set, get) => ({
+    applyReplacements: async (files) => {
+      const { project, desktop, busy, documents } = get();
+      if (!project || !desktop || busy || !api.advanced)
+        throw Error("현재 작업 공간에서 적용할 수 없습니다.");
+      if (
+        documents.some(
+          (document) =>
+            files.some((file) => sameDocumentPath(file.path, document.id)) &&
+            (isDirty(document) || document.diskContent !== undefined),
+        )
+      )
+        throw Error(
+          "변경 대상에 미저장 문서 또는 확인하지 않은 외부 변경이 있습니다.",
+        );
+      set({ busy: true, error: "" });
+      try {
+        const results = await api.advanced.applyReplace(project.path, files);
+        const changed = files.filter((file) =>
+          results.some(
+            (result) =>
+              sameDocumentPath(result.path, file.path) && result.error === null,
+          ),
+        );
+        set((state) => ({
+          documents: state.documents.map((document) => {
+            const file = changed.find((file) =>
+              sameDocumentPath(file.path, document.id),
+            );
+            return file
+              ? {
+                  ...document,
+                  content: file.after,
+                  savedContent: file.after,
+                  diskContent: undefined,
+                }
+              : document;
+          }),
+        }));
+        await get()
+          .flushRecovery()
+          .catch((error) =>
+            set({ error: `복구본 정리 실패: ${String(error)}` }),
+          );
+        await get().refresh();
+        return results;
+      } finally {
+        set({ busy: false });
+      }
+    },
+    recoveryCandidates: [],
+    recoveryError: "",
+    recoveryReady: false,
+    flushRecovery: async (clear = false) => {
+      if (recoveryTimer) clearTimeout(recoveryTimer);
+      recoveryTimer = undefined;
+      const state = get();
+      if (
+        !state.desktop ||
+        !state.project ||
+        !api.advanced ||
+        !state.recoveryReady ||
+        state.recoveryCandidates.length
+      )
+        return;
+      await queueRecovery(
+        state.project.path,
+        clear ? [] : recoveryDocuments(state.documents),
+      );
+    },
+    decideRecovery: async (restore) => {
+      const state = get();
+      if (state.busy || !state.project || !api.advanced) return;
+      const root = state.project.path;
+      set({ busy: true, error: "" });
+      try {
+        const documents = [...state.documents];
+        if (restore)
+          for (const candidate of state.recoveryCandidates) {
+            let disk: string | null = null;
+            try {
+              disk = await api.read(root, candidate.path);
+            } catch {
+              /* Recovery also supports deleted files. */
+            }
+            const recovered: Document = {
+              ...documentFrom(candidate.path, candidate.savedContent),
+              content: candidate.content,
+              ...(disk === candidate.content
+                ? { savedContent: disk }
+                : disk !== candidate.savedContent
+                  ? { diskContent: disk }
+                  : {}),
+            };
+            const index = documents.findIndex((document) =>
+              sameDocumentPath(document.id, candidate.path),
+            );
+            if (index < 0) documents.push(recovered);
+            else documents[index] = recovered;
+          }
+        await queueRecovery(root, recoveryDocuments(documents));
+        set({
+          documents,
+          activeId: restore
+            ? (state.recoveryCandidates[0]?.path ?? state.activeId)
+            : state.activeId,
+          recoveryCandidates: [],
+          recoveryError: "",
+          recoveryReady: true,
+        });
+      } catch (error) {
+        set({ error: `복구 데이터 처리 실패: ${String(error)}` });
+      } finally {
+        set({ busy: false });
+      }
+    },
+    noticeExternal: (id, diskContent) =>
+      set((state) => ({
+        documents: state.documents.map((document) => {
+          if (!sameDocumentPath(document.id, id)) return document;
+          if (diskContent === document.savedContent)
+            return { ...document, diskContent: undefined };
+          if (diskContent === document.content)
+            return {
+              ...document,
+              savedContent: diskContent,
+              diskContent: undefined,
+            };
+          return { ...document, diskContent };
+        }),
+      })),
+    resolveExternal: (id, reload) =>
+      set((state) => ({
+        documents: state.documents.map((document) => {
+          if (
+            !sameDocumentPath(document.id, id) ||
+            typeof document.diskContent !== "string"
+          )
+            return document;
+          return {
+            ...document,
+            content: reload ? document.diskContent : document.content,
+            savedContent: document.diskContent,
+            diskContent: undefined,
+          };
+        }),
+      })),
+    closedEntries: {},
+    reopenClosed: async () => {
+      const { project, busy, closedEntries } = get();
+      if (!project || busy) return;
+      const [entry, ...remaining] = closedEntries[project.path] ?? [];
+      if (!entry) return;
+      set((state) => ({
+        closedEntries: { ...state.closedEntries, [project.path]: remaining },
+      }));
+      await get().open(entry);
+    },
+    clipboard: null,
+    copyEntry: (entry, cut) => {
+      const { desktop, project, busy, tree } = get();
+      if (
+        !desktop ||
+        !project ||
+        busy ||
+        !Object.values(tree).some((entries) =>
+          entries.some((item) => sameDocumentPath(item.path, entry.path)),
+        )
+      )
+        return;
+      set({ clipboard: { root: project.path, entry, cut } });
+    },
+    pasteEntry: async (parent, name) => {
+      const { clipboard, project, desktop, busy, documents } = get();
+      if (
+        !clipboard ||
+        !desktop ||
+        busy ||
+        !project ||
+        project.path !== clipboard.root ||
+        !api.advanced
+      )
+        return false;
+      const path = clipboard.entry.path;
+      const destination = [parent, name ?? clipboard.entry.name]
+        .filter(Boolean)
+        .join("/");
+      if (documents.some((document) => under(document.id, destination))) {
+        set({
+          error: "대상 경로의 문서가 이미 열려 있습니다. 먼저 닫아 주세요.",
+        });
+        return false;
+      }
+      set({ busy: true, error: "" });
+      try {
+        const target = await api.advanced.transfer(
+          project.path,
+          path,
+          parent,
+          clipboard.cut,
+          name,
+        );
+        if (clipboard.cut) {
+          const remap = (id: string) =>
+            under(id, path) ? target.path + id.slice(path.length) : id;
+          set((state) => ({
+            clipboard: state.clipboard === clipboard ? null : state.clipboard,
+            documents: state.documents.map((document) =>
+              under(document.id, path)
+                ? {
+                    ...document,
+                    ...documentFrom(remap(document.id), document.content),
+                    savedContent: document.savedContent,
+                  }
+                : document,
+            ),
+            activeId: state.activeId ? remap(state.activeId) : null,
+            tree: Object.fromEntries(
+              Object.entries(state.tree).map(([key, entries]) => [
+                remap(key),
+                entries,
+              ]),
+            ),
+            generation: state.generation + 1,
+          }));
+        }
+        await get().refresh();
+        await get().expand(parent);
+        return true;
+      } catch (error) {
+        set({ error: String(error) });
+        return false;
+      } finally {
+        set({ busy: false });
+      }
+    },
     initialized: false,
     desktop: false,
     busy: false,
@@ -196,13 +462,21 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
           );
           set({ busy: false });
           if (project) {
-            if (project.status && project.status !== "available")
+            if (project.status && project.status !== "available") {
               set({
                 error:
                   "이전 프로젝트에 접근할 수 없습니다. 프로젝트에서 경로를 다시 연결해 주세요.",
                 layout: { ...get().layout, activity: "projects" },
               });
-            else await get().activate(project);
+              try {
+                const candidates = await api.advanced.loadRecovery(
+                  project.path,
+                );
+                if (candidates.length) await get().activate(project);
+              } catch {
+                await get().activate(project);
+              }
+            } else await get().activate(project);
           }
         }
       } catch (error) {
@@ -230,12 +504,30 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
       if (!get().desktop) return true;
       set({ busy: true, error: "" });
       try {
-        await get().persist();
-        const entries = await api.entries(project.path, "");
+        if (get().project?.path !== project.path || get().recoveryReady)
+          await get().persist();
+        let recoveryCandidates: RecoveryDocument[] = [];
+        let recoveryError = "";
+        try {
+          recoveryCandidates =
+            (await api.advanced?.loadRecovery(project.path)) ?? [];
+        } catch (error) {
+          recoveryError = String(error);
+        }
+        let entries: Entry[] = [];
+        let unavailable = "";
+        try {
+          entries = await api.entries(project.path, "");
+        } catch (error) {
+          if (!recoveryCandidates.length && !recoveryError) throw error;
+          unavailable = String(error);
+        }
         const saved =
-          get().sessions[project.path] ??
+          (unavailable ? undefined : get().sessions[project.path]) ??
           parseSession(
-            api.advanced ? await api.advanced.loadSession(project.path) : {},
+            api.advanced && !unavailable
+              ? await api.advanced.loadSession(project.path)
+              : {},
             { ...get().layout, activity: "files" },
           );
         const restored: Document[] = [];
@@ -249,8 +541,14 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
             missing.push(path);
           }
         }
+        await get().flushRecovery(true);
         set((state) => ({
-          project,
+          project: unavailable
+            ? { ...project, status: "unavailable" }
+            : project,
+          recoveryCandidates,
+          recoveryError,
+          recoveryReady: !recoveryError,
           tree: { "": entries },
           documents: restored,
           activeId:
@@ -262,11 +560,11 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
             null,
           layout: saved.layout,
           generation: state.generation + 1,
-          error: missing.length
-            ? `복원하지 못한 문서: ${missing.join(", ")}`
-            : "",
+          error:
+            unavailable ||
+            (missing.length ? `복원하지 못한 문서: ${missing.join(", ")}` : ""),
         }));
-        if (api.advanced)
+        if (api.advanced && !unavailable)
           try {
             const projects = await api.advanced.update(project.path, {
               touch: true,
@@ -345,6 +643,10 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
       const { project, documents, desktop, busy } = get();
       const document = documents.find((document) => document.id === id);
       if (!project || !document || busy) return false;
+      if (document.diskContent !== undefined) {
+        set({ error: "외부 변경을 먼저 확인해 주세요." });
+        return false;
+      }
       if (!isDirty(document)) return true;
       if (!desktop) {
         set({ error: "브라우저 샘플에서는 디스크에 저장할 수 없습니다." });
@@ -380,19 +682,26 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
       try {
         const path = await api.advanced.pickSave(project.path, id);
         if (!path) return false;
-        if (sameDocumentPath(path, id)) {
+        const samePath = sameDocumentPath(path, id);
+        if (samePath && document.diskContent !== null) {
           set({ busy: false });
           return await get().save(id);
         }
         if (
           get().documents.some(
-            (item) => sameDocumentPath(item.id, path) && isDirty(item),
+            (item) =>
+              item.id !== id &&
+              sameDocumentPath(item.id, path) &&
+              isDirty(item),
           )
         )
           throw new Error(
             "대상 문서에 미저장 변경이 있습니다. 먼저 저장하거나 닫아 주세요.",
           );
-        const expected = await api.advanced.target(project.path, path);
+        const expected =
+          samePath && document.diskContent === null
+            ? null
+            : await api.advanced.target(project.path, path);
         await api.advanced.saveAs(
           project.path,
           path,
@@ -401,7 +710,9 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
         );
         set((state) => ({
           documents: state.documents
-            .filter((item) => !sameDocumentPath(item.id, path))
+            .filter(
+              (item) => item.id === id || !sameDocumentPath(item.id, path),
+            )
             .map((item) =>
               item.id === id
                 ? {
@@ -429,8 +740,22 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
         const documents = state.documents.filter(
           (document) => document.id !== id,
         );
+        const closed = state.documents[index];
+        const root = state.project?.path;
         return {
           documents,
+          closedEntries:
+            root && closed
+              ? {
+                  ...state.closedEntries,
+                  [root]: [
+                    { name: closed.name, path: closed.id, isDirectory: false },
+                    ...(state.closedEntries[root] ?? []).filter(
+                      (entry) => !sameDocumentPath(entry.path, id),
+                    ),
+                  ].slice(0, 20),
+                }
+              : state.closedEntries,
           activeId:
             state.activeId === id
               ? (documents[Math.max(0, index - 1)]?.id ?? null)
@@ -649,24 +974,68 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
       if (get().busy || !get().desktop || !api.advanced) return;
       set({ busy: true, error: "" });
       let replacement: Project | undefined;
+      const wasActive = get().project?.path === path;
+      const discardedLocal =
+        wasActive &&
+        get().documents.some(isDirty) &&
+        !get().recoveryCandidates.length &&
+        !get().recoveryError;
       try {
         await get().persist();
+        await get().flushRecovery();
         const old = get().projects;
         const projects = await api.advanced.relocate(path);
         if (!projects) return;
         replacement =
           projects[old.findIndex((project) => project.path === path)];
-        set({ projects });
+        set({
+          projects,
+          ...(wasActive && replacement
+            ? { project: replacement, recoveryReady: false }
+            : {}),
+        });
+        if (replacement && discardedLocal)
+          await queueRecovery(replacement.path, []);
       } catch (error) {
         set({ error: String(error) });
       } finally {
         set({ busy: false });
       }
-      if (replacement && get().project?.path === path)
-        await get().activate(replacement);
+      if (replacement && wasActive) await get().activate(replacement);
     },
   }));
   if (api.advanced) {
+    store.subscribe((state, previous) => {
+      if (state.project?.path !== previous.project?.path) {
+        if (recoveryTimer) clearTimeout(recoveryTimer);
+        recoveryTimer = undefined;
+        return;
+      }
+      if (
+        state.documents === previous.documents &&
+        state.recoveryReady === previous.recoveryReady &&
+        state.recoveryCandidates === previous.recoveryCandidates
+      )
+        return;
+      if (
+        !state.desktop ||
+        !state.project ||
+        !state.recoveryReady ||
+        state.recoveryCandidates.length
+      )
+        return;
+      if (recoveryTimer) clearTimeout(recoveryTimer);
+      recoveryTimer = setTimeout(() => {
+        void store
+          .getState()
+          .flushRecovery()
+          .catch((error) =>
+            store.setState({
+              error: `미저장 복구본 저장 실패: ${String(error)}`,
+            }),
+          );
+      }, 750);
+    });
     let timer: ReturnType<typeof setTimeout> | undefined;
     let previous = "";
     store.subscribe((state) => {

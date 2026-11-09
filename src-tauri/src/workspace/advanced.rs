@@ -38,7 +38,7 @@ pub(super) fn persist_projects(app: &AppHandle, all: &[Project]) -> Result<(), S
         all,
     )
 }
-fn valid_name(name: &str) -> Result<(), String> {
+pub(super) fn valid_name(name: &str) -> Result<(), String> {
     let stem = name.split('.').next().unwrap_or("").to_uppercase();
     if name.is_empty()
         || name.trim() != name
@@ -73,7 +73,7 @@ fn new_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
     }
     Ok(parent.join(name))
 }
-fn relative_entry(root: &Path, path: &Path) -> Result<Entry, String> {
+pub(super) fn relative_entry(root: &Path, path: &Path) -> Result<Entry, String> {
     Ok(Entry {
         path: path
             .strip_prefix(root)
@@ -118,7 +118,7 @@ fn rename_at(root: &Path, path: &str, name: &str) -> Result<Entry, String> {
     relative_entry(root, &target)
 }
 #[cfg(windows)]
-fn move_without_overwrite(source: &Path, target: &Path) -> Result<(), String> {
+pub(super) fn move_without_overwrite(source: &Path, target: &Path) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
     let source: Vec<u16> = source.as_os_str().encode_wide().chain(Some(0)).collect();
     let target: Vec<u16> = target.as_os_str().encode_wide().chain(Some(0)).collect();
@@ -135,7 +135,7 @@ fn move_without_overwrite(source: &Path, target: &Path) -> Result<(), String> {
     Ok(())
 }
 #[cfg(not(windows))]
-fn move_without_overwrite(source: &Path, target: &Path) -> Result<(), String> {
+pub(super) fn move_without_overwrite(source: &Path, target: &Path) -> Result<(), String> {
     fs::hard_link(source, target).map_err(|e| format!("파일 이동 실패: {e}"))?;
     fs::remove_file(source).map_err(|e| format!("대상 복사본 생성 후 원본 제거 실패: {e}"))
 }
@@ -208,7 +208,7 @@ pub async fn pick_save_path(
 ) -> Result<Option<String>, String> {
     io(move || {
         let root = authorized_root(&app, &root)?;
-        let source = contained_path(&root, &path)?;
+        let source = save_dialog_source(&root, &path)?;
         let mut dialog = app
             .dialog()
             .file()
@@ -237,6 +237,28 @@ pub async fn pick_save_path(
         Ok(Some(entry.path))
     })
     .await
+}
+fn save_dialog_source(root: &Path, path: &str) -> Result<PathBuf, String> {
+    let path = Path::new(path);
+    if path
+        .components()
+        .any(|part| !matches!(part, Component::Normal(_) | Component::CurDir))
+    {
+        return Err("프로젝트 외부 경로입니다.".into());
+    }
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("파일 이름 오류")?;
+    valid_name(name)?;
+    let parent = contained_path(
+        root,
+        path.parent().and_then(|path| path.to_str()).unwrap_or(""),
+    )
+    .ok()
+    .filter(|parent| parent.is_dir())
+    .unwrap_or_else(|| root.to_path_buf());
+    Ok(parent.join(name))
 }
 fn save_as_at(
     root: &Path,
@@ -409,7 +431,18 @@ pub async fn relocate_project(
         let previous_new = store.get(&new);
         let previous_old = store.get(&path);
         let previous_app = store.get("app");
-        persist_projects(&app, &all)?;
+        let recovery_directory = app
+            .path()
+            .app_data_dir()
+            .map_err(|error| error.to_string())?
+            .join("recovery");
+        let copied_recovery = recovery::prepare_relink(&recovery_directory, &path, &new)?;
+        if let Err(error) = persist_projects(&app, &all) {
+            if copied_recovery {
+                recovery::remove_relinked(&recovery_directory, &new);
+            }
+            return Err(error);
+        }
         if let Some(session) = store.get(&path) {
             store.set(&new, session);
             if path != new {
@@ -423,6 +456,9 @@ pub async fn relocate_project(
             store.set("app", state);
         }
         if let Err(error) = store.save() {
+            if copied_recovery {
+                recovery::remove_relinked(&recovery_directory, &new);
+            }
             for (key, value) in [
                 (&new, previous_new),
                 (&path, previous_old),
@@ -437,6 +473,9 @@ pub async fn relocate_project(
             persist_projects(&app, &original)
                 .map_err(|rollback| format!("{error}; 프로젝트 복구 실패: {rollback}"))?;
             return Err(error.to_string());
+        }
+        if copied_recovery {
+            recovery::remove_relinked(&recovery_directory, &path);
         }
         Ok(Some(all.into_iter().map(with_status).collect()))
     })
@@ -804,6 +843,13 @@ mod tests {
     }
     #[test]
     fn create_rename_and_save_as_do_not_overwrite() {
+        let missing = tempfile::tempdir().unwrap();
+        let missing_root = fs::canonicalize(missing.path()).unwrap();
+        assert_eq!(
+            save_dialog_source(&missing_root, "deleted/a.md").unwrap(),
+            missing_root.join("a.md")
+        );
+        assert!(save_dialog_source(&missing_root, "../escape.md").is_err());
         let dir = tempfile::tempdir().unwrap();
         let root = fs::canonicalize(dir.path()).unwrap();
         create_at(&root, "", "notes", true).unwrap();

@@ -7,7 +7,12 @@ interface MarkdownNode {
   value?: string;
   alt?: string;
   children?: MarkdownNode[];
-  position?: { start: { line: number } };
+  url?: string;
+  identifier?: string;
+  position?: {
+    start: { line: number; column?: number };
+    end?: { line: number; column: number };
+  };
 }
 export interface Heading {
   title: string;
@@ -16,6 +21,83 @@ export interface Heading {
   id: string;
 }
 const parser = unified().use(remarkParse).use(remarkGfm);
+export interface DocumentLink {
+  href: string;
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+}
+export function markdownCodeRegions(content: string) {
+  const regions: {
+    startLine: number;
+    startColumn: number;
+    endLine: number;
+    endColumn: number;
+  }[] = [];
+  function visit(node: MarkdownNode) {
+    if (
+      (node.type === "code" || node.type === "inlineCode") &&
+      node.position?.end
+    )
+      regions.push({
+        startLine: node.position.start.line,
+        startColumn: node.position.start.column ?? 1,
+        endLine: node.position.end.line,
+        endColumn: node.position.end.column,
+      });
+    else node.children?.forEach(visit);
+  }
+  visit(parser.parse(content) as MarkdownNode);
+  return regions;
+}
+export function documentLinks(content: string): {
+  links: DocumentLink[];
+  truncated: boolean;
+} {
+  const root = parser.parse(content) as MarkdownNode;
+  const definitions = new Map<string, string>();
+  const links: DocumentLink[] = [];
+  let truncated = false;
+  function definitionsIn(node: MarkdownNode) {
+    if (
+      node.type === "definition" &&
+      node.identifier &&
+      node.url &&
+      !definitions.has(node.identifier)
+    )
+      definitions.set(node.identifier, node.url);
+    node.children?.forEach(definitionsIn);
+  }
+  definitionsIn(root);
+  function visit(node: MarkdownNode) {
+    if (
+      ["link", "image", "linkReference", "imageReference"].includes(
+        node.type,
+      ) &&
+      node.position
+    ) {
+      const href = node.url ?? definitions.get(node.identifier ?? "");
+      if (href) {
+        if (links.length >= 500) {
+          truncated = true;
+          return;
+        }
+        links.push({
+          href,
+          line: node.position.start.line,
+          column: node.position.start.column ?? 1,
+          endLine: node.position.end?.line ?? node.position.start.line,
+          endColumn:
+            node.position.end?.column ?? (node.position.start.column ?? 1) + 1,
+        });
+      }
+    }
+    node.children?.forEach(visit);
+  }
+  visit(root);
+  return { links, truncated };
+}
 const plain = (node: MarkdownNode): string =>
   node.value ?? node.alt ?? node.children?.map(plain).join("") ?? "";
 export function headings(content: string): Heading[] {

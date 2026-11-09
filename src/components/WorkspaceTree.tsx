@@ -25,6 +25,14 @@ export default function WorkspaceTree({
   const open = useWorkspace((state) => state.open);
   const expand = useWorkspace((state) => state.expand);
   const desktop = useWorkspace((state) => state.desktop);
+  const clipboard = useWorkspace((state) => state.clipboard);
+  const projectPath = useWorkspace((state) => state.project?.path);
+  const cutClass = (entry: Entry) =>
+    clipboard?.cut &&
+    clipboard.root === projectPath &&
+    clipboard.entry.path === entry.path
+      ? styles.cutEntry
+      : "";
   function manage(entry: Entry, event: React.MouseEvent<HTMLElement>) {
     event.preventDefault();
     event.stopPropagation();
@@ -64,6 +72,8 @@ export default function WorkspaceTree({
       >
         <TreeDropTarget
           folderPath={entry.path}
+          data-tree-path={entry.path}
+          className={cutClass(entry)}
           style={{ paddingLeft: 17 + depth * 14 }}
           onContextMenu={(event) => manage(entry, event)}
         >
@@ -90,7 +100,8 @@ export default function WorkspaceTree({
       </details>
     ) : (
       <div
-        className={styles.treeItem}
+        className={`${styles.treeItem} ${cutClass(entry)}`}
+        data-tree-path={entry.path}
         key={entry.path}
         onContextMenu={(event) => manage(entry, event)}
       >

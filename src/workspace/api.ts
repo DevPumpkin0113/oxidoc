@@ -45,6 +45,26 @@ export interface ProjectPatch {
   touch?: boolean;
 }
 export interface AdvancedApi {
+  pasteImage: (root: string, data: string) => Promise<Entry>;
+  previewReplace: (
+    root: string,
+    query: string,
+    replacement: string,
+    sensitive: boolean,
+  ) => Promise<{ files: Replacement[]; truncated: boolean; skipped: number }>;
+  applyReplace: (
+    root: string,
+    files: Replacement[],
+  ) => Promise<ReplaceResult[]>;
+  index: (
+    root: string,
+  ) => Promise<{ entries: Entry[]; truncated: boolean; skipped: number }>;
+  loadRecovery: (root: string) => Promise<RecoveryDocument[]>;
+  saveRecovery: (root: string, documents: RecoveryDocument[]) => Promise<void>;
+  probe: (
+    root: string,
+    paths: string[],
+  ) => Promise<{ path: string; stamp: string | null }[]>;
   create: (
     root: string,
     parent: string,
@@ -53,6 +73,13 @@ export interface AdvancedApi {
   ) => Promise<Entry>;
   rename: (root: string, path: string, name: string) => Promise<Entry>;
   moveFile: (root: string, path: string, parent: string) => Promise<Entry>;
+  transfer: (
+    root: string,
+    path: string,
+    parent: string,
+    cut: boolean,
+    name?: string,
+  ) => Promise<Entry>;
   entryPath: (root: string, path: string) => Promise<string>;
   explorer: (root: string, path: string) => Promise<void>;
   trash: (root: string, path: string) => Promise<void>;
@@ -83,14 +110,40 @@ export interface AdvancedApi {
   image: (root: string, path: string) => Promise<string>;
   external: (url: string) => Promise<void>;
 }
+export interface RecoveryDocument {
+  path: string;
+  content: string;
+  savedContent: string;
+}
+export interface Replacement {
+  path: string;
+  before: string;
+  after: string;
+  count: number;
+}
+export interface ReplaceResult {
+  path: string;
+  error: string | null;
+}
 
 export const workspaceApi: WorkspaceApi = {
   advanced: {
+    pasteImage: (root, data) => invoke("save_pasted_image", { root, data }),
+    previewReplace: (root, query, replacement, sensitive) =>
+      invoke("preview_replace", { root, query, replacement, sensitive }),
+    applyReplace: (root, files) => invoke("apply_replace", { root, files }),
+    index: (root) => invoke("index_files", { root }),
+    loadRecovery: (root) => invoke("load_recovery", { root }),
+    saveRecovery: (root, documents) =>
+      invoke("save_recovery", { root, documents }),
+    probe: (root, paths) => invoke("probe_entries", { root, paths }),
     create: (root, parent, name, isDirectory) =>
       invoke("create_entry", { root, parent, name, isDirectory }),
     rename: (root, path, name) => invoke("rename_entry", { root, path, name }),
     moveFile: (root, path, parent) =>
       invoke("move_file", { root, path, parent }),
+    transfer: (root, path, parent, cut, name) =>
+      invoke("transfer_entry", { root, path, parent, cut, name: name ?? null }),
     entryPath: (root, path) => invoke("entry_path", { root, path }),
     explorer: (root, path) => invoke("open_in_explorer", { root, path }),
     trash: (root, path) => invoke("delete_entry", { root, path }),

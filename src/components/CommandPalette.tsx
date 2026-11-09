@@ -12,10 +12,18 @@ export default function CommandPalette({
   commands,
   onClose,
   suspended = false,
+  title = t("명령 팔레트"),
+  inputLabel = t("명령 또는 프로젝트 검색"),
+  placeholder = t("명령, 문서 또는 프로젝트 검색…"),
+  footer = t("↑ ↓ 선택 · Enter 실행 · Esc 닫기"),
 }: {
   commands: PaletteCommand[];
   onClose: () => void;
   suspended?: boolean;
+  title?: string;
+  inputLabel?: string;
+  placeholder?: string;
+  footer?: string;
 }) {
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
@@ -66,7 +74,7 @@ export default function CommandPalette({
         className={styles.commandPalette}
         role="dialog"
         aria-modal="true"
-        aria-label={t("명령 팔레트")}
+        aria-label={title}
         onKeyDown={(event) => {
           if (event.key === "Tab") {
             event.preventDefault();
@@ -100,7 +108,7 @@ export default function CommandPalette({
           <input
             ref={input}
             role="combobox"
-            aria-label={t("명령 또는 프로젝트 검색")}
+            aria-label={inputLabel}
             aria-expanded="true"
             aria-controls="palette-options"
             aria-activedescendant={
@@ -111,14 +119,14 @@ export default function CommandPalette({
               setQuery(event.target.value);
               setIndex(0);
             }}
-            placeholder={t("명령, 문서 또는 프로젝트 검색…")}
+            placeholder={placeholder}
           />
           <button
             ref={closeButton}
             type="button"
             className={styles.paletteClose}
-            aria-label={t("명령 팔레트 닫기")}
-            title={`${t("명령 팔레트 닫기")} (Esc)`}
+            aria-label={t("{0} 닫기", title)}
+            title={`${t("{0} 닫기", title)} (Esc)`}
             onClick={onClose}
           >
             <Icon name="close" size={16} />
@@ -143,7 +151,7 @@ export default function CommandPalette({
           ))}
           {!filtered.length ? <p>{t("일치하는 명령이 없습니다.")}</p> : null}
         </div>
-        <footer>{t("↑ ↓ 선택 · Enter 실행 · Esc 닫기")}</footer>
+        <footer>{footer}</footer>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { useWorkspace } from "./workspace/store";
 import { useSettings } from "./settings/store";
+import packageInfo from "../package.json";
 
 const nativeWindow = vi.hoisted(() => ({
   minimize: vi.fn(),
@@ -62,6 +63,175 @@ beforeEach(() => {
   nativeWindow.minimize.mockResolvedValue(undefined);
   nativeWindow.toggleMaximize.mockResolvedValue(undefined);
   nativeWindow.close.mockResolvedValue(undefined);
+});
+
+it("Ctrl P 파일 검색·키보드 열기에서 기존 탭 재사용", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  const target = useWorkspace.getState().documents[1];
+  fireEvent.keyDown(window, { key: "p", ctrlKey: true });
+  const input = await screen.findByRole("combobox", {
+    name: "파일명 또는 경로 검색",
+  });
+  await user.type(input, target.name);
+  await user.keyboard("{Enter}");
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  expect(useWorkspace.getState().activeId).toBe(target.id);
+  expect(useWorkspace.getState().documents).toHaveLength(2);
+});
+
+it("외부 변경 안내에서 재읽기 및 미저장 편집 유지 선택", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  const id = useWorkspace.getState().activeId!;
+  act(() => useWorkspace.getState().noticeExternal(id, "external original"));
+  await user.click(screen.getByRole("button", { name: "다시 읽기" }));
+  expect(
+    useWorkspace.getState().documents.find((document) => document.id === id)
+      ?.content,
+  ).toBe("external original");
+  act(() => {
+    useWorkspace.getState().edit(id, "my local edit");
+    useWorkspace.getState().noticeExternal(id, "external next");
+  });
+  await user.click(screen.getByRole("button", { name: "다시 읽기" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", {
+      name: "취소",
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "내 편집 유지" }));
+  expect(
+    useWorkspace.getState().documents.find((document) => document.id === id),
+  ).toMatchObject({
+    content: "my local edit",
+    savedContent: "external next",
+    diskContent: undefined,
+  });
+});
+
+it("닫은 탭 단축키 복원 및 문서 위치의 상위 폴더 펼침", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  const document = useWorkspace.getState().documents[1];
+  await user.click(
+    screen.getByRole("button", { name: `${document.name} 탭 닫기` }),
+  );
+  expect(useWorkspace.getState().documents).toHaveLength(1);
+  fireEvent.keyDown(window, { key: "T", ctrlKey: true, shiftKey: true });
+  await waitFor(() =>
+    expect(useWorkspace.getState().documents).toHaveLength(2),
+  );
+  fireEvent.contextMenu(screen.getByRole("tab", { name: document.name }), {
+    clientX: 100,
+    clientY: 30,
+  });
+  await user.click(
+    screen.getByRole("menuitem", { name: "탐색기에서 위치 표시" }),
+  );
+  const folder = within(screen.getByRole("complementary"))
+    .getByText(document.folder)
+    .closest("details")!;
+  await waitFor(() => expect(folder).toHaveAttribute("open"));
+  expect(screen.getByRole("button", { name: document.name })).toHaveFocus();
+});
+
+it("다른 탭 닫기 취소 시 전체 유지, 저장 안 함 선택 시 대상만 닫기", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  const initial = useWorkspace.getState().documents;
+  act(() => useWorkspace.getState().edit(initial[1].id, "unsaved other"));
+  const tab = screen.getByRole("tab", { name: initial[0].name });
+  fireEvent.contextMenu(tab, { clientX: 200, clientY: 30 });
+  await user.click(screen.getByRole("menuitem", { name: "다른 탭 닫기" }));
+  await user.click(await screen.findByRole("button", { name: "취소" }));
+  expect(useWorkspace.getState().documents).toHaveLength(2);
+  fireEvent.contextMenu(tab, { clientX: 200, clientY: 30 });
+  await user.click(screen.getByRole("menuitem", { name: "다른 탭 닫기" }));
+  await user.click(await screen.findByRole("button", { name: "저장 안 함" }));
+  expect(
+    useWorkspace.getState().documents.map((document) => document.id),
+  ).toEqual([initial[0].id]);
+});
+
+it("일괄 닫기 저장 중 실패 시 문서를 닫지 않고 버퍼 보존", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  const documents = useWorkspace.getState().documents;
+  const save = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+  act(() => {
+    documents.forEach((document) =>
+      useWorkspace.getState().edit(document.id, "unsaved"),
+    );
+    useWorkspace.setState({ save });
+  });
+  fireEvent.contextMenu(screen.getByRole("tab", { name: documents[0].name }), {
+    clientX: 100,
+    clientY: 30,
+  });
+  await user.click(screen.getByRole("menuitem", { name: "모든 탭 닫기" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", {
+      name: "저장",
+    }),
+  );
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+  expect(useWorkspace.getState().documents).toHaveLength(2);
+  expect(useWorkspace.getState().documents[1].content).toBe("unsaved");
+});
+
+it("탐색기 복사 단축키·폴더 붙여넣기, 입력란 텍스트 단축키 분리", async () => {
+  const user = userEvent.setup();
+  vi.mocked(isTauri).mockReturnValue(true);
+  const file = { name: "a.md", path: "a.md", isDirectory: false };
+  const folder = { name: "docs", path: "docs", isDirectory: true };
+  useWorkspace.setState({
+    initialized: true,
+    desktop: true,
+    project: { name: "Notes", path: "C:/notes" },
+    tree: { "": [file, folder], docs: [] },
+  });
+  vi.mocked(invoke).mockImplementation(<T,>(command: string, args?: unknown) =>
+    Promise.resolve(
+      (command === "transfer_entry"
+        ? { ...file, path: "docs/a.md" }
+        : command === "list_entries"
+          ? (args as { path: string }).path === ""
+            ? [file, folder]
+            : []
+          : undefined) as T,
+    ),
+  );
+  render(<App />);
+  const source = screen.getByRole("button", { name: "a.md" });
+  source.focus();
+  fireEvent.keyDown(source, { key: "c", ctrlKey: true });
+  expect(useWorkspace.getState().clipboard).toMatchObject({
+    entry: file,
+    cut: false,
+  });
+  fireEvent.contextMenu(screen.getByText("docs"), {
+    clientX: 30,
+    clientY: 150,
+  });
+  await user.click(screen.getByRole("menuitem", { name: /붙여넣기/ }));
+  await waitFor(() =>
+    expect(invoke).toHaveBeenCalledWith("transfer_entry", {
+      root: "C:/notes",
+      path: "a.md",
+      parent: "docs",
+      cut: false,
+      name: null,
+    }),
+  );
+  expect(useWorkspace.getState().clipboard?.cut).toBe(false);
+  await user.click(screen.getByRole("button", { name: "검색" }));
+  const query = screen.getByRole("textbox", { name: "프로젝트 전체 검색" });
+  const previous = useWorkspace.getState().clipboard;
+  fireEvent.keyDown(query, { key: "x", ctrlKey: true });
+  expect(useWorkspace.getState().clipboard).toBe(previous);
 });
 
 it("Monaco 찾기 입력 우클릭 붙여넣기는 본문 대신 검색어만 변경", async () => {
@@ -233,7 +403,7 @@ describe("작업 공간 UI", () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByRole("textbox", { name: "Markdown 편집기" });
-    await user.keyboard("{Control>}p{/Control}");
+    await user.keyboard("{Control>}{Shift>}p{/Shift}{/Control}");
     const input = screen.getByRole("combobox") as HTMLInputElement;
     await user.type(input, "abc");
     input.setSelectionRange(0, 3);
@@ -411,7 +581,7 @@ describe("작업 공간 UI", () => {
     expect(
       screen.getByRole("button", { name: "다운로드 및 설치" }),
     ).toBeDisabled();
-    expect(screen.getByText("v0.1.0")).toBeInTheDocument();
+    expect(screen.getByText(`v${packageInfo.version}`)).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("색상 모드"), "dark");
     await user.click(screen.getByRole("button", { name: "Dracula" }));
     expect(document.documentElement.dataset.theme).toBe("dracula");

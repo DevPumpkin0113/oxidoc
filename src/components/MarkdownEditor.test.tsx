@@ -17,6 +17,10 @@ const monacoMock = vi.hoisted(() => {
       isDisposed: () => false,
       dispose: vi.fn(),
       listeners,
+      onDidChangeContent: (listener: () => void) => {
+        listeners.add(listener);
+        return { dispose: () => listeners.delete(listener) };
+      },
     };
   });
   const disposable = () => ({ dispose: vi.fn() });
@@ -47,7 +51,13 @@ vi.mock("monaco-editor/editor/editor.api.js", () => ({
     ...monacoMock,
     defineTheme: vi.fn(),
     setTheme: vi.fn(),
+    setModelMarkers: vi.fn(),
   },
+  languages: {
+    registerCompletionItemProvider: () => ({ dispose: vi.fn() }),
+    CompletionItemKind: { File: 1, Reference: 2 },
+  },
+  MarkerSeverity: { Warning: 4, Info: 2 },
 }));
 vi.mock("monaco-editor/languages/definitions/markdown/register.js", () => ({}));
 vi.mock(
@@ -57,6 +67,14 @@ vi.mock(
 vi.mock("monaco-editor/editor/editor.worker.js?worker", () => ({
   default: class {},
 }));
+vi.mock(
+  "monaco-editor/editor/contrib/suggest/browser/suggestController.js",
+  () => ({}),
+);
+vi.mock(
+  "monaco-editor/editor/contrib/hover/browser/hoverContribution.js",
+  () => ({}),
+);
 vi.mock("../settings/monacoLocale", () => ({
   setMonacoLanguage: vi.fn(),
   localizeFindWidget: () => vi.fn(),

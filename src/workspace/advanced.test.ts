@@ -7,8 +7,20 @@ function fixture() {
   const other = { name: "Other", path: "C:/other" };
   const entry = { name: "a.md", path: "dir/a.md", isDirectory: false };
   const advanced: AdvancedApi = {
+    pasteImage: vi.fn(),
+    previewReplace: vi
+      .fn()
+      .mockResolvedValue({ files: [], truncated: false, skipped: 0 }),
+    applyReplace: vi.fn().mockResolvedValue([]),
+    index: vi
+      .fn()
+      .mockResolvedValue({ entries: [], truncated: false, skipped: 0 }),
+    loadRecovery: vi.fn().mockResolvedValue([]),
+    saveRecovery: vi.fn().mockResolvedValue(undefined),
+    probe: vi.fn().mockResolvedValue([]),
     create: vi.fn().mockResolvedValue(entry),
     moveFile: vi.fn().mockResolvedValue({ ...entry, path: "target/a.md" }),
+    transfer: vi.fn().mockResolvedValue({ ...entry, path: "target/a.md" }),
     entryPath: vi.fn().mockResolvedValue("C:/notes/a.md"),
     explorer: vi.fn().mockResolvedValue(undefined),
     rename: vi
@@ -48,6 +60,190 @@ function fixture() {
   };
 }
 describe("프로젝트·문서 상태 보존", () => {
+  it("프로젝트 바꾸기는 열린 미저장 문서 차단 및 성공 파일만 열린 모델 갱신", async () => {
+    const { store, project, entry, advanced } = fixture();
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    await store.getState().open(entry);
+    const files = [
+      { path: entry.path, before: "# Original", after: "# Replaced", count: 1 },
+    ];
+    store.getState().edit(entry.path, "unsaved");
+    await expect(store.getState().applyReplacements(files)).rejects.toThrow(
+      "미저장",
+    );
+    expect(advanced.applyReplace).not.toHaveBeenCalled();
+    store.getState().edit(entry.path, "# Original");
+    vi.mocked(advanced.applyReplace).mockResolvedValueOnce([
+      { path: entry.path, error: null },
+    ]);
+    await store.getState().applyReplacements(files);
+    expect(store.getState().documents[0]).toMatchObject({
+      content: "# Replaced",
+      savedContent: "# Replaced",
+    });
+  });
+  it("원본 프로젝트 폴더가 없어도 AppData 후보 복구 및 버퍼 보존", async () => {
+    const { store, project, api, advanced } = fixture();
+    await store.getState().initialize(true);
+    vi.mocked(api.entries).mockRejectedValueOnce(Error("root missing"));
+    vi.mocked(advanced.loadRecovery).mockResolvedValueOnce([
+      { path: "a.md", content: "rescued", savedContent: "before" },
+    ]);
+    expect(await store.getState().activate(project)).toBe(true);
+    expect(store.getState().project?.status).toBe("unavailable");
+    vi.mocked(api.read).mockRejectedValueOnce(Error("root missing"));
+    await store.getState().decideRecovery(true);
+    expect(store.getState().documents[0]).toMatchObject({
+      content: "rescued",
+      diskContent: null,
+    });
+  });
+  it("복구 후보가 있는 프로젝트 재연결 후 이전 등록 경로에 쓰지 않고 새 후보 유지", async () => {
+    const { store, project, other, advanced } = fixture();
+    let registeredRoot = project.path;
+    const relocated = { ...project, path: "C:/relocated" };
+    vi.mocked(advanced.loadRecovery).mockResolvedValue([
+      { path: "a.md", content: "backup", savedContent: "before" },
+    ]);
+    vi.mocked(advanced.saveRecovery).mockImplementation(async (root) => {
+      if (root !== registeredRoot) throw Error("unregistered root");
+    });
+    vi.mocked(advanced.relocate).mockImplementation(async () => {
+      registeredRoot = relocated.path;
+      return [relocated, other];
+    });
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    vi.mocked(advanced.update).mockResolvedValue([relocated, other]);
+    await store.getState().relocateProject(project.path);
+    expect(store.getState().project?.path).toBe(relocated.path);
+    expect(store.getState().recoveryCandidates[0].content).toBe("backup");
+    expect(store.getState().error).toBe("");
+  });
+  it("미저장 임시본은 원본 쓰기 없이 재시작 복구, 외부 변경 충돌 보존 및 폐기 정리", async () => {
+    const { store, project, entry, api, advanced } = fixture();
+    let backups: { path: string; content: string; savedContent: string }[] = [];
+    vi.mocked(advanced.saveRecovery).mockImplementation(
+      async (_root, documents) => {
+        backups = structuredClone(documents);
+      },
+    );
+    vi.mocked(advanced.loadRecovery).mockImplementation(async () =>
+      structuredClone(backups),
+    );
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    await store.getState().open(entry);
+    store.getState().edit(entry.path, "crash buffer");
+    await vi.advanceTimersByTimeAsync(750);
+    expect(backups[0].content).toBe("crash buffer");
+    expect(api.save).not.toHaveBeenCalled();
+    const restarted = createWorkspaceStore(api);
+    await restarted.getState().initialize(true);
+    await restarted.getState().activate(project);
+    expect(restarted.getState().recoveryCandidates[0].content).toBe(
+      "crash buffer",
+    );
+    vi.mocked(api.read).mockResolvedValueOnce("externally changed");
+    await restarted.getState().decideRecovery(true);
+    expect(restarted.getState().documents[0]).toMatchObject({
+      content: "crash buffer",
+      savedContent: "# Original",
+      diskContent: "externally changed",
+    });
+    expect(await restarted.getState().save(entry.path)).toBe(false);
+    restarted.getState().close(entry.path);
+    await vi.advanceTimersByTimeAsync(750);
+    expect(backups).toEqual([]);
+  });
+  it("복구본 읽기 실패 시 자동 덮어쓰기 금지·명시적 폐기 후 정상 편집", async () => {
+    const { store, project, advanced } = fixture();
+    vi.mocked(advanced.loadRecovery).mockRejectedValueOnce(
+      Error("invalid recovery"),
+    );
+    await store.getState().initialize(true);
+    expect(await store.getState().activate(project)).toBe(true);
+    expect(store.getState().recoveryReady).toBe(false);
+    expect(store.getState().recoveryError).toContain("invalid recovery");
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(advanced.saveRecovery).not.toHaveBeenCalled();
+    await store.getState().decideRecovery(false);
+    expect(advanced.saveRecovery).toHaveBeenCalledWith(project.path, []);
+    expect(store.getState().recoveryReady).toBe(true);
+  });
+  it("외부 삭제 문서를 기본 이름으로 저장하면 덮어쓰기 없이 재생성하고 탭 유지", async () => {
+    const { store, project, entry, advanced } = fixture();
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    await store.getState().open(entry);
+    store.getState().edit(entry.path, "recover my buffer");
+    store.getState().noticeExternal(entry.path, null);
+    vi.mocked(advanced.pickSave).mockResolvedValueOnce(entry.path);
+    expect(await store.getState().saveAs(entry.path)).toBe(true);
+    expect(advanced.saveAs).toHaveBeenCalledWith(
+      project.path,
+      entry.path,
+      "recover my buffer",
+      null,
+    );
+    expect(store.getState().documents).toHaveLength(1);
+    expect(store.getState().documents[0]).toMatchObject({
+      id: entry.path,
+      content: "recover my buffer",
+      savedContent: "recover my buffer",
+    });
+    expect(isDirty(store.getState().documents[0])).toBe(false);
+  });
+  it("닫은 탭 복원은 디스크 원본 재열기·프로젝트별 분리·중복 방지", async () => {
+    const { store, project, other, entry, api } = fixture();
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    await store.getState().open(entry);
+    store.getState().edit(entry.path, "discarded");
+    store.getState().close(entry.path);
+    await store.getState().activate(other);
+    await store.getState().reopenClosed();
+    expect(store.getState().documents).toHaveLength(0);
+    await store.getState().activate(project);
+    await store.getState().reopenClosed();
+    expect(store.getState().documents[0].content).toBe("# Original");
+    expect(isDirty(store.getState().documents[0])).toBe(false);
+    await store.getState().reopenClosed();
+    expect(store.getState().documents).toHaveLength(1);
+    store.getState().close(entry.path);
+    vi.mocked(api.read).mockRejectedValueOnce(Error("missing file"));
+    await store.getState().reopenClosed();
+    expect(store.getState().error).toContain("missing file");
+    expect(store.getState().documents).toHaveLength(0);
+  });
+  it("폴더 잘라내기 후 하위 문서 경로·미저장 내용 유지, 실패 시 클립보드 유지", async () => {
+    const { store, project, entry, advanced } = fixture();
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    await store.getState().open(entry);
+    store.getState().edit(entry.path, "unsaved");
+    const folder = { name: "dir", path: "dir", isDirectory: true };
+    store.setState({ tree: { "": [folder], dir: [entry] } });
+    store.getState().copyEntry(folder, true);
+    vi.mocked(advanced.transfer).mockRejectedValueOnce(Error("conflict"));
+    expect(await store.getState().pasteEntry("target")).toBe(false);
+    expect(store.getState().clipboard?.cut).toBe(true);
+    expect(store.getState().documents[0].id).toBe("dir/a.md");
+    vi.mocked(advanced.transfer).mockResolvedValueOnce({
+      name: "dir",
+      path: "target/dir",
+      isDirectory: true,
+    });
+    expect(await store.getState().pasteEntry("target")).toBe(true);
+    expect(store.getState().clipboard).toBeNull();
+    expect(store.getState().documents[0]).toMatchObject({
+      id: "target/dir/a.md",
+      content: "unsaved",
+      savedContent: "# Original",
+    });
+    expect(store.getState().activeId).toBe("target/dir/a.md");
+  });
   it("초기 로딩 실패 후 수동으로 편집한 작업은 목록 재시도에서 유지", async () => {
     const { store, project, entry, api, advanced } = fixture();
     vi.mocked(api.projects).mockRejectedValueOnce(Error("startup failed"));
