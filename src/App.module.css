@@ -191,6 +191,13 @@
   color: var(--text);
   font-size: calc(var(--ui-font-size, 13px) * 12 / 13);
 }
+.treeRoot > .treeDropTarget,
+.folderGroup > .treeDropTarget {
+  background: var(--hover);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  color: var(--text);
+}
 .folderGroup > summary > svg:first-child {
   transform: rotate(90deg);
   color: var(--muted);

@@ -52,6 +52,7 @@ export interface AdvancedApi {
     isDirectory: boolean,
   ) => Promise<Entry>;
   rename: (root: string, path: string, name: string) => Promise<Entry>;
+  moveFile: (root: string, path: string, parent: string) => Promise<Entry>;
   trash: (root: string, path: string) => Promise<void>;
   pickSave: (root: string, path: string) => Promise<string | null>;
   target: (root: string, path: string) => Promise<string | null>;
@@ -85,6 +86,8 @@ export const workspaceApi: WorkspaceApi = {
     create: (root, parent, name, isDirectory) =>
       invoke("create_entry", { root, parent, name, isDirectory }),
     rename: (root, path, name) => invoke("rename_entry", { root, path, name }),
+    moveFile: (root, path, parent) =>
+      invoke("move_file", { root, path, parent }),
     trash: (root, path) => invoke("delete_entry", { root, path }),
     pickSave: (root, path) => invoke("pick_save_path", { root, path }),
     target: (root, path) => invoke("target_content", { root, path }),

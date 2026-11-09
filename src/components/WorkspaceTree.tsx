@@ -4,6 +4,8 @@ import Icon from "./Icon";
 import { useWorkspace, isDirty } from "../workspace/store";
 import styles from "../App.module.css";
 import type { Entry } from "../workspace/api";
+import TreeDropTarget from "./TreeDropTarget";
+import { startFileDrag, endFileDrag } from "../workspace/treeDrag";
 
 export default function WorkspaceTree({
   path = "",
@@ -55,7 +57,8 @@ export default function WorkspaceTree({
             void expand(entry.path);
         }}
       >
-        <summary
+        <TreeDropTarget
+          folderPath={entry.path}
           style={{ paddingLeft: 17 + depth * 14 }}
           onContextMenu={(event) => manage(entry, event)}
         >
@@ -72,7 +75,7 @@ export default function WorkspaceTree({
               <Icon name="more" size={13} />
             </button>
           ) : null}
-        </summary>
+        </TreeDropTarget>
         <WorkspaceTree
           path={entry.path}
           depth={depth + 1}
@@ -91,6 +94,9 @@ export default function WorkspaceTree({
           style={{ paddingLeft: 24 + depth * 14 }}
           disabled={busy}
           title={entry.path}
+          draggable={desktop && !busy}
+          onDragStart={(event) => startFileDrag(event, entry)}
+          onDragEnd={endFileDrag}
           onClick={() => {
             onOpen?.();
             void open(entry);

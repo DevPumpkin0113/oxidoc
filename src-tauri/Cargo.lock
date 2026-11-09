@@ -2383,6 +2383,7 @@ dependencies = [
  "tauri-plugin-store",
  "tempfile",
  "trash",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

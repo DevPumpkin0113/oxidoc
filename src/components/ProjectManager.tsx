@@ -13,7 +13,15 @@ export default function ProjectManager({
   onRegister: () => void;
   onManage: (project: Project, x: number, y: number) => void;
 }) {
-  const { projects, project, busy, desktop, updateProject } = useWorkspace();
+  const {
+    projects,
+    project,
+    busy,
+    desktop,
+    initialized,
+    initialize,
+    updateProject,
+  } = useWorkspace();
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState("");
   const [favorites, setFavorites] = useState(false);
@@ -71,6 +79,16 @@ export default function ProjectManager({
         <Icon name="folder" size={15} />
         {t("프로젝트 등록")}
       </button>
+      {desktop && !initialized ? (
+        <button
+          className={styles.openProjectButton}
+          disabled={busy}
+          onClick={() => void initialize(true)}
+        >
+          <Icon name="refresh" size={15} />
+          {t("프로젝트 목록 다시 불러오기")}
+        </button>
+      ) : null}
       <label className={styles.visuallyHidden} htmlFor="project-search">
         {t("프로젝트 검색")}
       </label>

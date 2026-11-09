@@ -1,5 +1,13 @@
 import { effectiveLanguage, useSettings } from "./store";
 export const english: Record<string, string> = {
+  "프로젝트 목록 다시 불러오기": "Reload projects",
+  "프로젝트 목록 불러오기 실패": "Unable to load project registry",
+  "프로젝트 목록 파일이 읽기 전용입니다.":
+    "The project registry file is read-only.",
+  "대상 경로의 문서가 이미 열려 있습니다. 먼저 닫아 주세요.":
+    "A document at the destination is already open. Close it first.",
+  "파일만 이동할 수 있습니다.": "Only files can be moved.",
+  "파일 이동 실패": "Unable to move file",
   "태그 없음": "Untagged",
   "문서 개요 닫기": "Close document outline",
   "명령 팔레트 닫기": "Close command palette",

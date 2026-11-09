@@ -9,6 +9,21 @@ import { workspaceApi } from "../workspace/api";
 
 beforeEach(() => useWorkspace.setState(useWorkspace.getInitialState(), true));
 describe("프로젝트·명령 팔레트", () => {
+  it("목록 로드 실패 상태에서 다시 불러오기 제공", async () => {
+    const initialize = vi.fn().mockResolvedValue(undefined);
+    useWorkspace.setState({ desktop: true, initialized: false, initialize });
+    render(
+      <ProjectManager
+        onActivate={vi.fn()}
+        onRegister={vi.fn()}
+        onManage={vi.fn()}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "프로젝트 목록 다시 불러오기" }),
+    );
+    expect(initialize).toHaveBeenCalledWith(true);
+  });
   it("복수 태그 그룹·태그 없음·고유 프로젝트 개수 및 필터/열기 유지", async () => {
     const user = userEvent.setup(),
       activate = vi.fn();

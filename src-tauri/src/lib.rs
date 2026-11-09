@@ -33,6 +33,7 @@ pub fn run() {
             workspace::save_document,
             workspace::create_entry,
             workspace::rename_entry,
+            workspace::move_file,
             workspace::delete_entry,
             workspace::pick_save_path,
             workspace::target_content,

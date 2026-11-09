@@ -9,6 +9,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
 mod advanced;
+mod registry;
 pub use advanced::*;
 
 const MAX_DOCUMENT_BYTES: u64 = 5 * 1024 * 1024;
@@ -35,14 +36,13 @@ pub struct Entry {
 }
 
 fn projects(app: &AppHandle) -> Result<Vec<Project>, String> {
-    let store = app.store("projects.json").map_err(|e| e.to_string())?;
-    match store.get("projects") {
-        Some(value) => serde_json::from_value(value)
-            .map_err(|_| "프로젝트 목록 형식이 올바르지 않습니다.".into()),
-        None => Ok(Vec::new()),
-    }
+    registry::read(
+        &app.path()
+            .app_data_dir()
+            .map_err(|e| e.to_string())?
+            .join("projects.json"),
+    )
 }
-
 fn authorized_root(app: &AppHandle, root: &str) -> Result<PathBuf, String> {
     if !projects(app)?.iter().any(|project| project.path == root) {
         return Err("등록되지 않은 프로젝트입니다. 폴더를 먼저 선택해 주세요.".into());
@@ -198,23 +198,8 @@ pub async fn pick_project(app: AppHandle) -> Result<Option<Project>, String> {
         }) {
             return Ok(Some(advanced::with_status(existing.clone())));
         }
-        {
-            all.push(project.clone());
-            let store = app.store("projects.json").map_err(|e| e.to_string())?;
-            let previous = store.get("projects");
-            store.set(
-                "projects",
-                serde_json::to_value(all).map_err(|e| e.to_string())?,
-            );
-            if let Err(error) = store.save() {
-                if let Some(previous) = previous {
-                    store.set("projects", previous);
-                } else {
-                    store.delete("projects");
-                }
-                return Err(format!("프로젝트 목록 저장 실패: {error}"));
-            }
-        }
+        all.push(project.clone());
+        advanced::persist_projects(&app, &all)?;
         Ok(Some(project))
     })
     .await

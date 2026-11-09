@@ -16,6 +16,27 @@ function fixture() {
 }
 
 describe("실제 작업 공간 상태", () => {
+  it("목록 로딩 실패 후 재시도 가능, 재생성한 상태에서도 저장된 즐겨찾기 복원", async () => {
+    const { store, api, project } = fixture();
+    vi.mocked(api.projects).mockRejectedValueOnce(Error("load failed"));
+    await store.getState().initialize(true);
+    expect(store.getState().initialized).toBe(false);
+    expect(store.getState().busy).toBe(false);
+    expect(store.getState().error).toContain("load failed");
+    vi.mocked(api.projects).mockResolvedValue([
+      { ...project, favorite: true, tags: ["work"] },
+    ]);
+    await store.getState().initialize(true);
+    expect(store.getState().projects[0]).toMatchObject({
+      favorite: true,
+      tags: ["work"],
+    });
+    expect(store.getState().initialized).toBe(true);
+    expect(store.getState().error).toBe("");
+    const restarted = createWorkspaceStore(api);
+    await restarted.getState().initialize(true);
+    expect(restarted.getState().projects).toEqual(store.getState().projects);
+  });
   it("등록 목록 로드, 폴더 열기, 같은 문서 중복 열기 방지", async () => {
     const { store, project, entry, api } = fixture();
     await store.getState().initialize(true);

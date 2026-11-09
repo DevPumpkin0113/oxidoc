@@ -16,6 +16,8 @@ import Titlebar from "./components/Titlebar";
 import Icon, { type IconName } from "./components/Icon";
 import { FileIcon } from "./components/FileIcon";
 import WorkspaceTree from "./components/WorkspaceTree";
+import TreeDropTarget from "./components/TreeDropTarget";
+import { blockExternalFileDrop } from "./workspace/treeDrag";
 import UnsavedDialog, { type UnsavedChoice } from "./components/UnsavedDialog";
 import {
   useWorkspace,
@@ -54,6 +56,14 @@ const MarkdownPreview = lazy(() => import("./components/MarkdownPreview"));
 type Activity = "files" | "search" | "projects";
 type View = "edit" | "split" | "preview";
 export default function App() {
+  useEffect(() => {
+    document.addEventListener("dragover", blockExternalFileDrop, true);
+    document.addEventListener("drop", blockExternalFileDrop, true);
+    return () => {
+      document.removeEventListener("dragover", blockExternalFileDrop, true);
+      document.removeEventListener("drop", blockExternalFileDrop, true);
+    };
+  }, []);
   const activities: { id: Activity; label: string; icon: IconName }[] = [
     { id: "files", label: t("탐색기"), icon: "files" },
     { id: "search", label: t("검색"), icon: "search" },
@@ -755,7 +765,7 @@ export default function App() {
                       open
                       key={project.path}
                     >
-                      <summary>
+                      <TreeDropTarget folderPath="">
                         <Icon name="down" size={12} />
                         <span title={project.path}>{projectFolderName}</span>
                         {desktop ? (
@@ -791,7 +801,7 @@ export default function App() {
                             </button>
                           </span>
                         ) : null}
-                      </summary>
+                      </TreeDropTarget>
                       <WorkspaceTree
                         onManage={manageEntry}
                         onOpen={() => setSettingsOpen(false)}

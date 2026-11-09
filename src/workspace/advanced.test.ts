@@ -8,6 +8,7 @@ function fixture() {
   const entry = { name: "a.md", path: "dir/a.md", isDirectory: false };
   const advanced: AdvancedApi = {
     create: vi.fn().mockResolvedValue(entry),
+    moveFile: vi.fn().mockResolvedValue({ ...entry, path: "target/a.md" }),
     rename: vi
       .fn()
       .mockResolvedValue({ name: "new", path: "new", isDirectory: true }),
@@ -45,6 +46,83 @@ function fixture() {
   };
 }
 describe("프로젝트·문서 상태 보존", () => {
+  it("초기 로딩 실패 후 수동으로 편집한 작업은 목록 재시도에서 유지", async () => {
+    const { store, project, entry, api, advanced } = fixture();
+    vi.mocked(api.projects).mockRejectedValueOnce(Error("startup failed"));
+    await store.getState().initialize(true);
+    expect(store.getState().initialized).toBe(false);
+    await store.getState().activate(project);
+    await store.getState().open(entry);
+    store.getState().edit(entry.path, "keep unsaved buffer");
+    store.getState().setLayout({ view: "edit", activity: "projects" });
+    const before = store.getState();
+    await store.getState().initialize(true);
+    expect(advanced.loadApp).not.toHaveBeenCalled();
+    expect(store.getState().documents).toBe(before.documents);
+    expect(store.getState().activeId).toBe(entry.path);
+    expect(store.getState().documents[0].content).toBe("keep unsaved buffer");
+    expect(store.getState().layout).toBe(before.layout);
+    expect(store.getState().project?.path).toBe(project.path);
+    expect(store.getState().initialized).toBe(true);
+  });
+  it("파일 이동 후 미저장 버퍼·활성 탭 보존, 새 경로로 저장 및 세션 복원", async () => {
+    const { store, project, entry, api, advanced } = fixture();
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    await store.getState().open(entry);
+    store.getState().edit(entry.path, "unsaved buffer");
+    expect(await store.getState().moveFile(entry.path, "target")).toBe(true);
+    expect(advanced.moveFile).toHaveBeenCalledWith(
+      project.path,
+      entry.path,
+      "target",
+    );
+    expect(store.getState().documents[0]).toMatchObject({
+      id: "target/a.md",
+      folder: "target",
+      content: "unsaved buffer",
+      savedContent: "# Original",
+    });
+    expect(store.getState().activeId).toBe("target/a.md");
+    expect(api.entries).toHaveBeenCalledWith(project.path, "target");
+    await store.getState().save("target/a.md");
+    expect(api.save).toHaveBeenCalledWith(
+      project.path,
+      "target/a.md",
+      "unsaved buffer",
+      "# Original",
+    );
+    await store.getState().persist();
+    expect(advanced.saveSession).toHaveBeenLastCalledWith(
+      project.path,
+      expect.objectContaining({
+        paths: ["target/a.md"],
+        activeId: "target/a.md",
+      }),
+      expect.anything(),
+    );
+  });
+  it("파일 이동 실패·같은 폴더·열린 대상 문서는 경로와 버퍼 보존", async () => {
+    const { store, project, entry, advanced } = fixture();
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    await store.getState().open(entry);
+    store.getState().edit(entry.path, "unsaved");
+    expect(await store.getState().moveFile(entry.path, "dir")).toBe(false);
+    expect(advanced.moveFile).not.toHaveBeenCalled();
+    vi.mocked(advanced.moveFile).mockRejectedValueOnce(Error("collision"));
+    expect(await store.getState().moveFile(entry.path, "target")).toBe(false);
+    expect(store.getState().error).toContain("collision");
+    expect(store.getState().documents[0]).toMatchObject({
+      id: entry.path,
+      content: "unsaved",
+    });
+    expect(store.getState().busy).toBe(false);
+    await store.getState().open({ ...entry, path: "target/a.md" });
+    expect(await store.getState().moveFile(entry.path, "target")).toBe(false);
+    expect(advanced.moveFile).toHaveBeenCalledOnce();
+    expect(store.getState().error).toContain("이미 열려");
+  });
   it("Windows 대소문자 별칭 문서 중복 방지와 미저장 저장 대상 보호", async () => {
     const { store, project, entry, api, advanced } = fixture();
     await store.getState().initialize(true);

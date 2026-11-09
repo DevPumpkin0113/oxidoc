@@ -90,11 +90,14 @@ docs/worktree/        Worktree CLI 관리 데이터
 - [작업 공간 UI](docs/plan/UI.md)
 - [Worktree 작업 구성 기준](docs/plan/WORKTREE.md)
 - 파일 접근은 Rust 명령에서 등록된 프로젝트 경로 및 실제 대상 경로를 검증. 프런트엔드에 범용 파일·설정 저장 권한 미부여.
+- 프로젝트·즐겨찾기: Windows `%APPDATA%\com.oxidoc.desktop\projects.json`, Rust JSON 검증·원자적 저장. 설정·세션은 동일 앱 데이터 폴더의 Tauri Store 사용.
 - 미리보기 원시 HTML·원격 이미지 비활성화. 등록 경로 내부 이미지와 상대 문서 링크만 파일 접근 허용.
-- 앱 아이콘은 공식 템플릿의 임시 리소스 사용. 배포 식별자 `com.oxidoc.desktop`은 초기 개발용이며 릴리즈 준비 시 검토.
+- 배포 식별자 `com.oxidoc.desktop`은 초기 개발용이며 릴리즈 준비 시 검토.
 
 ## 아이콘 리소스
 
+- 앱 아이콘: 청록·민트 리본 심볼, [원본 PNG](assets/branding/app-icon.png). 데스크톱 리소스는 `src-tauri/icons`, 브라우저 favicon은 `public/favicon.png` 사용.
+- 재생성: `npm run tauri -- icon assets/branding/app-icon.png --output output/app-icons` 실행 후 데스크톱 PNG·ICO·ICNS를 `src-tauri/icons`에 복사, `64x64.png`를 `public/favicon.png`로 복사.
 - UI·창 제어: [VS Code Codicons](https://github.com/microsoft/vscode-codicons), SVG 스프라이트 사용
 - 편집기 위젯: 고정 Monaco 버전의 전용 Codicon 폰트 로컬 번들, [라이선스](public/licenses/monaco-LICENSE.txt)·[제3자 고지](public/licenses/monaco-ThirdPartyNotices.txt)
 - 파일·폴더: [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme), 필요한 SVG만 가져오기

@@ -65,6 +65,7 @@ interface State {
     directory: boolean,
   ) => Promise<void>;
   renameEntry: (path: string, name: string) => Promise<void>;
+  moveFile: (path: string, parent: string) => Promise<boolean>;
   trashEntry: (path: string) => Promise<void>;
   updateProject: (path: string, patch: ProjectPatch) => Promise<void>;
   removeProject: (path: string) => Promise<void>;
@@ -143,7 +144,7 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
     sessions: {},
     initialize: async (desktop) => {
       if (get().initialized) return;
-      set({ initialized: true, desktop, busy: desktop });
+      set({ initialized: true, desktop, busy: desktop, error: "" });
       if (!desktop) {
         const documents = sampleDocuments.map((document) => ({
           ...document,
@@ -176,6 +177,17 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
       try {
         const projects = await api.projects();
         set({ projects });
+        // A retry may happen after the user has already opened and edited a project.
+        // Refresh its metadata without replaying startup/session restoration.
+        const activeProject = get().project;
+        if (activeProject) {
+          set({
+            project:
+              projects.find((project) => project.path === activeProject.path) ??
+              activeProject,
+          });
+          return;
+        }
         if (api.advanced) {
           const saved = record(await api.advanced.loadApp());
           set({ layout: parseLayout(saved.layout) });
@@ -194,7 +206,7 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
           }
         }
       } catch (error) {
-        set({ error: String(error) });
+        set({ error: String(error), initialized: false });
       } finally {
         set({ busy: false });
       }
@@ -515,6 +527,51 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
         await get().refresh();
       } catch (error) {
         set({ error: String(error) });
+      } finally {
+        set({ busy: false });
+      }
+    },
+    moveFile: async (path, parent) => {
+      const { project, desktop, busy, documents } = get();
+      if (!project || !desktop || busy || !api.advanced) return false;
+      const name = path.replace(/\\/g, "/").split("/").pop();
+      if (!name) return false;
+      const destination = parent ? `${parent}/${name}` : name;
+      if (sameDocumentPath(path, destination)) return false;
+      if (
+        documents.some((document) => sameDocumentPath(document.id, destination))
+      ) {
+        set({
+          error: "대상 경로의 문서가 이미 열려 있습니다. 먼저 닫아 주세요.",
+        });
+        return false;
+      }
+      set({ busy: true, error: "" });
+      try {
+        const target = await api.advanced.moveFile(project.path, path, parent);
+        set((state) => ({
+          documents: state.documents.map((document) =>
+            sameDocumentPath(document.id, path)
+              ? {
+                  ...document,
+                  id: target.path,
+                  name: target.name,
+                  folder: target.path.split("/").slice(0, -1).join("/"),
+                }
+              : document,
+          ),
+          activeId:
+            state.activeId && sameDocumentPath(state.activeId, path)
+              ? target.path
+              : state.activeId,
+          generation: state.generation + 1,
+        }));
+        await get().refresh();
+        await get().expand(parent);
+        return true;
+      } catch (error) {
+        set({ error: String(error) });
+        return false;
       } finally {
         set({ busy: false });
       }

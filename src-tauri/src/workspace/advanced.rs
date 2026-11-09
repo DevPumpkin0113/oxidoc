@@ -29,22 +29,14 @@ pub(super) fn with_status(mut project: Project) -> Project {
     .into();
     project
 }
-fn persist_projects(app: &AppHandle, all: &[Project]) -> Result<(), String> {
-    let store = app.store("projects.json").map_err(|e| e.to_string())?;
-    let before = store.get("projects");
-    store.set(
-        "projects",
-        serde_json::to_value(all).map_err(|e| e.to_string())?,
-    );
-    if let Err(e) = store.save() {
-        if let Some(before) = before {
-            store.set("projects", before);
-        } else {
-            store.delete("projects");
-        }
-        return Err(e.to_string());
-    }
-    Ok(())
+pub(super) fn persist_projects(app: &AppHandle, all: &[Project]) -> Result<(), String> {
+    registry::write(
+        &app.path()
+            .app_data_dir()
+            .map_err(|e| e.to_string())?
+            .join("projects.json"),
+        all,
+    )
 }
 fn valid_name(name: &str) -> Result<(), String> {
     let stem = name.split('.').next().unwrap_or("").to_uppercase();
@@ -124,6 +116,59 @@ fn rename_at(root: &Path, path: &str, name: &str) -> Result<Entry, String> {
     }
     fs::rename(&source, &target).map_err(|e| format!("이름 변경 실패: {e}"))?;
     relative_entry(root, &target)
+}
+#[cfg(windows)]
+fn move_without_overwrite(source: &Path, target: &Path) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    let source: Vec<u16> = source.as_os_str().encode_wide().chain(Some(0)).collect();
+    let target: Vec<u16> = target.as_os_str().encode_wide().chain(Some(0)).collect();
+    // No REPLACE_EXISTING flag: a concurrent destination creation must also fail safely.
+    let moved = unsafe {
+        windows_sys::Win32::Storage::FileSystem::MoveFileExW(source.as_ptr(), target.as_ptr(), 0)
+    };
+    if moved == 0 {
+        return Err(format!(
+            "파일 이동 실패: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    Ok(())
+}
+#[cfg(not(windows))]
+fn move_without_overwrite(source: &Path, target: &Path) -> Result<(), String> {
+    fs::hard_link(source, target).map_err(|e| format!("파일 이동 실패: {e}"))?;
+    fs::remove_file(source).map_err(|e| format!("대상 복사본 생성 후 원본 제거 실패: {e}"))
+}
+fn move_file_at(root: &Path, path: &str, parent: &str) -> Result<Entry, String> {
+    let source = contained_path(root, path)?;
+    let kind = fs::symlink_metadata(root.join(path))
+        .map_err(|e| e.to_string())?
+        .file_type();
+    if source == root || !kind.is_file() || kind.is_symlink() {
+        return Err("파일만 이동할 수 있습니다.".into());
+    }
+    let parent = contained_path(root, parent)?;
+    if !parent.is_dir() {
+        return Err("대상 폴더가 아닙니다.".into());
+    }
+    let target = parent.join(source.file_name().ok_or("파일 이름이 필요합니다.")?);
+    if path_key(&target.to_string_lossy()) == path_key(&source.to_string_lossy()) {
+        return relative_entry(root, &source);
+    }
+    if target.try_exists().map_err(|e| e.to_string())? {
+        return Err("같은 이름의 항목이 이미 있습니다.".into());
+    }
+    move_without_overwrite(&source, &target)?;
+    relative_entry(root, &target)
+}
+#[tauri::command]
+pub async fn move_file(
+    app: AppHandle,
+    root: String,
+    path: String,
+    parent: String,
+) -> Result<Entry, String> {
+    io(move || move_file_at(&authorized_root(&app, &root)?, &path, &parent)).await
 }
 #[tauri::command]
 pub async fn create_entry(
@@ -612,6 +657,42 @@ pub async fn open_external(app: AppHandle, url: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn move_file_preserves_bytes_supports_root_and_rejects_conflicts_and_escape() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        fs::create_dir(root.join("notes")).unwrap();
+        fs::create_dir(root.join("target")).unwrap();
+        let bytes = b"\xef\xbb\xbf# original\r\n\x00";
+        fs::write(root.join("notes/a.md"), bytes).unwrap();
+        let moved = move_file_at(&root, "notes/a.md", "target").unwrap();
+        assert_eq!(moved.path, "target/a.md");
+        assert!(!root.join("notes/a.md").exists());
+        assert_eq!(fs::read(root.join("target/a.md")).unwrap(), bytes);
+        assert_eq!(
+            move_file_at(&root, "target/a.md", "target").unwrap().path,
+            "target/a.md"
+        );
+        move_file_at(&root, "target/a.md", "").unwrap();
+        fs::write(root.join("notes/a.md"), "do not overwrite").unwrap();
+        assert!(move_file_at(&root, "a.md", "notes").is_err());
+        assert_eq!(
+            fs::read_to_string(root.join("notes/a.md")).unwrap(),
+            "do not overwrite"
+        );
+        assert_eq!(fs::read(root.join("a.md")).unwrap(), bytes);
+        assert!(move_without_overwrite(&root.join("a.md"), &root.join("notes/a.md")).is_err());
+        assert_eq!(
+            fs::read_to_string(root.join("notes/a.md")).unwrap(),
+            "do not overwrite"
+        );
+        assert!(move_file_at(&root, "notes", "target").is_err());
+        assert!(move_file_at(&root, "", "target").is_err());
+        assert!(move_file_at(&root, "a.md", "notes/a.md").is_err());
+        assert!(move_file_at(&root, "a.md", "missing").is_err());
+        assert!(move_file_at(&root, "../outside.md", "notes").is_err());
+        assert!(move_file_at(&root, "a.md", "..").is_err());
+    }
     #[test]
     fn trash_moves_only_the_selected_temporary_entry() {
         let dir = tempfile::tempdir().unwrap();
