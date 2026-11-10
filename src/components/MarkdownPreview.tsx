@@ -19,6 +19,8 @@ import {
   type LinkTarget,
 } from "../workspace/markdown";
 import styles from "../App.module.css";
+import MermaidDiagram from "./MermaidDiagram";
+import { isMermaidFile } from "../workspace/documentTypes";
 import { scrollEdge, type ScrollEdge } from "../workspace/scroll";
 export interface ScrollTarget {
   source: "editor" | "preview";
@@ -136,7 +138,44 @@ function PreviewImage({ src, alt }: { src?: string | Blob; alt?: string }) {
     <LocalImage src={typeof src === "string" ? src : undefined} alt={alt} />
   );
 }
+function PreviewCodeBlock({
+  node,
+  children,
+}: {
+  node?: {
+    position?: { start: { line: number } };
+    children?: Array<{
+      type: string;
+      tagName?: string;
+      properties?: { className?: unknown };
+      children?: Array<{ type: string; value?: string }>;
+    }>;
+  };
+  children?: React.ReactNode;
+}) {
+  const code = node?.children?.[0];
+  const classes = code?.properties?.className;
+  if (
+    code?.tagName === "code" &&
+    Array.isArray(classes) &&
+    classes.includes("language-mermaid")
+  ) {
+    return (
+      <MermaidDiagram
+        line={node?.position?.start.line}
+        source={
+          code.children
+            ?.map((child) => child.value ?? "")
+            .join("")
+            .replace(/\n$/, "") ?? ""
+        }
+      />
+    );
+  }
+  return <pre data-source-line={node?.position?.start.line}>{children}</pre>;
+}
 const previewComponents = {
+  pre: PreviewCodeBlock,
   h1: PreviewHeading,
   h2: PreviewHeading,
   h3: PreviewHeading,
@@ -168,7 +207,11 @@ export default function MarkdownPreview({
   const article = useRef<HTMLElement>(null);
   const suppress = useRef(false);
   const frame = useRef(0);
-  const allHeadings = useMemo(() => headings(content), [content]);
+  const standalone = isMermaidFile(documentPath);
+  const allHeadings = useMemo(
+    () => (standalone ? [] : headings(content)),
+    [content, standalone],
+  );
   const totalLines = content.split("\n").length;
   function scrollTo(line: number, edge?: ScrollEdge) {
     const container = article.current;
@@ -323,17 +366,21 @@ export default function MarkdownPreview({
       <article
         ref={article}
         className={styles.preview}
-        aria-label={t("Markdown 미리보기")}
+        aria-label={t(standalone ? "Mermaid 미리보기" : "Markdown 미리보기")}
         onScroll={onScroll}
       >
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[sourceLines]}
-          skipHtml
-          components={previewComponents}
-        >
-          {content}
-        </ReactMarkdown>
+        {standalone ? (
+          <MermaidDiagram source={content} line={1} />
+        ) : (
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[sourceLines]}
+            skipHtml
+            components={previewComponents}
+          >
+            {content}
+          </ReactMarkdown>
+        )}
       </article>
     </PreviewContext>
   );

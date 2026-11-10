@@ -284,6 +284,7 @@ it("탐색기 복사 단축키·폴더 붙여넣기, 입력란 텍스트 단축�
     ),
   );
   render(<App />);
+  await user.click(screen.getByRole("button", { name: "전체 보기" }));
   const source = screen.getByRole("button", { name: "a.md" });
   source.focus();
   fireEvent.keyDown(source, { key: "c", ctrlKey: true });
@@ -405,7 +406,9 @@ describe("작업 공간 UI", () => {
           { name: "a.md", path: "a.md", isDirectory: false },
           { name: "folder", path: "folder", isDirectory: true },
         ],
-        folder: [],
+        folder: [
+          { name: "inside.md", path: "folder/inside.md", isDirectory: false },
+        ],
       },
     });
     render(<App />);
@@ -618,10 +621,12 @@ describe("작업 공간 UI", () => {
       "C:\\notes\\project-folder\\",
     );
     expect(screen.queryByText("WORKSPACE")).not.toBeInTheDocument();
-    const root = screen.getByText("project-folder").closest("details")!;
+    const root = screen
+      .getByText("project-folder")
+      .closest("[data-tree-path]")!.parentElement!;
     const user = userEvent.setup();
     await user.click(within(root).getByRole("button", { name: "새 문서" }));
-    expect(root).toHaveAttribute("open");
+    expect(root).not.toHaveAttribute("open");
     expect(
       screen.getByRole("textbox", { name: "새 문서 이름" }),
     ).toBeInTheDocument();

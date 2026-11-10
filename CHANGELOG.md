@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-10
+
+- Markdown Mermaid 코드 블록·mmd/mermaid 독립 문서의 다이어그램 미리보기 및 오류/원문 표시
+- 탐색기 기본 문서 보기·전체 보기 전환, 문서 없는 폴더 기본 숨김·전체 보기 빈 폴더 안내/펼침 제거
+- 프로젝트명 우측 기본/전체 보기 아이콘·장식 아이콘 및 별도 전환 행 제거
+- 탐색기·검색·프로젝트 타이틀 아래 상단8px·좌우12px 여백 통일
+
 ## [0.3.0] - 2026-11-10
 
 업데이트 기능 지원 첫 버전. 기존 v0.2.0에서 수동 설치 필요, 이후 서명된 정식 릴리즈 대상으로 앱 내 업데이트 제공.
@@ -47,7 +54,8 @@
 
 업데이트 확인·다운로드·자동 설치 및 설치 파일 배포는 이번 릴리즈 범위 외.
 
-[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.3.0...develop
+[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.4.0...develop
+[0.4.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.4.0
 [0.3.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.3.0
 [0.2.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.2.0
 [0.1.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.1.0

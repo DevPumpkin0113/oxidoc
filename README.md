@@ -10,6 +10,8 @@ VS Code 스타일 UI 기반 로컬 Markdown 에디터 및 프로젝트 관리 �
 
 데스크톱 앱은 실제 로컬 프로젝트를 사용하며, 브라우저 미리보기만 샘플 문서 제공. 브라우저 샘플은 디스크 저장 불가.
 
+탐색기 기본 보기는 `.md`·`.mmd`·`.mermaid` 및 문서가 있는 폴더만 표시, 전체 보기에서 다른 파일과 빈 폴더 표시. 빈 폴더는 문구/펼침 없이 관리·드롭 가능한 행으로 표시. Markdown의 mermaid 코드 블록과 독립 Mermaid 파일은 편집/다이어그램 미리보기 지원, 문법 오류 시 원문 유지. 이미지 참조·붙여넣기는 보기 필터와 독립.
+
 ## 개발 환경
 
 - Node.js 24 LTS 및 npm (`.node-version` 기준 24.14.0)
@@ -121,4 +123,4 @@ docs/worktree/        Worktree CLI 관리 데이터
 
 ## 버전 관리
 
-현재 공개 버전 `v0.3.0`. 개발 브랜치 `develop`, 공개 기준 `main`. 버전 변경은 `npm run version:set -- 0.3.1`, 정합성 확인은 `npm run version:check`. [릴리즈 절차](docs/plan/RELEASING.md). Windows x64 EXE·MSI 설치 파일 제공.
+현재 공개 버전 `v0.4.0`. 개발 브랜치 `develop`, 공개 기준 `main`. 버전 변경은 `npm run version:set -- 0.4.1`, 정합성 확인은 `npm run version:check`. [릴리즈 절차](docs/plan/RELEASING.md). Windows x64 EXE·MSI 설치 파일 제공.

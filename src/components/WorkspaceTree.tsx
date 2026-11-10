@@ -1,4 +1,6 @@
 import { t } from "../settings/i18n";
+import { useState } from "react";
+import { visibleEntries } from "../workspace/documentTypes";
 import { FolderIcon, FileIcon } from "./FileIcon";
 import Icon from "./Icon";
 import { useWorkspace, isDirty } from "../workspace/store";
@@ -6,6 +8,80 @@ import styles from "../App.module.css";
 import type { Entry } from "../workspace/api";
 import TreeDropTarget from "./TreeDropTarget";
 import { startFileDrag, endFileDrag } from "../workspace/treeDrag";
+
+function FolderRow({
+  entry,
+  depth,
+  className,
+  manage,
+  onManage,
+  onOpen,
+}: {
+  entry: Entry;
+  depth: number;
+  className: string;
+  manage: (entry: Entry, event: React.MouseEvent<HTMLElement>) => void;
+  onManage?: (entry: Entry, x: number, y: number) => void;
+  onOpen?: () => void;
+}) {
+  const children = useWorkspace((state) => state.tree[entry.path]);
+  const expand = useWorkspace((state) => state.expand);
+  const desktop = useWorkspace((state) => state.desktop);
+  const busy = useWorkspace((state) => state.busy);
+  const [opened, setOpened] = useState(false);
+  const empty = children ? children.length === 0 : entry.hasChildren === false;
+  const header = (
+    <TreeDropTarget
+      as={empty ? "div" : "summary"}
+      folderPath={entry.path}
+      data-tree-path={entry.path}
+      className={`${className} ${empty ? styles.emptyFolder : ""}`}
+      style={{ paddingLeft: 17 + depth * 14 }}
+      tabIndex={empty ? 0 : undefined}
+      onMoved={() => setOpened(true)}
+      onContextMenu={(event) => manage(entry, event)}
+    >
+      {empty ? (
+        <span className={styles.chevronSpace} aria-hidden="true" />
+      ) : (
+        <Icon name="chevron" size={12} />
+      )}
+      <FolderIcon />
+      <span>{entry.name}</span>
+      {desktop ? (
+        <button
+          className={styles.treeAction}
+          aria-label={t("{0} 관리", entry.name)}
+          disabled={busy}
+          onClick={(event) => manage(entry, event)}
+        >
+          <Icon name="more" size={13} />
+        </button>
+      ) : null}
+    </TreeDropTarget>
+  );
+  return empty ? (
+    <div className={styles.folderGroup}>{header}</div>
+  ) : (
+    <details
+      className={styles.folderGroup}
+      open={opened}
+      onToggle={(event) => {
+        if (event.target !== event.currentTarget) return;
+        setOpened(event.currentTarget.open);
+        if (event.currentTarget.open) void expand(entry.path);
+      }}
+    >
+      {header}
+      <WorkspaceTree
+        path={entry.path}
+        depth={depth + 1}
+        onManage={onManage}
+        onOpen={onOpen}
+      />
+    </details>
+  );
+}
 
 export default function WorkspaceTree({
   path = "",
@@ -19,11 +95,12 @@ export default function WorkspaceTree({
   onManage?: (entry: Entry, x: number, y: number) => void;
 }) {
   const entries = useWorkspace((state) => state.tree[path]);
+  const tree = useWorkspace((state) => state.tree);
+  const view = useWorkspace((state) => state.layout.explorerView);
   const documents = useWorkspace((state) => state.documents);
   const activeId = useWorkspace((state) => state.activeId);
   const busy = useWorkspace((state) => state.busy);
   const open = useWorkspace((state) => state.open);
-  const expand = useWorkspace((state) => state.expand);
   const desktop = useWorkspace((state) => state.desktop);
   const clipboard = useWorkspace((state) => state.clipboard);
   const projectPath = useWorkspace((state) => state.project?.path);
@@ -54,50 +131,17 @@ export default function WorkspaceTree({
         {t("불러오는 중…")}
       </p>
     );
-  if (!entries.length)
-    return (
-      <p className={styles.resultCount} style={{ paddingLeft: 16 }}>
-        {t("빈 폴더")}
-      </p>
-    );
-  return entries.map((entry) =>
+  return visibleEntries(entries, tree, view).map((entry) =>
     entry.isDirectory ? (
-      <details
-        className={styles.folderGroup}
+      <FolderRow
         key={entry.path}
-        onToggle={(event) => {
-          if (event.target === event.currentTarget && event.currentTarget.open)
-            void expand(entry.path);
-        }}
-      >
-        <TreeDropTarget
-          folderPath={entry.path}
-          data-tree-path={entry.path}
-          className={cutClass(entry)}
-          style={{ paddingLeft: 17 + depth * 14 }}
-          onContextMenu={(event) => manage(entry, event)}
-        >
-          <Icon name="chevron" size={12} />
-          <FolderIcon />
-          <span>{entry.name}</span>
-          {desktop ? (
-            <button
-              className={styles.treeAction}
-              aria-label={t("{0} 관리", entry.name)}
-              disabled={busy}
-              onClick={(event) => manage(entry, event)}
-            >
-              <Icon name="more" size={13} />
-            </button>
-          ) : null}
-        </TreeDropTarget>
-        <WorkspaceTree
-          path={entry.path}
-          depth={depth + 1}
-          onManage={onManage}
-          onOpen={onOpen}
-        />
-      </details>
+        entry={entry}
+        depth={depth}
+        className={cutClass(entry)}
+        manage={manage}
+        onManage={onManage}
+        onOpen={onOpen}
+      />
     ) : (
       <div
         className={`${styles.treeItem} ${cutClass(entry)}`}

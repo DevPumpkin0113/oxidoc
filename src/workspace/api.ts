@@ -12,6 +12,8 @@ export interface Entry {
   name: string;
   path: string;
   isDirectory: boolean;
+  hasChildren?: boolean;
+  hasDocuments?: boolean;
 }
 export interface WorkspaceApi {
   advanced?: AdvancedApi;

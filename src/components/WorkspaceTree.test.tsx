@@ -11,6 +11,7 @@ import WorkspaceTree from "./WorkspaceTree";
 import TreeDropTarget from "./TreeDropTarget";
 import { blockExternalFileDrop, endFileDrag } from "../workspace/treeDrag";
 import { useWorkspace } from "../workspace/store";
+import userEvent from "@testing-library/user-event";
 
 function transfer() {
   const data: Record<string, string> = {};
@@ -75,7 +76,6 @@ function setup() {
         { name: "target", path: "target", isDirectory: true },
       ],
       source: [{ name: "a.md", path: "source/a.md", isDirectory: false }],
-      target: [],
     },
   });
   render(
@@ -86,6 +86,55 @@ function setup() {
   );
   return moveFile;
 }
+it("기본 빈 폴더 숨김·전체 빈 폴더는 펼침/안내 없이 관리 및 드롭 유지", async () => {
+  const user = userEvent.setup();
+  const file = { name: "a.md", path: "a.md", isDirectory: false };
+  const empty = {
+    name: "empty",
+    path: "empty",
+    isDirectory: true,
+    hasChildren: false,
+    hasDocuments: false,
+  };
+  const manage = vi.fn();
+  const moveFile = vi.fn().mockImplementation(async () => {
+    useWorkspace.setState({
+      tree: {
+        "": [file, { ...empty, hasChildren: true, hasDocuments: true }],
+        empty: [{ ...file, path: "empty/a.md" }],
+      },
+    });
+    return true;
+  });
+  useWorkspace.setState({
+    desktop: true,
+    project: { name: "Notes", path: "C:/notes" },
+    tree: { "": [file, empty], empty: [] },
+    moveFile,
+  });
+  render(<WorkspaceTree onManage={manage} />);
+  expect(screen.queryByText("empty")).not.toBeInTheDocument();
+  act(() => useWorkspace.getState().setLayout({ explorerView: "all" }));
+  const target = screen.getByText("empty").closest("[data-tree-path]")!;
+  expect(target.tagName).toBe("DIV");
+  expect(target.querySelector("svg use")?.getAttribute("href")).not.toContain(
+    "chevron",
+  );
+  expect(screen.queryByText("빈 폴더")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "empty 관리" }));
+  expect(manage).toHaveBeenCalled();
+  const dataTransfer = transfer();
+  fireEvent.dragStart(screen.getByRole("button", { name: "a.md" }), {
+    dataTransfer,
+  });
+  fireEvent.drop(target, { dataTransfer });
+  await waitFor(() => expect(moveFile).toHaveBeenCalledWith("a.md", "empty"));
+  await waitFor(() =>
+    expect(screen.getByText("empty").closest("details")).toHaveAttribute(
+      "open",
+    ),
+  );
+});
 it("닫힌 폴더 700ms 대기 시 펼침·자식 로드, 반복 dragover에도 대기 유지", async () => {
   vi.useFakeTimers();
   const moveFile = setup();

@@ -37,6 +37,104 @@ function fixture() {
   });
   return { api, store };
 }
+it("숨긴 미확장 폴더에 파일 추가 시 메타데이터 갱신", async () => {
+  vi.useFakeTimers();
+  const { api, store } = fixture();
+  const refresh = vi.fn().mockResolvedValue(undefined);
+  store.setState({
+    tree: {
+      "": [
+        {
+          name: "hidden",
+          path: "hidden",
+          isDirectory: true,
+          hasDocuments: false,
+          hasChildren: false,
+        },
+      ],
+    },
+    refresh,
+  });
+  api.advanced.probe
+    .mockResolvedValueOnce([{ path: "hidden", stamp: "v1" }])
+    .mockResolvedValueOnce([{ path: "hidden", stamp: "v2" }]);
+  const stop = startWorkspaceMonitor("C:/notes", store, api);
+  try {
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(api.advanced.probe).toHaveBeenCalledWith(
+      "C:/notes",
+      expect.arrayContaining(["hidden"]),
+    );
+    expect(refresh).toHaveBeenCalledTimes(2);
+  } finally {
+    stop();
+  }
+});
+it("상위 mtime이 그대로인 숨김 폴더의 깊은 문서 추가도 재확인", async () => {
+  vi.useFakeTimers();
+  const { api, store } = fixture();
+  const hidden = {
+    path: "assets",
+    name: "assets",
+    isDirectory: true,
+    hasDocuments: false,
+    hasChildren: true,
+  };
+  store.setState({ tree: { "": [hidden] } });
+  api.advanced.probe.mockResolvedValue([
+    { path: "", stamp: "unchanged" },
+    { path: "assets", stamp: "unchanged" },
+  ]);
+  api.entries
+    .mockResolvedValueOnce([hidden])
+    .mockResolvedValue([{ ...hidden, hasDocuments: true }]);
+  const stop = startWorkspaceMonitor("C:/notes", store, api);
+  try {
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(store.getState().tree[""][0].hasDocuments).toBe(false);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(store.getState().tree[""][0].hasDocuments).toBe(true);
+  } finally {
+    stop();
+  }
+});
+it("이미 표시된 부모 내부의 숨김 자손도 각 로드된 가지 재확인", async () => {
+  vi.useFakeTimers();
+  const { api, store } = fixture();
+  const docs = {
+    path: "docs",
+    name: "docs",
+    isDirectory: true,
+    hasChildren: true,
+    hasDocuments: true,
+  };
+  const hidden = {
+    path: "docs/assets",
+    name: "assets",
+    isDirectory: true,
+    hasChildren: true,
+    hasDocuments: false,
+  };
+  store.setState({ tree: { "": [docs], docs: [hidden] } });
+  api.advanced.probe.mockResolvedValue([
+    { path: "", stamp: "same" },
+    { path: "docs", stamp: "same" },
+    { path: "docs/assets", stamp: "same" },
+  ]);
+  let added = false;
+  api.entries.mockImplementation(async (_root, path) =>
+    path === "" ? [docs] : [{ ...hidden, hasDocuments: added }],
+  );
+  const stop = startWorkspaceMonitor("C:/notes", store, api);
+  try {
+    await vi.advanceTimersByTimeAsync(3000);
+    added = true;
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(store.getState().tree.docs[0].hasDocuments).toBe(true);
+  } finally {
+    stop();
+  }
+});
 it("외부 변경은 미저장 버퍼 보호·저장 차단, 내 편집 유지 후 새 디스크 기준 저장", async () => {
   vi.useFakeTimers();
   const { api, store } = fixture();

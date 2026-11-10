@@ -19,6 +19,7 @@ export interface Document {
   diskContent?: string | null;
 }
 export interface Layout {
+  explorerView: "documents" | "all";
   sidebar: boolean;
   activity: "files" | "search" | "projects";
   view: "edit" | "split" | "preview";
@@ -26,6 +27,7 @@ export interface Layout {
   sync: boolean;
 }
 export const defaultLayout: Layout = {
+  explorerView: "documents",
   sidebar: true,
   activity: "files",
   view: "split",
@@ -96,6 +98,7 @@ export function parseLayout(value: unknown): Layout {
   const data = record(value);
   return {
     sidebar: typeof data.sidebar === "boolean" ? data.sidebar : true,
+    explorerView: data.explorerView === "all" ? "all" : "documents",
     activity: ["files", "search", "projects"].includes(String(data.activity))
       ? (data.activity as Layout["activity"])
       : "files",

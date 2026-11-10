@@ -16,6 +16,7 @@ mod recovery;
 mod registry;
 mod replace;
 mod transfers;
+mod visibility;
 pub use advanced::*;
 pub use images::*;
 pub use index::*;
@@ -45,6 +46,10 @@ pub struct Entry {
     path: String,
     name: String,
     is_directory: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    has_children: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    has_documents: Option<bool>,
 }
 
 fn projects(app: &AppHandle) -> Result<Vec<Project>, String> {
@@ -98,6 +103,8 @@ fn directory_entries(root: &Path, relative: &str) -> Result<Vec<Entry>, String> 
                 .replace('\\', "/"),
             name: item.file_name().to_string_lossy().into_owned(),
             is_directory: kind.is_dir(),
+            has_children: None,
+            has_documents: None,
         });
         if entries.len() > MAX_DIRECTORY_ENTRIES {
             return Err("폴더 항목이 너무 많습니다(최대 10,000개).".into());
@@ -108,6 +115,7 @@ fn directory_entries(root: &Path, relative: &str) -> Result<Vec<Entry>, String> 
             .cmp(&a.is_directory)
             .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
+    visibility::populate(root, &mut entries);
     Ok(entries)
 }
 

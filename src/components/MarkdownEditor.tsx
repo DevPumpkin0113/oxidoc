@@ -22,6 +22,7 @@ import { scrollEdge, type ScrollEdge } from "../workspace/scroll";
 import { editorTextAction } from "../workspace/editorTextActions";
 import { pasteEditorImage } from "../workspace/editorImages";
 import { attachMarkdownLinks } from "../workspace/editorLinks";
+import { isMermaidFile } from "../workspace/documentTypes";
 import type { TextAction } from "../workspace/textContext";
 import { useWorkspace } from "../workspace/store";
 interface CachedModel {
@@ -100,7 +101,10 @@ export default function MarkdownEditor({
     let cached = models.get(key);
     if (!cached || cached.model.isDisposed()) {
       cached = {
-        model: monaco.editor.createModel(value, "markdown"),
+        model: monaco.editor.createModel(
+          value,
+          isMermaidFile(documentId) ? "plaintext" : "markdown",
+        ),
         view: null,
       };
       models.set(key, cached);
@@ -132,12 +136,9 @@ export default function MarkdownEditor({
       scrollbar: { verticalScrollbarSize: 7, horizontalScrollbarSize: 7 },
     });
     editor.current = instance;
-    const stopLinkTools = attachMarkdownLinks(
-      monaco,
-      instance,
-      projectPath,
-      documentId,
-    );
+    const stopLinkTools = isMermaidFile(documentId)
+      ? () => {}
+      : attachMarkdownLinks(monaco, instance, projectPath, documentId);
     const pasteImage = (event: ClipboardEvent) => {
       if (event.target instanceof HTMLInputElement) return;
       const item = Array.from(event.clipboardData?.items ?? []).find(

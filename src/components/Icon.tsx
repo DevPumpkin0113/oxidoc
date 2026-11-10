@@ -3,6 +3,7 @@ import sprite from "@vscode/codicons/dist/codicon.svg?url";
 
 const icons = {
   files: "files",
+  document: "file-text",
   search: "search",
   projects: "project",
   settings: "settings-gear",

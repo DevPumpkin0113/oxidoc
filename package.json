@@ -1,6 +1,6 @@
 {
   "name": "oxidoc",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "overrides": {
@@ -42,7 +42,9 @@
     "@tauri-apps/plugin-store": "2.5.0",
     "@tauri-apps/plugin-updater": "2.14.1",
     "@vscode/codicons": "0.0.46-24",
+    "dompurify": "3.4.17",
     "material-icon-theme": "5.40.0",
+    "mermaid": "12.3.0",
     "monaco-editor": "0.57.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",

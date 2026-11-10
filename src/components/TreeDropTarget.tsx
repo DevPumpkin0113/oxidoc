@@ -1,4 +1,9 @@
-import { useEffect, useRef, type ComponentProps, type DragEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  type ComponentPropsWithoutRef,
+  type DragEvent,
+} from "react";
 import { sameDocumentPath, useWorkspace } from "../workspace/store";
 import {
   dragType,
@@ -13,8 +18,14 @@ const FOLDER_HOVER_DELAY_MS = 700;
 export default function TreeDropTarget({
   folderPath,
   className = "",
+  as: Tag = "summary",
+  onMoved,
   ...props
-}: ComponentProps<"summary"> & { folderPath: string }) {
+}: ComponentPropsWithoutRef<"summary"> & {
+  folderPath: string;
+  as?: "summary" | "div";
+  onMoved?: () => void;
+}) {
   const highlighted = useTreeDrag((state) => state.over === folderPath);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function cancelHover() {
@@ -42,7 +53,7 @@ export default function TreeDropTarget({
     return sameDocumentPath(parent, folderPath) ? null : source;
   }
   return (
-    <summary
+    <Tag
       {...props}
       className={`${className} ${highlighted ? styles.treeDropTarget : ""}`}
       onDragOver={(event) => {
@@ -103,6 +114,7 @@ export default function TreeDropTarget({
           .getState()
           .moveFile(source.path, folderPath)
           .then((moved) => {
+            if (moved) onMoved?.();
             if (
               moved &&
               details instanceof HTMLDetailsElement &&

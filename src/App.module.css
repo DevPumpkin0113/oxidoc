@@ -108,6 +108,8 @@
   background: var(--accent);
 }
 .sidebar {
+  --sidebar-content-top: 8px;
+  --sidebar-inline-padding: 12px;
   position: relative;
   min-height: 0;
   overflow-y: auto;
@@ -118,26 +120,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 19px;
+  padding: 0 var(--sidebar-inline-padding);
   color: var(--text);
   font-size: calc(var(--ui-font-size, 13px) * 11 / 13);
 }
 .projectLabel {
   display: flex;
   gap: 8px;
-  padding: 8px 12px 6px;
+  padding: var(--sidebar-content-top) var(--sidebar-inline-padding) 6px;
   align-items: center;
 }
-.projectIcon {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  place-items: center;
-  background: var(--hover);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 7px;
+.projectName {
+  flex: 1;
+  min-width: 0;
 }
 .projectLabel strong {
   display: block;
@@ -157,7 +152,8 @@
   color: var(--muted);
   font-size: calc(var(--ui-font-size, 13px) * 10 / 13);
 }
-.treeRoot > summary {
+.treeRoot > summary,
+.treeRoot > .emptyRoot {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -167,7 +163,8 @@
   font-size: calc(var(--ui-font-size, 13px) * 9 / 13);
   letter-spacing: 0;
 }
-.treeRoot > summary > span {
+.treeRoot > summary > span,
+.treeRoot > .emptyRoot > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -182,7 +179,8 @@
 .treeRoot:not([open]) > summary > svg {
   transform: rotate(-90deg);
 }
-.folderGroup > summary {
+.folderGroup > summary,
+.folderGroup > .emptyFolder {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -205,6 +203,7 @@
 .folderGroup:not([open]) > summary > svg:first-child {
   transform: none;
 }
+.folderGroup > .emptyFolder [data-folder-state="open"],
 .folderGroup > summary [data-folder-state="open"],
 .folderGroup[open] > summary [data-folder-state="closed"] {
   display: none;
@@ -675,7 +674,7 @@
   color: var(--muted);
 }
 .projectsPanel {
-  padding: 6px 12px;
+  padding: var(--sidebar-content-top) var(--sidebar-inline-padding) 6px;
 }
 .visuallyHidden {
   position: absolute;
@@ -1114,10 +1113,12 @@
   right: 7px;
   top: 6px;
 }
-.folderGroup > summary {
+.folderGroup > summary,
+.folderGroup > .emptyFolder {
   padding-right: 7px;
 }
-.folderGroup > summary > span:last-of-type {
+.folderGroup > summary > span:last-of-type,
+.folderGroup > .emptyFolder > span:last-of-type {
   min-width: 0;
   flex: 1;
   overflow: hidden;
@@ -1127,7 +1128,9 @@
 .treeItem:hover > .treeAction,
 .treeItem:focus-within > .treeAction,
 summary:hover > .treeAction,
-summary:focus-within > .treeAction {
+summary:focus-within > .treeAction,
+.emptyFolder:hover > .treeAction,
+.emptyFolder:focus-within > .treeAction {
   opacity: 1;
 }
 .treeAction:hover,
@@ -1750,4 +1753,40 @@ summary:focus-within > .treeAction {
   .themeGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+.chevronSpace {
+  width: 12px;
+  flex-shrink: 0;
+}
+.emptyFolder:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.fileViewToolbar {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+.fileViewToolbar button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: calc(var(--ui-font-size) * 0.8);
+  white-space: nowrap;
+}
+.fileViewToolbar button[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--hover);
+  border-color: var(--border);
+}
+.fileViewToolbar button:hover {
+  background: var(--hover);
+}
+.fileViewToolbar button:focus-visible {
+  outline: 1px solid var(--accent);
 }

@@ -2,6 +2,7 @@ import { workspaceApi, type WorkspaceApi } from "./api";
 import { createWorkspaceStore, useWorkspace } from "./store";
 
 const POLL_INTERVAL_MS = 3000;
+const PROBE_BATCH_SIZE = 1000;
 export function startWorkspaceMonitor(
   root: string,
   store: ReturnType<typeof createWorkspaceStore> = useWorkspace,
@@ -28,15 +29,30 @@ export function startWorkspaceMonitor(
       store.getState().project?.path === root &&
       store.getState().generation === snapshot.generation;
     try {
-      const directories = Object.keys(snapshot.tree);
+      const directories = [
+        ...new Set([
+          ...Object.keys(snapshot.tree),
+          ...Object.values(snapshot.tree)
+            .flat()
+            .filter((entry) => entry.isDirectory)
+            .map((entry) => entry.path),
+        ]),
+      ];
       const paths = [
         ...new Set([
           ...directories,
           ...snapshot.documents.map((document) => document.id),
         ]),
       ];
-      const result = await api.advanced.probe(root, paths);
-      if (!valid() || !Array.isArray(result)) return;
+      const result = [];
+      for (let index = 0; index < paths.length; index += PROBE_BATCH_SIZE) {
+        const batch = await api.advanced.probe(
+          root,
+          paths.slice(index, index + PROBE_BATCH_SIZE),
+        );
+        if (!valid() || !Array.isArray(batch)) return;
+        result.push(...batch);
+      }
       let refresh = force;
       for (const item of result) {
         if (!valid()) {
@@ -71,6 +87,22 @@ export function startWorkspaceMonitor(
           else continue;
         }
         stamps.set(item.path, item.stamp);
+      }
+      // An existing grandchild directory can gain a document without changing
+      // its ancestors' mtimes. Re-evaluate each loaded branch's bounded metadata
+      // in document view, refreshing loaded branches only when it changes.
+      if (!refresh && valid() && snapshot.layout.explorerView !== "all") {
+        for (const path of Object.keys(snapshot.tree)) {
+          const entries = await api.entries(root, path);
+          if (!valid()) return;
+          if (
+            JSON.stringify(entries) !==
+            JSON.stringify(store.getState().tree[path])
+          ) {
+            refresh = true;
+            break;
+          }
+        }
       }
       if (refresh && valid()) await store.getState().refresh();
     } catch (error) {

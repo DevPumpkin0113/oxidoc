@@ -1,4 +1,5 @@
 import markdown from "material-icon-theme/icons/markdown.svg?url";
+import mermaid from "material-icon-theme/icons/mermaid.svg?url";
 import readme from "material-icon-theme/icons/readme.svg?url";
 import file from "material-icon-theme/icons/file.svg?url";
 import folder from "material-icon-theme/icons/folder-base.svg?url";
@@ -9,9 +10,11 @@ export function FileIcon({ name, size = 16 }: { name: string; size?: number }) {
   const source =
     filename === "readme.md"
       ? readme
-      : /\.(md|markdown)$/.test(filename)
-        ? markdown
-        : file;
+      : /\.(mmd|mermaid)$/.test(filename)
+        ? mermaid
+        : /\.(md|markdown)$/.test(filename)
+          ? markdown
+          : file;
   return (
     <img
       src={source}

@@ -1,5 +1,16 @@
 import { effectiveLanguage, useSettings } from "./store";
 export const english: Record<string, string> = {
+  "파일 보기": "File view",
+  "기본 보기": "Documents",
+  "전체 보기": "All files",
+  "Markdown·Mermaid 문서와 문서가 있는 폴더만 표시":
+    "Show Markdown/Mermaid documents and their folders",
+  "모든 파일과 폴더 표시": "Show all files and folders",
+  "Mermaid 다이어그램": "Mermaid diagram",
+  "Mermaid 미리보기": "Mermaid preview",
+  "Mermaid 문법을 확인해 주세요.": "Check the Mermaid syntax.",
+  "다이어그램 렌더링 중…": "Rendering diagram…",
+  "Mermaid 원문": "Mermaid source",
   "GitHub Releases에서 최신 정식 버전을 확인합니다.":
     "Check GitHub Releases for the latest stable version.",
   "업데이트 확인 중…": "Checking for updates…",

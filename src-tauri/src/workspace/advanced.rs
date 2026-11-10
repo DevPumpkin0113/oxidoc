@@ -86,6 +86,8 @@ pub(super) fn relative_entry(root: &Path, path: &Path) -> Result<Entry, String> 
             .to_string_lossy()
             .into_owned(),
         is_directory: path.is_dir(),
+        has_children: None,
+        has_documents: None,
     })
 }
 fn create_at(root: &Path, parent: &str, name: &str, directory: bool) -> Result<Entry, String> {

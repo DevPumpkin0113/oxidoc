@@ -54,6 +54,7 @@ import type { EditorCommand, EditorContext } from "./components/MarkdownEditor";
 import styles from "./App.module.css";
 import SettingsPanel from "./components/SettingsPanel";
 import { useUpdater } from "./settings/updater";
+import { isMermaidFile } from "./workspace/documentTypes";
 import {
   effectiveLanguage,
   effectiveTheme,
@@ -225,6 +226,9 @@ export default function App() {
   const activeDocument = documents.find((document) => document.id === activeId);
   const monitoredRoot = project?.path;
   const projectStatus = project?.status;
+  const rootEntries = useWorkspace((state) => state.tree[""]);
+  const rootEmpty = rootEntries?.length === 0;
+  const ExplorerRoot = rootEmpty ? "div" : "details";
   const projectFolderName =
     project?.path === "sample"
       ? project.name
@@ -232,8 +236,9 @@ export default function App() {
   const openTabs = documents.map((document) => document.id);
   const deferredContent = useDeferredValue(activeDocument?.content ?? "");
   const outlineHeadings = useMemo(
-    () => headings(deferredContent),
-    [deferredContent],
+    () =>
+      isMermaidFile(activeDocument?.id ?? "") ? [] : headings(deferredContent),
+    [deferredContent, activeDocument?.id],
   );
   const dirty = (id: string) =>
     documents.some((document) => document.id === id && isDirty(document));
@@ -1448,13 +1453,46 @@ export default function App() {
               {activity === "files" ? (
                 <>
                   <div className={styles.projectLabel}>
-                    <span className={styles.projectIcon}>
-                      <Icon name="book" size={17} />
-                    </span>
-                    <div>
-                      <strong>{project?.name ?? t("프로젝트 없음")}</strong>
+                    <div className={styles.projectName}>
+                      <strong title={project?.name}>
+                        {project?.name ?? t("프로젝트 없음")}
+                      </strong>
                       {!desktop ? <span>{t("브라우저 샘플")}</span> : null}
                     </div>
+                    {project ? (
+                      <div
+                        className={styles.fileViewToolbar}
+                        role="group"
+                        aria-label={t("파일 보기")}
+                      >
+                        <button
+                          aria-label={t("기본 보기")}
+                          aria-pressed={layout.explorerView === "documents"}
+                          title={`${t("기본 보기")} · ${t(
+                            "Markdown·Mermaid 문서와 문서가 있는 폴더만 표시",
+                          )}`}
+                          onClick={() =>
+                            useWorkspace
+                              .getState()
+                              .setLayout({ explorerView: "documents" })
+                          }
+                        >
+                          <Icon name="document" size={15} />
+                        </button>
+                        <button
+                          aria-label={t("전체 보기")}
+                          aria-pressed={layout.explorerView === "all"}
+                          title={`${t("전체 보기")} · ${t("모든 파일과 폴더 표시")}`}
+                          onClick={() =>
+                            useWorkspace
+                              .getState()
+                              .setLayout({ explorerView: "all" })
+                          }
+                        >
+                          <Icon name="files" size={15} />
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                   {!project ? (
                     <div className={styles.projectActions}>
@@ -1470,13 +1508,19 @@ export default function App() {
                     </div>
                   ) : null}
                   {project ? (
-                    <details
-                      ref={explorerTree}
+                    <ExplorerRoot
+                      ref={(node: HTMLElement | null) => {
+                        explorerTree.current =
+                          node instanceof HTMLDetailsElement ? node : null;
+                      }}
                       className={styles.treeRoot}
-                      open
+                      open={rootEmpty ? undefined : true}
                       key={project.path}
                     >
                       <TreeDropTarget
+                        as={rootEmpty ? "div" : "summary"}
+                        className={rootEmpty ? styles.emptyRoot : undefined}
+                        tabIndex={rootEmpty ? 0 : undefined}
                         folderPath=""
                         data-tree-path=""
                         onContextMenu={(event) => {
@@ -1485,7 +1529,14 @@ export default function App() {
                           manageExplorer(event.clientX, event.clientY);
                         }}
                       >
-                        <Icon name="down" size={12} />
+                        {rootEmpty ? (
+                          <span
+                            className={styles.chevronSpace}
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Icon name="down" size={12} />
+                        )}
                         <span title={project.path}>{projectFolderName}</span>
                         {desktop ? (
                           <span
@@ -1525,7 +1576,7 @@ export default function App() {
                         onManage={manageEntry}
                         onOpen={() => setSettingsOpen(false)}
                       />
-                    </details>
+                    </ExplorerRoot>
                   ) : (
                     <p
                       className={styles.projectNote}
@@ -1863,7 +1914,11 @@ export default function App() {
                           aria-label={t("편집 영역")}
                         >
                           <div className={styles.paneLabel}>
-                            <span>MARKDOWN</span>
+                            <span>
+                              {isMermaidFile(activeDocument.id)
+                                ? "MERMAID"
+                                : "MARKDOWN"}
+                            </span>
                             <span>{t("편집")}</span>
                           </div>
                           <div className={styles.editorContent}>
@@ -2105,7 +2160,7 @@ export default function App() {
                 <span className={styles.optionalStatus}>{t("공백: 2")}</span>
                 <span>
                   <Icon name="markdown" size={13} />
-                  Markdown
+                  {isMermaidFile(activeDocument.id) ? "Mermaid" : "Markdown"}
                 </span>
               </>
             ) : (

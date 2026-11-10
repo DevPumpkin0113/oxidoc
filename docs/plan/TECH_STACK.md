@@ -7,22 +7,24 @@
 - VS Code 스타일 UI 기반 로컬 Markdown 에디터
 - 기존 프로젝트 폴더 등록·검색·전환 중심 프로젝트 관리
 - Windows 우선 지원
-- Mermaid 및 프로젝트 템플릿 기능 제외
+- 프로젝트 템플릿 기능 제외
+- 2026-11-10 W083: 기존 Mermaid 제외 결정을 변경, Markdown mermaid 블록 및 mmd/mermaid 독립 문서 지원. 프로젝트 문서 안의 흐름도 확인 요구 반영.
 
 ## 기술 구성
 
-| 영역                 | 선정 기술                                    | 적용 용도                           |
-| -------------------- | -------------------------------------------- | ----------------------------------- |
-| 데스크톱 앱          | Tauri 2                                      | 창 관리·파일 접근·설치 패키지       |
-| UI                   | React + TypeScript                           | 탐색기·탭·프로젝트·명령 팔레트      |
-| 개발·빌드            | Vite                                         | 프런트엔드 개발 서버 및 빌드        |
-| 편집기               | Monaco Editor                                | Markdown 편집·구문 강조·찾기·바꾸기 |
-| Markdown 미리보기    | react-markdown + remark-gfm                  | 제목·목록·표·체크박스 렌더링        |
-| 상태 관리            | Zustand                                      | 열린 탭·활성 프로젝트·레이아웃 상태 |
-| 로컬 메타데이터 저장 | Rust JSON·Tauri Store                        | 프로젝트 목록·즐겨찾기·설정·세션    |
-| 파일 처리·검색       | Tauri 파일 API + Rust                        | 파일 입출력·경로 처리·프로젝트 검색 |
-| 스타일               | CSS Modules + CSS 변수                       | VS Code 스타일 배치 및 테마         |
-| 검증                 | Vitest + React Testing Library / Rust 테스트 | UI 동작 및 파일 처리 검증           |
+| 영역                 | 선정 기술                                    | 적용 용도                                   |
+| -------------------- | -------------------------------------------- | ------------------------------------------- |
+| 데스크톱 앱          | Tauri 2                                      | 창 관리·파일 접근·설치 패키지               |
+| UI                   | React + TypeScript                           | 탐색기·탭·프로젝트·명령 팔레트              |
+| 개발·빌드            | Vite                                         | 프런트엔드 개발 서버 및 빌드                |
+| 편집기               | Monaco Editor                                | Markdown 편집·구문 강조·찾기·바꾸기         |
+| Markdown 미리보기    | react-markdown + remark-gfm                  | 제목·목록·표·체크박스 렌더링                |
+| 다이어그램           | Mermaid + DOMPurify                          | 지연 로딩 렌더링·정제된 SVG 이미지 미리보기 |
+| 상태 관리            | Zustand                                      | 열린 탭·활성 프로젝트·레이아웃 상태         |
+| 로컬 메타데이터 저장 | Rust JSON·Tauri Store                        | 프로젝트 목록·즐겨찾기·설정·세션            |
+| 파일 처리·검색       | Tauri 파일 API + Rust                        | 파일 입출력·경로 처리·프로젝트 검색         |
+| 스타일               | CSS Modules + CSS 변수                       | VS Code 스타일 배치 및 테마                 |
+| 검증                 | Vitest + React Testing Library / Rust 테스트 | UI 동작 및 파일 처리 검증                   |
 
 ## 역할 분담
 
