@@ -43,8 +43,13 @@ pub struct Settings {
     editor_font_family: String,
     #[serde(default = "word_wrap_default")]
     editor_word_wrap: bool,
+    #[serde(default = "remote_images_default")]
+    preview_remote_images: bool,
 }
 const MAX_FONT_FAMILY_LENGTH: usize = 200;
+fn remote_images_default() -> bool {
+    true
+}
 fn word_wrap_default() -> bool {
     true
 }
@@ -116,7 +121,7 @@ pub fn save_settings(app: AppHandle, settings: Settings) -> Result<(), String> {
 mod tests {
     use super::*;
     fn valid() -> serde_json::Value {
-        serde_json::json!({"language":"system","mode":"system","lightTheme":"light-modern","darkTheme":"dark-modern","uiFontSize":13,"editorFontSize":13,"previewFontSize":15,"editorFontFamily":"D2Coding, 'Fira Code'","editorWordWrap":false})
+        serde_json::json!({"language":"system","mode":"system","lightTheme":"light-modern","darkTheme":"dark-modern","uiFontSize":13,"editorFontSize":13,"previewFontSize":15,"editorFontFamily":"D2Coding, 'Fira Code'","editorWordWrap":false,"previewRemoteImages":false})
     }
     #[test]
     fn accepts_valid_settings_and_rejects_out_of_range_or_unknown_values() {
@@ -168,9 +173,11 @@ mod tests {
         let object = data.as_object_mut().unwrap();
         object.remove("editorFontFamily");
         object.remove("editorWordWrap");
+        object.remove("previewRemoteImages");
         let settings = serde_json::from_value::<Settings>(data).unwrap();
         assert!(settings.validate().is_ok());
         assert_eq!(settings.editor_font_family, "");
         assert!(settings.editor_word_wrap);
+        assert!(settings.preview_remote_images);
     }
 }

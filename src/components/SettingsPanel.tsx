@@ -368,7 +368,32 @@ export default function SettingsPanel({
     {
       id: "preview",
       title: t("미리보기"),
-      items: [fontSize("previewFontSize", t("미리보기 글꼴 크기"), 12, 32)],
+      items: [
+        fontSize("previewFontSize", t("미리보기 글꼴 크기"), 12, 32),
+        {
+          id: "previewRemoteImages",
+          text: [t("원격 이미지 표시"), "image", "https"],
+          render: () => (
+            <Row
+              label={t("원격 이미지 표시")}
+              htmlFor="setting-previewRemoteImages"
+              description={t(
+                "https 이미지만 불러오고 http는 차단, 끄면 외부 서버로 요청하지 않음",
+              )}
+              reset={resetFor("previewRemoteImages", t("원격 이미지 표시"))}
+            >
+              <input
+                id="setting-previewRemoteImages"
+                type="checkbox"
+                role="switch"
+                className={styles.switch}
+                checked={settings.previewRemoteImages}
+                onChange={(e) => set("previewRemoteImages", e.target.checked)}
+              />
+            </Row>
+          ),
+        },
+      ],
     },
     {
       id: "about",

@@ -13,6 +13,8 @@ export interface Settings {
   /** Font names typed by the user; empty uses the bundled default stack. */
   editorFontFamily: string;
   editorWordWrap: boolean;
+  /** Load https images in the preview (http stays blocked), as in VS Code. */
+  previewRemoteImages: boolean;
 }
 export const MAX_FONT_FAMILY_LENGTH = 200;
 export const DEFAULT_EDITOR_FONT =
@@ -40,6 +42,7 @@ export const defaults: Settings = {
   previewFontSize: 15,
   editorFontFamily: "",
   editorWordWrap: true,
+  previewRemoteImages: true,
 };
 export function languageFor(locale: string) {
   return /^ko(?:[-_]|$)/i.test(locale) ? "ko" : "en";
@@ -90,6 +93,10 @@ export function parseSettings(input: unknown): Settings {
       typeof data.editorWordWrap === "boolean"
         ? data.editorWordWrap
         : defaults.editorWordWrap,
+    previewRemoteImages:
+      typeof data.previewRemoteImages === "boolean"
+        ? data.previewRemoteImages
+        : defaults.previewRemoteImages,
   };
 }
 export interface SettingsApi {

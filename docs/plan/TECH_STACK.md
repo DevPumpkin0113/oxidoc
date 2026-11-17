@@ -52,7 +52,7 @@
 
 ## 보안 경계
 
-- 미리보기: 원시 HTML은 rehype-raw로 파싱한 뒤 rehype-sanitize 허용 목록(`workspace/previewHtml.ts`, GitHub 기본 정제에서 `picture`·`source`·폼 속성·`class`·`style` 제외)만 통과. `script`·`style`·`iframe`·`object`·`embed`·`svg`·`math`·`textarea` 등은 내용째 제거, 그 밖의 태그는 글자만 남김, 이벤트 속성·`javascript:` 링크 제거, `input`은 작업 목록 체크 상자만. HTML의 `a`·`img`도 Markdown과 같은 링크·로컬 이미지 컴포넌트를 거치므로 원격 이미지·SVG 이미지 차단, 등록 경로 내부 래스터 이미지와 상대 문서 링크만 허용, HTTP/HTTPS 링크는 기본 브라우저로 연다. `<`가 없는 블록은 HTML 파싱을 건너뛴다.
+- 미리보기: 원시 HTML은 rehype-raw로 파싱한 뒤 rehype-sanitize 허용 목록(`workspace/previewHtml.ts`, GitHub 기본 정제에서 `picture`·`source`·폼 속성·`class`·`style` 제외)만 통과. `script`·`style`·`iframe`·`object`·`embed`·`svg`·`math`·`textarea` 등은 내용째 제거, 그 밖의 태그는 글자만 남김, 이벤트 속성·`javascript:` 링크 제거, `input`은 작업 목록 체크 상자만. HTML의 `a`·`img`도 Markdown과 같은 링크·이미지 컴포넌트를 거친다. 로컬은 등록 경로 내부 래스터 이미지(SVG 제외)와 상대 문서 링크만 허용하고, 원격 이미지는 https만 `referrerpolicy=no-referrer`·지연 로딩으로 표시(설정 `원격 이미지 표시`로 끔, CSP `img-src https:`), http 이미지는 차단. `<img>`의 `width`·`height`는 숫자·퍼센트만 반영. HTTP/HTTPS 링크는 기본 브라우저로 연다. `<`가 없는 블록은 HTML 파싱을 건너뛴다.
 - Mermaid: 원시 SVG 삽입 대신 DOMPurify로 정제한 SVG 이미지로 격리, 외부 링크·HTML 동작 비활성.
 - 타이틀바 제어 권한은 해당 Tauri 창 명령으로 제한.
 - 업데이트: 앱에 포함된 공개 키로 서명을 검증한 뒤에만 설치. 비밀 키는 Git 제외 `.local/keys/oxidoc-updater.key`에 두고 별도 백업한다.

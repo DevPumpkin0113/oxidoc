@@ -1,4 +1,4 @@
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { act, render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectManager from "./ProjectManager";
@@ -6,6 +6,7 @@ import CommandPalette from "./CommandPalette";
 import MarkdownPreview from "./MarkdownPreview";
 import { useWorkspace } from "../workspace/store";
 import { workspaceApi } from "../workspace/api";
+import { useSettings } from "../settings/store";
 
 /** Picks a tag in the project panel's tag dropdown. */
 async function chooseTag(
@@ -249,21 +250,54 @@ describe("프로젝트·명령 팔레트", () => {
   });
 });
 describe("미리보기 콘텐츠 정책", () => {
-  it("GFM 표·체크리스트·코드 표시, 원시 HTML 및 원격 이미지 요청 차단", () => {
-    const { container } = render(
-      <MarkdownPreview
-        content={
-          '# 제목\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n- [x] done\n\n```js\nalert(1)\n```\n\n<script>alert(2)</script>\n\n<iframe src="https://evil.test"></iframe>\n\n![remote](https://evil.test/tracker.png)'
-        }
-      />,
+  it("GFM 표·체크리스트·코드 표시, 원시 HTML 차단, 원격 이미지는 VS Code처럼 https만", () => {
+    const content = [
+      "# 제목",
+      "",
+      "| A | B |",
+      "| - | - |",
+      "| 1 | 2 |",
+      "",
+      "- [x] done",
+      "",
+      "```js",
+      "alert(1)",
+      "```",
+      "",
+      "<script>alert(2)</script>",
+      "",
+      '<iframe src="https://evil.test"></iframe>',
+      "",
+      "![badge](https://img.test/badge.svg) ![plain](http://img.test/a.png)",
+      "",
+      '<img src="https://img.test/shot.png" width="900" height="abc" alt="shot">',
+    ].join("\n");
+    const { container, rerender } = render(
+      <MarkdownPreview content={content} />,
     );
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByRole("checkbox")).toBeChecked();
     expect(container.querySelector("pre code")?.textContent).toContain(
       "alert(1)",
     );
-    expect(container.querySelector("script,iframe,img")).toBeNull();
-    expect(screen.getByText(/remote · 외부 이미지/)).toBeInTheDocument();
+    expect(container.querySelector("script,iframe")).toBeNull();
+    const badge = screen.getByRole("img", { name: "badge" });
+    expect(badge).toHaveAttribute("src", "https://img.test/badge.svg");
+    expect(badge).toHaveAttribute("referrerpolicy", "no-referrer");
+    const shot = screen.getByRole("img", { name: "shot" });
+    expect(shot).toHaveAttribute("width", "900");
+    expect(shot).not.toHaveAttribute("height");
+    expect(screen.queryByRole("img", { name: "plain" })).toBeNull();
+    expect(screen.getByText("http 이미지는 차단됨")).toBeInTheDocument();
+
+    act(() =>
+      useSettings.setState((state) => ({
+        settings: { ...state.settings, previewRemoteImages: false },
+      })),
+    );
+    rerender(<MarkdownPreview content={`${content}\n`} />);
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getAllByText("원격 이미지 꺼짐")).toHaveLength(2);
   });
   it("상대 이미지의 검증된 데이터 URL과 문서 링크 이동", async () => {
     const image = vi

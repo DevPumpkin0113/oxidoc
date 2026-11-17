@@ -188,11 +188,11 @@
   }
 }
 
+/* Inline like GitHub, so badges sit side by side and `align` centres them. */
 .preview img {
   max-width: 100%;
   height: auto;
-  display: block;
-  margin: 14px 0;
+  vertical-align: middle;
   border-radius: 4px;
 }
 
@@ -206,14 +206,29 @@
 }
 
 .imagePlaceholder {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   max-width: 100%;
-  border: 1px dashed var(--border);
-  border-radius: 4px;
-  padding: 8px;
+  margin: 2px 0;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
   color: var(--muted);
   font-size: calc(var(--ui-font-size, 13px) * 10 / 13);
+  line-height: 1.6;
+  vertical-align: middle;
   overflow-wrap: anywhere;
+}
+
+.imagePlaceholder small {
+  opacity: 0.75;
+  font-size: 0.9em;
+}
+
+.imagePlaceholder small::before {
+  content: "· ";
 }
 
 .preview {

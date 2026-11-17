@@ -27,6 +27,7 @@ import MermaidDiagram from "./MermaidDiagram";
 import { effectiveTheme, useSettings } from "../settings/store";
 import { cachedHighlight, highlightCode } from "../workspace/codeHighlight";
 import ScrollArea from "./ScrollArea";
+import Icon from "./Icon";
 import { previewRehypePlugins } from "../workspace/previewHtml";
 import { isMermaidFile } from "../workspace/documentTypes";
 import {
@@ -55,7 +56,71 @@ interface PreviewContextValue {
 const PreviewContext = createContext<PreviewContextValue | null>(null);
 /** Heading ids of one block, keyed by line relative to the block. */
 const BlockHeadings = createContext<Map<number, string>>(new Map());
-function LocalImage({ src, alt }: { src?: string; alt?: string }) {
+/** Size attributes of an HTML `<img>`: pixels or a percentage. */
+interface ImageSize {
+  width?: number | string;
+  height?: number | string;
+}
+function imageSize(value: unknown) {
+  const text = String(value ?? "").trim();
+  if (/^\d{1,5}$/.test(text)) return Number(text);
+  if (/^\d{1,3}%$/.test(text)) return text;
+  return undefined;
+}
+
+/** An image that could not be shown: its alt text and the reason. */
+function ImageChip({ alt, reason }: { alt?: string; reason: string }) {
+  return (
+    <span className={styles.imagePlaceholder} title={reason}>
+      <Icon name="preview" size={12} />
+      {alt || t("이미지")}
+      <small>{reason}</small>
+    </span>
+  );
+}
+
+/**
+ * Remote images follow VS Code's preview policy: https loads (without a
+ * referrer) unless turned off in settings; http is always blocked.
+ */
+function RemoteImage({
+  src,
+  alt,
+  size,
+}: {
+  src: string;
+  alt?: string;
+  size: ImageSize;
+}) {
+  const allowed = useSettings((state) => state.settings.previewRemoteImages);
+  const [failed, setFailed] = useState<string>();
+  if (!/^https:\/\//i.test(src))
+    return <ImageChip alt={alt} reason={t("http 이미지는 차단됨")} />;
+  if (!allowed) return <ImageChip alt={alt} reason={t("원격 이미지 꺼짐")} />;
+  if (failed === src)
+    return <ImageChip alt={alt} reason={t("이미지를 표시할 수 없습니다.")} />;
+  return (
+    <img
+      src={src}
+      alt={alt ?? ""}
+      {...size}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(src)}
+    />
+  );
+}
+
+function LocalImage({
+  src,
+  alt,
+  size,
+}: {
+  src?: string;
+  alt?: string;
+  size: ImageSize;
+}) {
   const context = useContext(PreviewContext)!;
   const target = resolveLink(context.documentPath, src ?? "");
   const path = target.kind === "local" ? target.path : null;
@@ -83,9 +148,10 @@ function LocalImage({ src, alt }: { src?: string; alt?: string }) {
     };
   }, [path, root, desktop, key]);
   const image = result?.key === key ? result.image : "";
-  const error =
-    !path || !root || !desktop
-      ? t("외부 이미지 또는 지원하지 않는 경로")
+  const error = !path
+    ? t("지원하지 않는 경로")
+    : !root || !desktop
+      ? t("데스크톱 앱에서 표시")
       : result?.key === key
         ? result.error
         : "";
@@ -93,15 +159,16 @@ function LocalImage({ src, alt }: { src?: string; alt?: string }) {
     <img
       src={image}
       alt={alt ?? ""}
+      {...size}
       onError={() =>
         setResult({ key, image: "", error: t("이미지를 표시할 수 없습니다.") })
       }
     />
   ) : (
-    <span className={styles.imagePlaceholder} title={translateError(error)}>
-      {alt || t("이미지")}
-      {error ? ` · ${translateError(error)}` : t(" · 불러오는 중…")}
-    </span>
+    <ImageChip
+      alt={alt}
+      reason={error ? translateError(error) : t("불러오는 중…")}
+    />
   );
 }
 function PreviewHeading({
@@ -146,9 +213,23 @@ function PreviewLink({
     </a>
   );
 }
-function PreviewImage({ src, alt }: { src?: string | Blob; alt?: string }) {
-  return (
-    <LocalImage src={typeof src === "string" ? src : undefined} alt={alt} />
+function PreviewImage({
+  src,
+  alt,
+  width,
+  height,
+}: {
+  src?: string | Blob;
+  alt?: string;
+  width?: unknown;
+  height?: unknown;
+}) {
+  const source = typeof src === "string" ? src : undefined;
+  const size = { width: imageSize(width), height: imageSize(height) };
+  return source && /^https?:\/\//i.test(source) ? (
+    <RemoteImage src={source} alt={alt} size={size} />
+  ) : (
+    <LocalImage src={source} alt={alt} size={size} />
   );
 }
 function PreviewCodeBlock({
