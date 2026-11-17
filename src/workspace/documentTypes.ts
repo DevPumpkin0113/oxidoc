@@ -2,6 +2,16 @@ import type { Entry } from "./api";
 export const isMermaidFile = (name: string) => /\.(mmd|mermaid)$/i.test(name);
 export const isDocumentFile = (name: string) =>
   /\.(md|mmd|mermaid)$/i.test(name);
+/**
+ * Raster images opened read-only in an image tab (the formats `read_image`
+ * serves). SVG stays excluded, as in the preview.
+ */
+export const isImageFile = (name: string) =>
+  /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(name);
+
+/** Files the default explorer view lists (see `visibility.rs`). */
+export const isViewableFile = (name: string) =>
+  isDocumentFile(name) || isImageFile(name);
 
 export function visibleEntries(
   entries: Entry[],
@@ -10,7 +20,7 @@ export function visibleEntries(
 ) {
   if (view === "all") return entries;
   const hasDocuments = (entry: Entry, visited = new Set<string>()): boolean => {
-    if (!entry.isDirectory) return isDocumentFile(entry.name);
+    if (!entry.isDirectory) return isViewableFile(entry.name);
     if (typeof entry.hasDocuments === "boolean") return entry.hasDocuments;
     if (visited.has(entry.path)) return false;
     const children = tree[entry.path];

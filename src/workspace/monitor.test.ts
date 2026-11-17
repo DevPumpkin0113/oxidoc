@@ -210,6 +210,35 @@ it("미편집 문서 외부 변경 자동 반영 및 변경 표시 제거", asyn
   }
 });
 
+it("열린 이미지는 텍스트로 읽지 않고 파일 표식만 바꿔 다시 그리게 하며, 삭제돼도 수정 상태가 되지 않음", async () => {
+  vi.useFakeTimers();
+  const { api, store } = fixture();
+  const image = {
+    id: "p.png",
+    name: "p.png",
+    folder: "",
+    content: "",
+    savedContent: "",
+  };
+  store.setState({ documents: [image], activeId: "p.png" });
+  api.advanced.probe.mockResolvedValue([{ path: "p.png", stamp: "s1" }]);
+  const stop = startWorkspaceMonitor("C:/notes", store, api);
+  try {
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(api.read).not.toHaveBeenCalled();
+    expect(store.getState().documents[0].content).toBe("s1");
+    api.advanced.probe.mockResolvedValue([{ path: "p.png", stamp: null }]);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(store.getState().documents[0]).toMatchObject({
+      content: "missing",
+      savedContent: "missing",
+    });
+    expect(isDirty(store.getState().documents[0])).toBe(false);
+  } finally {
+    stop();
+  }
+});
+
 it("외부 읽기 대기 중 시작한 편집 보호", async () => {
   vi.useFakeTimers();
   const { api, store } = fixture();

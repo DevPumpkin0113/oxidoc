@@ -1,3 +1,4 @@
+import { isImageFile } from "./documentTypes";
 export interface Document {
   id: string;
   name: string;
@@ -74,8 +75,11 @@ export function parseSession(value: unknown, layout: Layout): Session {
   };
 }
 
+// Image tabs have no text: `content`/`savedContent` hold the file stamp that
+// reloads the view, and they are never dirty, saved or recovered.
 export const isDirty = (document: Document) =>
-  document.content !== document.savedContent || document.diskContent === null;
+  !isImageFile(document.id) &&
+  (document.content !== document.savedContent || document.diskContent === null);
 
 // Windows is the supported desktop target; use the same identity for links,
 // explorer paths, save targets and descendant operations.

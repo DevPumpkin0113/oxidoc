@@ -1,5 +1,6 @@
 import { workspaceApi, type WorkspaceApi } from "./api";
 import { createWorkspaceStore, useWorkspace } from "./store";
+import { isImageFile } from "./documentTypes";
 
 /** Fallback interval when the file watcher cannot start. */
 const POLL_INTERVAL_MS = 3000;
@@ -97,7 +98,18 @@ export function startWorkspaceMonitor(
         const document = snapshot.documents.find(
           (document) => document.id === item.path,
         );
-        if (document) {
+        if (document && isImageFile(document.id)) {
+          // The stamp is the image tab's revision: a change reloads the view,
+          // and a missing file shows the load error there.
+          const revision = item.stamp ?? "missing";
+          store.setState((state) => ({
+            documents: state.documents.map((current) =>
+              current.id === document.id
+                ? { ...current, content: revision, savedContent: revision }
+                : current,
+            ),
+          }));
+        } else if (document) {
           let content: string | null = null;
           try {
             content = await api.read(root, item.path);

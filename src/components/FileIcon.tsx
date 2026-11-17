@@ -2,6 +2,8 @@ import markdown from "material-icon-theme/icons/markdown.svg?url";
 import mermaid from "material-icon-theme/icons/mermaid.svg?url";
 import readme from "material-icon-theme/icons/readme.svg?url";
 import file from "material-icon-theme/icons/file.svg?url";
+import image from "material-icon-theme/icons/image.svg?url";
+import { isImageFile } from "../workspace/documentTypes";
 import folder from "material-icon-theme/icons/folder-base.svg?url";
 import folderOpen from "material-icon-theme/icons/folder-base-open.svg?url";
 
@@ -14,7 +16,9 @@ export function FileIcon({ name, size = 16 }: { name: string; size?: number }) {
         ? mermaid
         : /\.(md|markdown)$/.test(filename)
           ? markdown
-          : file;
+          : isImageFile(filename)
+            ? image
+            : file;
   return (
     <img
       src={source}

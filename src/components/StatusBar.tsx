@@ -1,6 +1,6 @@
 import { t } from "../settings/i18n";
 import { useUpdater } from "../settings/updater";
-import { isMermaidFile } from "../workspace/documentTypes";
+import { isImageFile, isMermaidFile } from "../workspace/documentTypes";
 import { useWorkspace } from "../workspace/store";
 import {
   useDocumentSummaries,
@@ -77,7 +77,12 @@ export default function StatusBar() {
             {t("업데이트 {0}", updateVersion)}
           </button>
         ) : null}
-        {active ? (
+        {active && isImageFile(active.id) ? (
+          <span>
+            <Icon name="preview" size={13} />
+            {t("이미지 · 읽기 전용")}
+          </span>
+        ) : active ? (
           <>
             <span className={styles.saveState} data-state={saveState(active)}>
               {t(SAVE_STATE_LABELS[saveState(active)])}

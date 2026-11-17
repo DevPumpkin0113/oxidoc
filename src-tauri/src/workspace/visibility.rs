@@ -44,9 +44,12 @@ fn inspect(
         children = true;
         if kind.is_file()
             && path.extension().is_some_and(|extension| {
-                ["md", "mmd", "mermaid"]
-                    .iter()
-                    .any(|candidate| extension.to_string_lossy().eq_ignore_ascii_case(candidate))
+                // Same list as `isViewableFile` in documentTypes.ts.
+                [
+                    "md", "mmd", "mermaid", "png", "jpg", "jpeg", "gif", "webp", "avif", "bmp",
+                ]
+                .iter()
+                .any(|candidate| extension.to_string_lossy().eq_ignore_ascii_case(candidate))
             })
         {
             return (Some(true), Some(true));
@@ -90,15 +93,19 @@ mod tests {
         fs::create_dir_all(root.join("docs/nested")).unwrap();
         fs::create_dir_all(root.join("empty")).unwrap();
         fs::create_dir_all(root.join("assets")).unwrap();
+        fs::create_dir_all(root.join("files")).unwrap();
         fs::create_dir_all(root.join("empty-chain/child")).unwrap();
         fs::write(root.join("docs/nested/flow.MMD"), "graph LR; A-->B").unwrap();
-        fs::write(root.join("assets/image.png"), b"image").unwrap();
+        fs::write(root.join("assets/image.PNG"), b"image").unwrap();
+        fs::write(root.join("files/notes.txt"), b"text").unwrap();
         let entries = super::super::directory_entries(&root, "").unwrap();
         let entry = |name| entries.iter().find(|entry| entry.name == name).unwrap();
         assert_eq!(entry("docs").has_documents, Some(true));
         assert_eq!(entry("empty").has_children, Some(false));
-        assert_eq!(entry("assets").has_documents, Some(false));
-        assert_eq!(entry("assets").has_children, Some(true));
+        // Images open in the app, so their folders show in the default view.
+        assert_eq!(entry("assets").has_documents, Some(true));
+        assert_eq!(entry("files").has_documents, Some(false));
+        assert_eq!(entry("files").has_children, Some(true));
         assert_eq!(entry("empty-chain").has_documents, Some(false));
         assert_eq!(entry("empty-chain").has_children, Some(true));
     }

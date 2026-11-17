@@ -11,6 +11,7 @@ import {
   type Session,
 } from "../model";
 import { queueRecovery } from "./recoverySlice";
+import { isImageFile } from "../documentTypes";
 import type { ProjectSlice, SliceContext } from "./types";
 
 const SAMPLE_PROJECT: Project = { name: "샘플 작업 공간", path: "sample" };
@@ -166,7 +167,10 @@ export function createProjectSlice(context: SliceContext): ProjectSlice {
         for (const path of saved.paths) {
           try {
             restored.push(
-              documentFrom(path, await api.read(project.path, path)),
+              documentFrom(
+                path,
+                isImageFile(path) ? "" : await api.read(project.path, path),
+              ),
             );
           } catch {
             missing.push(path);

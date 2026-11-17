@@ -1,5 +1,6 @@
 import { sampleDocuments } from "../../data/sampleDocuments";
 import { documentFrom, isDirty, sameDocumentPath } from "../model";
+import { isImageFile } from "../documentTypes";
 import type { DocumentSlice, SliceContext } from "./types";
 
 const MAX_CLOSED_ENTRIES = 20;
@@ -28,9 +29,12 @@ export function createDocumentSlice({
         const sample = sampleDocuments.find(
           (document) => document.id === entry.path,
         );
-        const content = desktop
-          ? await api.read(project.path, entry.path)
-          : (sample?.content ?? "");
+        // Images are shown from the file itself; no text to read.
+        const content = isImageFile(entry.path)
+          ? ""
+          : desktop
+            ? await api.read(project.path, entry.path)
+            : (sample?.content ?? "");
         set((state) => ({
           documents: [
             ...state.documents,
@@ -93,7 +97,14 @@ export function createDocumentSlice({
     saveAs: async (id) => {
       const { project, documents, desktop, busy } = get();
       const document = documents.find((document) => document.id === id);
-      if (!project || !document || busy || !desktop || !api.advanced)
+      if (
+        !project ||
+        !document ||
+        busy ||
+        !desktop ||
+        !api.advanced ||
+        isImageFile(id)
+      )
         return false;
       set({ busy: true, error: "" });
       try {

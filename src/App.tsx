@@ -1,4 +1,6 @@
 import DocumentView from "./components/DocumentView";
+import ImageView from "./components/ImageView";
+import { isImageFile } from "./workspace/documentTypes";
 import ScrollArea from "./components/ScrollArea";
 import SettingsPanel from "./components/SettingsPanel";
 import Sidebar from "./components/Sidebar";
@@ -39,6 +41,8 @@ function ContentPanel() {
         >
           <SettingsPanel onInstallUpdate={installUpdate} />
         </ScrollArea>
+      ) : activeDocument && isImageFile(activeDocument.id) ? (
+        <ImageView key={activeDocument.id} document={activeDocument} />
       ) : activeDocument ? (
         <DocumentView document={activeDocument} />
       ) : (
