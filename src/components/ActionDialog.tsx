@@ -1,6 +1,7 @@
 import { t } from "../settings/i18n";
 import { useEffect, useRef, useState } from "react";
-import styles from "../App.module.css";
+import styles from "./ActionDialog.module.css";
+import dialogStyles from "./dialog.module.css";
 export interface ActionRequest {
   title: string;
   body?: string;
@@ -25,10 +26,10 @@ export default function ActionDialog({
       ?.focus();
   }, [request.input]);
   return (
-    <div className={styles.modalBackdrop}>
+    <div className={dialogStyles.modalBackdrop}>
       <form
         ref={form}
-        className={styles.confirmDialog}
+        className={dialogStyles.confirmDialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby="action-title"
@@ -69,12 +70,12 @@ export default function ActionDialog({
             spellCheck={false}
           />
         ) : null}
-        <div className={styles.dialogActions}>
+        <div className={dialogStyles.dialogActions}>
           <button type="button" onClick={() => onResolve(null)}>
             {t("취소")}
           </button>
           <button
-            className={styles.primaryButton}
+            className={dialogStyles.primaryButton}
             type="submit"
             disabled={request.input && !request.allowEmpty && !value.trim()}
           >

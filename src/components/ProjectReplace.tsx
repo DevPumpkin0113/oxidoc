@@ -15,7 +15,7 @@ import { useWorkspace } from "../workspace/store";
 import { t, translateError } from "../settings/i18n";
 import Icon from "./Icon";
 import { FileIcon } from "./FileIcon";
-import base from "../App.module.css";
+import dialogStyles from "./dialog.module.css";
 import styles from "./ProjectReplace.module.css";
 
 const ReplacementDiff = lazy(() => import("./ReplacementDiff"));
@@ -161,7 +161,7 @@ export default function ProjectReplace({
 
   return (
     <div
-      className={`${base.modalBackdrop} ${styles.backdrop}`}
+      className={`${dialogStyles.modalBackdrop} ${styles.backdrop}`}
       inert={suspended}
     >
       <div

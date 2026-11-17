@@ -1,7 +1,8 @@
 import { t } from "../settings/i18n";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import Icon from "./Icon";
-import styles from "../App.module.css";
+import styles from "./CommandPalette.module.css";
+import dialogStyles from "./dialog.module.css";
 import {
   canExecuteCommand,
   executeCommand,
@@ -63,7 +64,7 @@ export default function CommandPalette({
   }, [index]);
   return (
     <div
-      className={styles.modalBackdrop}
+      className={dialogStyles.modalBackdrop}
       inert={suspended}
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) onClose();

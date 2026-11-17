@@ -1,0 +1,118 @@
+.tabBar {
+  display: flex;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  height: var(--workspace-header-height);
+  margin-bottom: -1px;
+  background: transparent;
+}
+
+.tabs {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 136px;
+  max-width: 200px;
+  margin-right: 4px;
+  margin-bottom: 3px;
+  border: 1px solid transparent;
+  border-radius: 8px 8px 0 0;
+  position: relative;
+}
+
+.tab:not(.activeTab):hover {
+  background: var(--surface);
+}
+
+.tab > button:first-child {
+  height: 29px;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 7px;
+  padding: 0 8px 0 12px;
+  font-size: calc(var(--ui-font-size, 13px) * 12 / 13);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tab > button:first-child > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab:not(.activeTab) > button:first-child > img {
+  opacity: 0.7;
+}
+
+.tab > button:first-child svg {
+  color: var(--muted);
+}
+
+.activeTab {
+  background: var(--editor);
+  margin-bottom: 0;
+  border-color: var(--panel-border);
+  border-bottom: 0;
+}
+
+.activeTab > button:first-child {
+  color: var(--text);
+}
+
+.tabClose {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-right: 8px;
+  border-radius: 4px;
+  color: var(--muted);
+  opacity: 0;
+}
+
+.activeTab .tabClose,
+.tab:hover .tabClose,
+.tab:focus-within .tabClose,
+.tab:has(.tabDirty) .tabClose {
+  opacity: 1;
+}
+
+.tabClose:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.tabDirty {
+  font-size: calc(var(--ui-font-size, 13px) * 8 / 13);
+}
+
+.paletteButton {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 25px;
+  border-radius: 4px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.paletteButton:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.paletteButton {
+  align-self: center;
+}

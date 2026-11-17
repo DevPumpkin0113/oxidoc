@@ -1,0 +1,23 @@
+.selectedFile {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.selectedFile::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--accent);
+}
+
+.dirtyDot {
+  font-size: calc(var(--ui-font-size, 13px) * 7 / 13);
+  margin-left: auto;
+  color: var(--text);
+}
+
+.cutEntry {
+  opacity: 0.5;
+}

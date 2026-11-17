@@ -6,7 +6,7 @@ import {
   type Settings,
 } from "../settings/store";
 import { themes } from "../settings/themes";
-import styles from "../App.module.css";
+import styles from "./SettingsPanel.module.css";
 import AppUpdate from "./AppUpdate";
 export default function SettingsPanel({
   onInstallUpdate,

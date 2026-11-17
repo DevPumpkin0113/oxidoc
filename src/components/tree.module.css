@@ -1,0 +1,158 @@
+.treeRoot > summary,
+.treeRoot > .emptyRoot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 10px 0 12px;
+  color: var(--muted);
+  font-size: calc(var(--ui-font-size, 13px) * 9 / 13);
+  letter-spacing: 0;
+}
+
+.treeRoot > summary > span,
+.treeRoot > .emptyRoot > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.treeRoot:not([open]) > summary > svg {
+  transform: rotate(-90deg);
+}
+
+.folderGroup > summary,
+.folderGroup > .emptyFolder {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding-left: 17px;
+  color: var(--text);
+  font-size: calc(var(--ui-font-size, 13px) * 12 / 13);
+}
+
+.treeRoot > .treeDropTarget,
+.folderGroup > .treeDropTarget {
+  background: var(--hover);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  color: var(--text);
+}
+
+.folderGroup > summary > svg:first-child {
+  transform: rotate(90deg);
+  color: var(--muted);
+}
+
+.folderGroup:not([open]) > summary > svg:first-child {
+  transform: none;
+}
+
+.folderGroup > .emptyFolder [data-folder-state="open"],
+.folderGroup > summary [data-folder-state="open"],
+.folderGroup[open] > summary [data-folder-state="closed"] {
+  display: none;
+}
+
+.folderGroup[open] > summary [data-folder-state="open"] {
+  display: block;
+}
+
+.file {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 18px 0 30px;
+  text-align: left;
+  font-size: calc(var(--ui-font-size, 13px) * 12 / 13);
+  color: var(--text);
+}
+
+.file > svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.file > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file:hover {
+  background: var(--hover);
+}
+
+.treeAction:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.treeItem {
+  position: relative;
+}
+
+.treeItem > .file {
+  padding-right: 30px;
+}
+
+.treeAction {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  opacity: 0;
+  color: var(--muted);
+}
+
+.treeItem > .treeAction {
+  position: absolute;
+  right: 7px;
+  top: 6px;
+}
+
+.folderGroup > summary,
+.folderGroup > .emptyFolder {
+  padding-right: 7px;
+}
+
+.folderGroup > summary > span:last-of-type,
+.folderGroup > .emptyFolder > span:last-of-type {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeItem:hover > .treeAction,
+.treeItem:focus-within > .treeAction,
+summary:hover > .treeAction,
+summary:focus-within > .treeAction,
+.emptyFolder:hover > .treeAction,
+.emptyFolder:focus-within > .treeAction {
+  opacity: 1;
+}
+
+.treeAction:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.chevronSpace {
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.emptyFolder:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}

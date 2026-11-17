@@ -11,7 +11,7 @@ import {
   useTreeDrag,
   type DragSource,
 } from "../workspace/treeDrag";
-import styles from "../App.module.css";
+import styles from "./tree.module.css";
 
 const FOLDER_HOVER_DELAY_MS = 700;
 

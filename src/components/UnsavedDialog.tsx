@@ -1,6 +1,6 @@
 import { t } from "../settings/i18n";
 import { useEffect, useRef } from "react";
-import styles from "../App.module.css";
+import styles from "./dialog.module.css";
 export type UnsavedChoice = "save" | "discard" | "cancel";
 export default function UnsavedDialog({
   names,

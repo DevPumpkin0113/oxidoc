@@ -14,7 +14,8 @@ vi.mock("@tauri-apps/api/window", () => ({
     onCloseRequested: vi.fn().mockResolvedValue(vi.fn()),
   }),
 }));
-// Titlebar has no store subscriptions, so it renders only when App renders.
+// Titlebar has no store subscriptions, so it renders only when the tab bar
+// or the App shell renders.
 vi.mock("./components/Titlebar", () => ({
   default: () => {
     titlebarRenders.count += 1;

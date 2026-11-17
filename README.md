@@ -61,6 +61,7 @@ npm run dev:desktop
 
 ```text
 src/                  React UI 및 프런트엔드 테스트
+src/workbench/        메뉴·명령·단축키·화면 상태 등 앱 셸 로직
 src-tauri/            Rust 앱·Tauri 설정·권한·네이티브 리소스
 scripts/              버전·릴리즈 빌드 스크립트
 docs/plan/            기술·기능·릴리즈 문서

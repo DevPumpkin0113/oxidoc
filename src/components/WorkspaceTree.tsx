@@ -5,7 +5,9 @@ import { FolderIcon, FileIcon } from "./FileIcon";
 import Icon from "./Icon";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspace, isDirty } from "../workspace/store";
-import styles from "../App.module.css";
+import styles from "./WorkspaceTree.module.css";
+import panelStyles from "./panel.module.css";
+import treeStyles from "./tree.module.css";
 import type { Entry } from "../workspace/api";
 import TreeDropTarget from "./TreeDropTarget";
 import { startFileDrag, endFileDrag } from "../workspace/treeDrag";
@@ -42,14 +44,14 @@ function FolderRow({
       as={empty ? "div" : "summary"}
       folderPath={entry.path}
       data-tree-path={entry.path}
-      className={`${className} ${empty ? styles.emptyFolder : ""}`}
+      className={`${className} ${empty ? treeStyles.emptyFolder : ""}`}
       style={{ paddingLeft: 17 + depth * 14 }}
       tabIndex={empty ? 0 : undefined}
       onMoved={() => setOpened(true)}
       onContextMenu={(event) => manage(entry, event)}
     >
       {empty ? (
-        <span className={styles.chevronSpace} aria-hidden="true" />
+        <span className={treeStyles.chevronSpace} aria-hidden="true" />
       ) : (
         <Icon name="chevron" size={12} />
       )}
@@ -57,7 +59,7 @@ function FolderRow({
       <span>{entry.name}</span>
       {desktop ? (
         <button
-          className={styles.treeAction}
+          className={treeStyles.treeAction}
           aria-label={t("{0} 관리", entry.name)}
           disabled={busy}
           onClick={(event) => manage(entry, event)}
@@ -68,10 +70,10 @@ function FolderRow({
     </TreeDropTarget>
   );
   return empty ? (
-    <div className={styles.folderGroup}>{header}</div>
+    <div className={treeStyles.folderGroup}>{header}</div>
   ) : (
     <details
-      className={styles.folderGroup}
+      className={treeStyles.folderGroup}
       open={opened}
       onToggle={(event) => {
         if (event.target !== event.currentTarget) return;
@@ -137,7 +139,7 @@ export default function WorkspaceTree({
   }
   if (!entries)
     return (
-      <p className={styles.resultCount} style={{ paddingLeft: 16 }}>
+      <p className={panelStyles.resultCount} style={{ paddingLeft: 16 }}>
         {t("불러오는 중…")}
       </p>
     );
@@ -154,13 +156,13 @@ export default function WorkspaceTree({
       />
     ) : (
       <div
-        className={`${styles.treeItem} ${cutClass(entry)}`}
+        className={`${treeStyles.treeItem} ${cutClass(entry)}`}
         data-tree-path={entry.path}
         key={entry.path}
         onContextMenu={(event) => manage(entry, event)}
       >
         <button
-          className={`${styles.file} ${activeId === entry.path ? styles.selectedFile : ""}`}
+          className={`${treeStyles.file} ${activeId === entry.path ? styles.selectedFile : ""}`}
           style={{ paddingLeft: 24 + depth * 14 }}
           disabled={busy}
           title={entry.path}
@@ -183,7 +185,7 @@ export default function WorkspaceTree({
         </button>
         {desktop ? (
           <button
-            className={styles.treeAction}
+            className={treeStyles.treeAction}
             aria-label={t("{0} 관리", entry.name)}
             disabled={busy}
             onClick={(event) => manage(entry, event)}

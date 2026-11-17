@@ -18,7 +18,7 @@ import {
   sourceLines,
   type LinkTarget,
 } from "../workspace/markdown";
-import styles from "../App.module.css";
+import styles from "./MarkdownPreview.module.css";
 import MermaidDiagram from "./MermaidDiagram";
 import { isMermaidFile } from "../workspace/documentTypes";
 import { scrollEdge, type ScrollEdge } from "../workspace/scroll";

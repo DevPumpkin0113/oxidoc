@@ -1,0 +1,57 @@
+.statusbar {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  background: var(--canvas);
+  font-size: calc(var(--ui-font-size, 13px) * 10 / 13);
+  overflow: hidden;
+  user-select: none;
+}
+
+.sidebarToggle {
+  display: grid;
+  width: 32px;
+  flex-shrink: 0;
+  place-items: center;
+  border-right: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.sidebarToggle:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.statusLeft,
+.statusRight {
+  display: flex;
+  align-items: stretch;
+}
+
+.statusLeft > span,
+.statusRight > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.statusLeft .statusProject {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.statusRight {
+  padding-right: 8px;
+}
+
+@media (max-width: 760px) {
+  .optionalStatus,
+  .statusMessage {
+    display: none !important;
+  }
+  .statusRight > span {
+    padding: 0 7px;
+  }
+}

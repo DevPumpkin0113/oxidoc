@@ -1,0 +1,75 @@
+.titlebar {
+  display: flex;
+  flex: 1;
+  min-width: 139px;
+  align-items: center;
+  background: transparent;
+  user-select: none;
+}
+
+.dragRegion {
+  flex: 1;
+  align-self: stretch;
+  min-width: 10px;
+}
+
+.windowControls {
+  height: 100%;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.windowControls button {
+  display: grid;
+  width: 43px;
+  height: 100%;
+  place-items: center;
+  color: var(--muted);
+}
+
+.windowControls button:hover:not(:disabled) {
+  color: white;
+  background: var(--hover);
+}
+
+.windowControls .windowClose:hover:not(:disabled) {
+  background: #bd4545;
+}
+
+.windowControls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.windowError {
+  position: fixed;
+  z-index: 50;
+  top: 50px;
+  right: 15px;
+  padding: 12px 16px;
+  background: var(--hover);
+  border: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  font-size: calc(var(--ui-font-size, 13px) * 12 / 13);
+}
+
+@media (max-width: 760px) {
+  .windowControls button {
+    width: 35px;
+  }
+}
+
+.windowError {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+.windowControls button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.windowControls .windowClose:hover {
+  color: white;
+}

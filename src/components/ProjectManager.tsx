@@ -4,7 +4,8 @@ import { useShallow } from "zustand/react/shallow";
 import { useWorkspace } from "../workspace/store";
 import type { Project } from "../workspace/api";
 import Icon from "./Icon";
-import styles from "../App.module.css";
+import styles from "./ProjectManager.module.css";
+import panelStyles from "./panel.module.css";
 export default function ProjectManager({
   onActivate,
   onRegister,
@@ -81,9 +82,9 @@ export default function ProjectManager({
     a === null ? 1 : b === null ? -1 : a.localeCompare(b),
   );
   return (
-    <div className={styles.projectsPanel} data-projects-panel>
+    <div className={panelStyles.projectsPanel} data-projects-panel>
       <button
-        className={styles.openProjectButton}
+        className={panelStyles.openProjectButton}
         disabled={busy || !desktop}
         onClick={onRegister}
       >
@@ -92,7 +93,7 @@ export default function ProjectManager({
       </button>
       {desktop && !initialized ? (
         <button
-          className={styles.openProjectButton}
+          className={panelStyles.openProjectButton}
           disabled={busy}
           onClick={() => void initialize(true)}
         >
@@ -105,12 +106,12 @@ export default function ProjectManager({
       </label>
       <input
         id="project-search"
-        className={styles.panelInput}
+        className={panelStyles.panelInput}
         placeholder={t("이름 또는 경로")}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
-      <div className={styles.projectFilters}>
+      <div className={panelStyles.projectFilters}>
         <select
           aria-label={t("프로젝트 정렬")}
           value={sort}
@@ -133,8 +134,8 @@ export default function ProjectManager({
           ))}
         </select>
       </div>
-      <div className={styles.projectListMeta}>
-        <label className={styles.favoriteFilter}>
+      <div className={panelStyles.projectListMeta}>
+        <label className={panelStyles.favoriteFilter}>
           <input
             type="checkbox"
             checked={favorites}
@@ -142,7 +143,7 @@ export default function ProjectManager({
           />
           {t("즐겨찾기만")}
         </label>
-        <p className={styles.resultCount}>
+        <p className={panelStyles.resultCount}>
           {t("{0}개의 프로젝트", visible.length)}
         </p>
       </div>
@@ -158,7 +159,7 @@ export default function ProjectManager({
           </h3>
           {items.map((item) => (
             <div
-              className={styles.projectRow}
+              className={panelStyles.projectRow}
               key={item.path}
               onContextMenu={(event) => {
                 event.preventDefault();
@@ -175,7 +176,7 @@ export default function ProjectManager({
               }}
             >
               <button
-                className={styles.projectCard}
+                className={panelStyles.projectCard}
                 disabled={busy}
                 onClick={() => onActivate(item)}
                 title={`${item.path}${item.tags?.length ? ` · ${item.tags.join(", ")}` : ""}`}
@@ -220,7 +221,7 @@ export default function ProjectManager({
         </section>
       ))}
       {!visible.length ? (
-        <p className={styles.projectNote}>
+        <p className={panelStyles.projectNote}>
           {projects.length
             ? t("검색 조건에 맞는 프로젝트가 없습니다.")
             : t("폴더를 등록하면 여기에 표시됩니다.")}

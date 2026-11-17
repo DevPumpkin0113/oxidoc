@@ -1,0 +1,172 @@
+.sidebar {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 3px 10px #00000030;
+}
+
+.activityBar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: calc(var(--workspace-header-height) - 1px);
+  padding: 0 10px;
+  background: var(--sidebar);
+  border-bottom: 1px solid var(--border);
+}
+
+.activity {
+  display: grid;
+  position: relative;
+  width: 40px;
+  height: calc(var(--workspace-header-height) - 2px);
+  color: var(--muted);
+  place-items: center;
+}
+
+.activity:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.activeActivity {
+  color: var(--accent);
+}
+
+.activeActivity::before {
+  position: absolute;
+  content: "";
+  height: 2px;
+  width: 18px;
+  left: 11px;
+  bottom: 0;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+}
+
+.sidebar {
+  --sidebar-content-top: 8px;
+  --sidebar-inline-padding: 12px;
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--sidebar);
+}
+
+.sidebarHeading {
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--sidebar-inline-padding);
+  color: var(--text);
+  font-size: calc(var(--ui-font-size, 13px) * 11 / 13);
+}
+
+.projectLabel {
+  display: flex;
+  gap: 8px;
+  padding: var(--sidebar-content-top) var(--sidebar-inline-padding) 6px;
+  align-items: center;
+}
+
+.projectName {
+  flex: 1;
+  min-width: 0;
+}
+
+.projectLabel strong {
+  display: block;
+  color: var(--text);
+  font-size: calc(var(--ui-font-size, 13px) * 12 / 13);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectLabel > div {
+  min-width: 0;
+}
+
+.projectLabel div > span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: calc(var(--ui-font-size, 13px) * 10 / 13);
+}
+
+@media (max-width: 760px) {
+  .projectLabel {
+    padding-left: 11px;
+    gap: 7px;
+  }
+  .projectLabel strong {
+    font-size: calc(var(--ui-font-size, 13px) * 11 / 13);
+  }
+  .sidebarHeading {
+    padding: 0 12px;
+  }
+}
+
+.projectActions {
+  padding: 0 14px 14px;
+}
+
+.explorerTools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.explorerTools button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 25px;
+  border-radius: 4px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.explorerTools button:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.fileViewToolbar {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.fileViewToolbar button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: calc(var(--ui-font-size) * 0.8);
+  white-space: nowrap;
+}
+
+.fileViewToolbar button[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--hover);
+  border-color: var(--border);
+}
+
+.fileViewToolbar button:hover {
+  background: var(--hover);
+}
+
+.fileViewToolbar button:focus-visible {
+  outline: 1px solid var(--accent);
+}

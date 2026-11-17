@@ -1,0 +1,87 @@
+.commandPalette {
+  width: min(580px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 18px 70px #0009;
+  overflow: hidden;
+}
+
+.paletteHeader {
+  display: flex;
+  align-items: center;
+  background: var(--hover);
+}
+
+.paletteClose {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-right: 10px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.paletteClose:hover {
+  background: var(--selection);
+  color: var(--text);
+}
+
+.paletteHeader > input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  padding: 16px;
+  background: var(--hover);
+  color: var(--text);
+  font: inherit;
+  font-size: calc(var(--ui-font-size, 13px) * 13 / 13);
+}
+
+.commandPalette [role="listbox"] {
+  max-height: 50vh;
+  overflow: auto;
+  padding: 6px;
+}
+
+.commandPalette [role="option"] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 11px;
+  border-radius: 4px;
+  color: var(--text);
+  font-size: calc(var(--ui-font-size, 13px) * 12 / 13);
+  cursor: pointer;
+}
+
+.commandPalette small {
+  font-size: calc(var(--ui-font-size, 13px) * 10 / 13);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commandPalette .selectedCommand {
+  background: var(--hover);
+}
+
+.commandPalette p,
+.commandPalette footer {
+  padding: 9px 13px;
+  font-size: calc(var(--ui-font-size, 13px) * 10 / 13);
+  color: var(--muted);
+}
+
+.commandPalette footer {
+  border-top: 1px solid var(--border);
+}
+
+.commandPalette [role="option"][aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
+}

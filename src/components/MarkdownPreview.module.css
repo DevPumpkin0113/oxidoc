@@ -1,0 +1,205 @@
+.preview {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px clamp(22px, 3vw, 46px) 50px;
+  font-size: calc(var(--ui-font-size, 13px) * 12 / 13);
+  line-height: 1.95;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.preview > :first-child {
+  margin-top: 0;
+}
+
+.preview h1 {
+  font-size: clamp(22px, 2.1vw, 30px);
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -1.2px;
+  line-height: 1.6;
+  margin-bottom: 23px;
+}
+
+.preview h2 {
+  margin-top: 30px;
+  margin-bottom: 12px;
+  color: var(--text);
+  font-size: calc(var(--ui-font-size, 13px) * 15 / 13);
+  letter-spacing: -0.4px;
+  font-weight: 500;
+}
+
+.preview p {
+  margin: 0 0 15px;
+}
+
+.preview strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.preview blockquote {
+  margin: 23px 0;
+  padding: 12px 16px;
+  border-left: 2px solid var(--border);
+  border-radius: 0 4px 4px 0;
+  background: var(--hover);
+  font-size: calc(var(--ui-font-size, 13px) * 11 / 13);
+  color: var(--text);
+}
+
+.preview blockquote p {
+  margin: 0;
+}
+
+.preview ul {
+  padding-left: 19px;
+  margin: 10px 0;
+}
+
+.preview li {
+  margin: 6px 0;
+}
+
+.preview li::marker {
+  color: var(--muted);
+}
+
+.preview ul:has(input[type="checkbox"]) {
+  list-style: none;
+  padding-left: 0;
+}
+
+.preview input[type="checkbox"] {
+  accent-color: var(--accent);
+  vertical-align: middle;
+  margin: 0 9px 2px 0;
+  width: 12px;
+  height: 12px;
+}
+
+.preview hr {
+  height: 1px;
+  border: 0;
+  background: var(--hover);
+  margin: 28px 0 18px;
+}
+
+.preview hr ~ p {
+  font-size: calc(var(--ui-font-size, 13px) * 10 / 13);
+  color: var(--muted);
+}
+
+.preview code {
+  padding: 2px 5px;
+  background: var(--hover);
+  color: var(--text);
+  border-radius: 3px;
+  font-family: Consolas, monospace;
+}
+
+.preview pre {
+  padding: 15px;
+  overflow: auto;
+  background: var(--surface);
+}
+
+.preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: calc(var(--ui-font-size, 13px) * 11 / 13);
+}
+
+.preview th,
+.preview td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.sampleLink {
+  color: var(--accent);
+}
+
+@media (max-width: 1050px) {
+  .preview {
+    padding-left: 22px;
+    padding-right: 22px;
+    font-size: calc(var(--ui-font-size, 13px) * 11 / 13);
+  }
+}
+
+@media (max-width: 760px) {
+  .preview h1 {
+    font-size: calc(var(--ui-font-size, 13px) * 22 / 13);
+  }
+}
+
+.preview img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 14px 0;
+  border-radius: 4px;
+}
+
+.preview a {
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+
+.preview a:hover {
+  color: var(--text);
+}
+
+.imagePlaceholder {
+  display: inline-block;
+  max-width: 100%;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  color: var(--muted);
+  font-size: calc(var(--ui-font-size, 13px) * 10 / 13);
+  overflow-wrap: anywhere;
+}
+
+.preview {
+  font-size: var(--preview-font-size, 15px);
+  color: var(--text);
+}
+
+.preview h1 {
+  font-size: 2em;
+}
+
+.preview h2 {
+  font-size: 1.5em;
+}
+
+.preview h3 {
+  font-size: 1.25em;
+}
+
+.preview pre,
+.preview code {
+  font-size: 0.9em;
+}
+
+.preview blockquote,
+.preview li {
+  font-size: inherit;
+}
+
+.preview table {
+  font-size: 0.92em;
+}
+
+.preview hr ~ p {
+  font-size: 0.85em;
+}
+
+.preview pre code {
+  font-size: inherit;
+}

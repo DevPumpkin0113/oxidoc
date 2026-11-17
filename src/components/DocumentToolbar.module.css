@@ -1,0 +1,147 @@
+.documentToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 0 18px;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.breadcrumb {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: calc(var(--ui-font-size, 13px) * 10 / 13);
+  color: var(--muted);
+}
+
+.breadcrumb > svg {
+  flex-shrink: 0;
+}
+
+.breadcrumb strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.viewSwitch {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+  background: var(--surface);
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.viewSwitch button {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 23px;
+  color: var(--muted);
+  border-radius: 3px;
+}
+
+.viewSwitch button:hover {
+  color: var(--text);
+}
+
+.viewSwitch .activeView {
+  background: var(--hover);
+  color: var(--text);
+  box-shadow: 0 1px 2px #0003;
+}
+
+@media (max-width: 760px) {
+  .documentToolbar {
+    padding: 0 10px;
+  }
+  .breadcrumb > span {
+    display: none;
+  }
+}
+
+.saveButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.documentTools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.saveButton {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  color: var(--text);
+  font-size: calc(var(--ui-font-size, 13px) * 10 / 13);
+  border-radius: 4px;
+}
+
+.saveButton:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.toolButton {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 25px;
+  border-radius: 4px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.toolButton:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.toolButton[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.toolButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.documentToolbar {
+  flex-wrap: wrap;
+}
+
+.documentTools {
+  margin-left: auto;
+  gap: 4px;
+}
+
+@media (max-width: 850px) {
+  .documentToolbar {
+    padding-top: 3px;
+    padding-bottom: 3px;
+  }
+  .documentTools {
+    gap: 1px;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .toolButton {
+    width: 21px;
+    height: 24px;
+  }
+  .saveButton {
+    padding: 4px;
+  }
+}

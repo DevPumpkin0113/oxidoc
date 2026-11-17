@@ -7,7 +7,7 @@ import {
 } from "react";
 import Icon from "./Icon";
 import { t } from "../settings/i18n";
-import styles from "../App.module.css";
+import styles from "./ContextMenu.module.css";
 import { canExecuteCommand, executeCommand } from "../workspace/commands";
 export type { Action as MenuAction, MenuItem } from "../workspace/commands";
 import type { MenuItem } from "../workspace/commands";

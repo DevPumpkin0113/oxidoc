@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import Icon from "./Icon";
-import styles from "../App.module.css";
+import styles from "./Titlebar.module.css";
 
 export default function Titlebar() {
   const desktop = isTauri();
