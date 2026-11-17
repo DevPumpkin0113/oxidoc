@@ -1,5 +1,6 @@
 .settingsPanel {
-  max-width: 1000px;
+  container-type: inline-size;
+  max-width: 1080px;
   padding: 32px clamp(18px, 4vw, 54px) 48px;
   margin: 0 auto;
   color: var(--text);
@@ -8,8 +9,11 @@
 
 .settingsHeading {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 26px;
+  gap: 14px 24px;
+  margin-bottom: 22px;
 }
 
 .settingsHeading h1 {
@@ -38,10 +42,133 @@
   min-width: 0;
 }
 
-.settingsPanel legend {
+.settingsPanel fieldset h2 {
+  margin: 0 0 4px;
   font-size: 1.1em;
   font-weight: 600;
-  padding: 0 12px 0 0;
+  scroll-margin-top: 16px;
+}
+
+.settingsPanel fieldset h2:focus {
+  outline: none;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: min(320px, 100%);
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--editor);
+  color: var(--muted);
+}
+
+.search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.search input::placeholder {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  align-items: start;
+  gap: 32px;
+}
+
+.sectionNav {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settingsPanel .sectionNav button {
+  padding: 6px 10px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0 4px 4px 0;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.settingsPanel .sectionNav button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.settingsPanel .sectionNav button[aria-current="true"] {
+  border-left-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.settingsPanel .sectionNav button:disabled {
+  opacity: 0.35;
+}
+
+.settingsPanel .sectionNav button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.sections {
+  min-width: 0;
+}
+
+.noResults {
+  padding: 30px 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+@container (max-width: 640px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .sectionNav {
+    top: 0;
+    z-index: 1;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 6px 0;
+    background: var(--editor);
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .settingsPanel .sectionNav button {
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 4px 4px 0 0;
+  }
+  .settingsPanel .sectionNav button[aria-current="true"] {
+    border-bottom-color: var(--accent);
+  }
+  .settingsPanel fieldset h2 {
+    scroll-margin-top: 56px;
+  }
 }
 
 .settingRow {
@@ -191,6 +318,7 @@
 }
 
 .settingsReset {
+  margin-top: 12px;
   border-top: 1px solid var(--border);
   padding-top: 18px;
   display: flex;

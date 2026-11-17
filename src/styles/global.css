@@ -21,8 +21,9 @@
 * {
   box-sizing: border-box;
 }
+/* No min-width: the window's minimum size includes its frame, so a CSS
+   minimum of the same width overflowed and clipped the right edge. */
 body {
-  min-width: 640px;
   margin: 0;
   overflow: hidden;
 }

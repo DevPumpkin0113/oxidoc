@@ -307,18 +307,22 @@ export const english: Record<string, string> = {
   "읽을 수 없거나 지원 범위를 넘는 항목 {0}개 제외":
     "Skipped {0} unreadable or unsupported entries",
   "검색 결과가 없습니다.": "No results found.",
-  인터페이스: "Interface",
   편집기: "Editor",
-  "나에게 맞는 작업 공간": "Make this workspace yours",
   일반: "General",
   "표시 언어": "Display language",
-  "시스템 언어에 맞춰 한국어 또는 영어 자동 선택":
-    "Automatically select Korean or English based on your system language",
+  "시스템 언어에 맞춰 한국어 또는 영어 자동 선택 · 지금 {0}":
+    "Korean or English based on your system language · now {0}",
   시스템: "System",
   한국어: "한국어",
-  "현재 언어: 한국어": "Current language: Korean",
-  "현재 언어: 영어": "Current language: English",
-  테마: "Appearance",
+  테마: "Theme",
+  모양: "Appearance",
+  정보: "About",
+  "설정 검색": "Search settings",
+  "설정 섹션": "Settings sections",
+  "인터페이스 글꼴 크기": "Interface font size",
+  "편집기 글꼴 크기": "Editor font size",
+  "미리보기 글꼴 크기": "Preview font size",
+  "'{0}'에 맞는 설정이 없습니다.": "No settings match '{0}'.",
   "색상 모드": "Color mode",
   "시스템 모드 변경 시 라이트·다크 테마 자동 전환":
     "Follow system changes using your selected light and dark themes",
@@ -336,7 +340,6 @@ export const english: Record<string, string> = {
     "Installed font names separated by commas; leave empty for the default",
   "변경 즉시 적용·자동 저장":
     "Changes apply immediately and save automatically",
-  "앱 정보 및 업데이트": "About & Updates",
   "현재 버전": "Current version",
   업데이트: "Updates",
   "GitHub Releases 기반 업데이트 기능 준비 중":
