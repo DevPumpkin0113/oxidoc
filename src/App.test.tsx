@@ -667,10 +667,12 @@ describe("작업 공간 UI", () => {
       screen.getByText("업데이트는 데스크톱 앱에서 사용할 수 있습니다."),
     ).toBeInTheDocument();
     expect(screen.getByText(`v${packageInfo.version}`)).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("색상 모드"), "dark");
+    await user.click(screen.getByRole("combobox", { name: "색상 모드" }));
+    await user.click(screen.getByRole("option", { name: "다크" }));
     await user.click(screen.getByRole("button", { name: "Dracula" }));
     expect(document.documentElement.dataset.theme).toBe("dracula");
-    await user.selectOptions(screen.getByLabelText("표시 언어"), "en");
+    await user.click(screen.getByRole("combobox", { name: "표시 언어" }));
+    await user.click(screen.getByRole("option", { name: "English" }));
     expect(
       await screen.findByRole("heading", { name: "Settings" }),
     ).toBeInTheDocument();
@@ -680,7 +682,10 @@ describe("작업 공간 UI", () => {
     expect(
       screen.getByRole("button", { name: "Explorer" }),
     ).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("Display language"), "ko");
+    await user.click(
+      screen.getByRole("combobox", { name: "Display language" }),
+    );
+    await user.click(screen.getByRole("option", { name: "한국어" }));
     await user.click(screen.getByRole("button", { name: "설정 탭 닫기" }));
     expect(
       await screen.findByRole("textbox", { name: "Markdown 편집기" }),

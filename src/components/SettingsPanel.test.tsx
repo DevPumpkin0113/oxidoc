@@ -103,7 +103,8 @@ it("테마는 적용 중인 종류를 먼저 보이고 라이트·다크 전환,
   await user.click(screen.getByRole("button", { name: "Dracula" }));
   expect(update).toHaveBeenLastCalledWith({ darkTheme: "dracula" });
 
-  await user.selectOptions(screen.getByLabelText("색상 모드"), "light");
+  await user.click(screen.getByRole("combobox", { name: "색상 모드" }));
+  await user.click(screen.getByRole("option", { name: "라이트" }));
   useSettings.setState((state) => ({
     settings: { ...state.settings, mode: "light" },
   }));
@@ -112,4 +113,41 @@ it("테마는 적용 중인 종류를 먼저 보이고 라이트·다크 전환,
     "aria-pressed",
     "true",
   );
+});
+
+it("기본값과 다른 항목에만 되돌리기 버튼을 보이고 누르면 그 항목만 기본값으로", async () => {
+  const update = vi.fn(async () => {});
+  useSettings.setState((state) => ({
+    update,
+    systemDark: false,
+    settings: {
+      ...state.settings,
+      editorFontSize: 20,
+      lightTheme: "github-light",
+      editorWordWrap: false,
+    },
+  }));
+  const user = userEvent.setup();
+  render(<SettingsPanel onInstallUpdate={vi.fn()} />);
+  expect(
+    screen
+      .getAllByRole("button", { name: /기본값으로 되돌리기$/ })
+      .map((button) => button.getAttribute("aria-label")),
+  ).toEqual([
+    // The test setup fixes the language to Korean instead of "system".
+    "표시 언어 기본값으로 되돌리기",
+    "라이트 테마 기본값으로 되돌리기",
+    "편집기 글꼴 크기 기본값으로 되돌리기",
+    "자동 줄 바꿈 기본값으로 되돌리기",
+  ]);
+  await user.click(
+    screen.getByRole("button", {
+      name: "편집기 글꼴 크기 기본값으로 되돌리기",
+    }),
+  );
+  expect(update).toHaveBeenLastCalledWith({ editorFontSize: 13 });
+  await user.click(
+    screen.getByRole("button", { name: "라이트 테마 기본값으로 되돌리기" }),
+  );
+  expect(update).toHaveBeenLastCalledWith({ lightTheme: "light-modern" });
 });

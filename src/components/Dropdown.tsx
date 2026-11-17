@@ -29,6 +29,7 @@ const TYPEAHEAD_RESET_MS = 600;
  * select. The list is portalled so scroll containers do not clip it.
  */
 export default function Dropdown<T extends string>({
+  id: buttonId,
   label,
   value,
   options,
@@ -36,6 +37,8 @@ export default function Dropdown<T extends string>({
   disabled,
   className = "",
 }: {
+  /** Button id, for a visible `<label htmlFor>`. */
+  id?: string;
   /** Accessible name; the visible text is the selected option. */
   label: string;
   value: T;
@@ -109,11 +112,22 @@ export default function Dropdown<T extends string>({
     });
   }, [open]);
 
+  // Scrolls only the list: scrollIntoView would also scroll the page's
+  // containers, which the outer-scroll handler below treats as a reason to close.
   useEffect(() => {
-    if (!open) return;
-    list.current
-      ?.querySelector<HTMLElement>(`[data-index="${active}"]`)
-      ?.scrollIntoView?.({ block: "nearest" });
+    const container = list.current;
+    const option = container?.querySelector<HTMLElement>(
+      `[data-index="${active}"]`,
+    );
+    if (!open || !container || !option) return;
+    if (option.offsetTop < container.scrollTop)
+      container.scrollTop = option.offsetTop;
+    else if (
+      option.offsetTop + option.offsetHeight >
+      container.scrollTop + container.clientHeight
+    )
+      container.scrollTop =
+        option.offsetTop + option.offsetHeight - container.clientHeight;
   }, [open, active]);
 
   // Outside clicks, window resizes and outer scrolling close the list.
@@ -230,6 +244,7 @@ export default function Dropdown<T extends string>({
     <>
       <button
         ref={button}
+        id={buttonId}
         type="button"
         role="combobox"
         className={`${styles.button} ${className}`}

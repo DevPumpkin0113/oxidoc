@@ -2,6 +2,7 @@ import { translateError, t } from "../settings/i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   effectiveLanguage,
+  defaults,
   effectiveTheme,
   MAX_FONT_FAMILY_LENGTH,
   normalizeFontFamily,
@@ -13,6 +14,7 @@ import styles from "./SettingsPanel.module.css";
 import AppUpdate from "./AppUpdate";
 import Icon from "./Icon";
 import NumberStepper from "./NumberStepper";
+import Dropdown from "./Dropdown";
 
 /** One searchable setting: its row and the text a search matches. */
 interface SettingItem {
@@ -30,15 +32,39 @@ interface SettingSection {
 /** A section counts as current once its top passes this far into the view. */
 const ACTIVE_SECTION_OFFSET = 80;
 
+/** Restores one setting; shown only while it differs from the default. */
+interface ResetAction {
+  label: string;
+  onReset: () => void;
+}
+
+function ResetButton({ reset }: { reset?: ResetAction | null }) {
+  if (!reset) return <span className={styles.resetSlot} />;
+  const label = t("{0} 기본값으로 되돌리기", reset.label);
+  return (
+    <button
+      type="button"
+      className={styles.resetButton}
+      aria-label={label}
+      title={label}
+      onClick={reset.onReset}
+    >
+      <Icon name="undo" size={14} />
+    </button>
+  );
+}
+
 function Row({
   label,
   description,
   htmlFor,
+  reset,
   children,
 }: {
   label: string;
   description?: ReactNode;
   htmlFor?: string;
+  reset?: ResetAction | null;
   children: ReactNode;
 }) {
   return (
@@ -51,7 +77,10 @@ function Row({
         )}
         {description ? <p>{description}</p> : null}
       </div>
-      {children}
+      <div className={styles.control}>
+        {reset !== undefined ? <ResetButton reset={reset} /> : null}
+        {children}
+      </div>
     </div>
   );
 }
@@ -76,6 +105,11 @@ export default function SettingsPanel({
   function set<K extends keyof Settings>(key: K, value: Settings[K]) {
     void update({ [key]: value });
   }
+  /** Reset action for a setting, or `null` while it has its default. */
+  const resetFor = (key: keyof Settings, label: string): ResetAction | null =>
+    settings[key] === defaults[key]
+      ? null
+      : { label, onReset: () => set(key, defaults[key]) };
   const fontSize = (
     key: "uiFontSize" | "editorFontSize" | "previewFontSize",
     label: string,
@@ -89,6 +123,7 @@ export default function SettingsPanel({
         label={label}
         description={`${min}–${max} px`}
         htmlFor={`setting-${key}`}
+        reset={resetFor(key, label)}
       >
         <NumberStepper
           id={`setting-${key}`}
@@ -136,21 +171,29 @@ export default function SettingsPanel({
         <div className={styles.themeGroup}>
           <div className={styles.themeHeader}>
             <strong id="theme-kind-label">{t("테마")}</strong>
-            <div
-              className={styles.segmented}
-              role="group"
-              aria-labelledby="theme-kind-label"
-            >
-              {(["light", "dark"] as const).map((kind) => (
-                <button
-                  key={kind}
-                  type="button"
-                  aria-pressed={themeKind === kind}
-                  onClick={() => setChosenKind(kind)}
-                >
-                  {kind === "light" ? t("라이트 테마") : t("다크 테마")}
-                </button>
-              ))}
+            <div className={styles.control}>
+              <ResetButton
+                reset={resetFor(
+                  key,
+                  themeKind === "light" ? t("라이트 테마") : t("다크 테마"),
+                )}
+              />
+              <div
+                className={styles.segmented}
+                role="group"
+                aria-labelledby="theme-kind-label"
+              >
+                {(["light", "dark"] as const).map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    aria-pressed={themeKind === kind}
+                    onClick={() => setChosenKind(kind)}
+                  >
+                    {kind === "light" ? t("라이트 테마") : t("다크 테마")}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <div className={styles.themeGrid}>
@@ -223,22 +266,24 @@ export default function SettingsPanel({
             <Row
               label={t("표시 언어")}
               htmlFor="setting-language"
+              reset={resetFor("language", t("표시 언어"))}
               description={t(
                 "시스템 언어에 맞춰 한국어 또는 영어 자동 선택 · 지금 {0}",
                 effectiveLanguage(state) === "ko" ? t("한국어") : "English",
               )}
             >
-              <select
+              <Dropdown
                 id="setting-language"
+                className={styles.select}
+                label={t("표시 언어")}
                 value={settings.language}
-                onChange={(e) =>
-                  set("language", e.target.value as Settings["language"])
-                }
-              >
-                <option value="system">{t("시스템")}</option>
-                <option value="ko">{t("한국어")}</option>
-                <option value="en">English</option>
-              </select>
+                options={[
+                  { value: "system", label: t("시스템") },
+                  { value: "ko", label: t("한국어") },
+                  { value: "en", label: "English" },
+                ]}
+                onChange={(value) => set("language", value)}
+              />
             </Row>
           ),
         },
@@ -255,20 +300,24 @@ export default function SettingsPanel({
             <Row
               label={t("색상 모드")}
               htmlFor="setting-mode"
+              reset={resetFor("mode", t("색상 모드"))}
               description={t("시스템 모드 변경 시 라이트·다크 테마 자동 전환")}
             >
-              <select
+              <Dropdown
                 id="setting-mode"
+                className={styles.select}
+                label={t("색상 모드")}
                 value={settings.mode}
-                onChange={(e) => {
+                options={[
+                  { value: "system", label: t("시스템") },
+                  { value: "light", label: t("라이트") },
+                  { value: "dark", label: t("다크") },
+                ]}
+                onChange={(value) => {
                   setChosenKind(null);
-                  set("mode", e.target.value as Settings["mode"]);
+                  set("mode", value);
                 }}
-              >
-                <option value="system">{t("시스템")}</option>
-                <option value="light">{t("라이트")}</option>
-                <option value="dark">{t("다크")}</option>
-              </select>
+              />
             </Row>
           ),
         },
@@ -286,6 +335,7 @@ export default function SettingsPanel({
           render: () => (
             <EditorFontInput
               key={settings.editorFontFamily}
+              reset={resetFor("editorFontFamily", t("글꼴"))}
               value={settings.editorFontFamily}
               onCommit={(value) => set("editorFontFamily", value)}
             />
@@ -299,6 +349,7 @@ export default function SettingsPanel({
             <Row
               label={t("자동 줄 바꿈")}
               htmlFor="setting-editorWordWrap"
+              reset={resetFor("editorWordWrap", t("자동 줄 바꿈"))}
               description={t("편집기 폭에 맞춰 긴 줄을 접어서 표시")}
             >
               <input
@@ -504,9 +555,11 @@ export default function SettingsPanel({
 /** Font names apply on Enter or blur, so half-typed names never reach the editor. */
 function EditorFontInput({
   value,
+  reset,
   onCommit,
 }: {
   value: string;
+  reset: ResetAction | null;
   onCommit: (value: string) => void;
 }) {
   const [invalid, setInvalid] = useState(false);
@@ -525,25 +578,28 @@ function EditorFontInput({
             : t("설치된 글꼴 이름을 쉼표로 구분해 입력, 비우면 기본 글꼴")}
         </p>
       </div>
-      <input
-        autoComplete="off"
-        id="setting-editorFontFamily"
-        className={styles.textInput}
-        type="text"
-        spellCheck={false}
-        maxLength={MAX_FONT_FAMILY_LENGTH}
-        placeholder="Cascadia Code, Consolas"
-        defaultValue={value}
-        aria-invalid={invalid}
-        onBlur={(e) => commit(e.currentTarget)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commit(e.currentTarget);
-          else if (e.key === "Escape") {
-            e.currentTarget.value = value;
-            setInvalid(false);
-          }
-        }}
-      />
+      <div className={styles.control}>
+        <ResetButton reset={reset} />
+        <input
+          autoComplete="off"
+          id="setting-editorFontFamily"
+          className={styles.textInput}
+          type="text"
+          spellCheck={false}
+          maxLength={MAX_FONT_FAMILY_LENGTH}
+          placeholder="Cascadia Code, Consolas"
+          defaultValue={value}
+          aria-invalid={invalid}
+          onBlur={(e) => commit(e.currentTarget)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit(e.currentTarget);
+            else if (e.key === "Escape") {
+              e.currentTarget.value = value;
+              setInvalid(false);
+            }
+          }}
+        />
+      </div>
     </div>
   );
 }

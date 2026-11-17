@@ -94,3 +94,22 @@ it("Esc·Tab·바깥 클릭으로 닫고 포커스는 버튼에 남으며, 글�
   await user.keyboard("{Tab}");
   expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 });
+
+it("열 때 활성 항목 위치를 맞춰도 바깥 스크롤 영역을 건드리지 않아 바로 닫히지 않음", async () => {
+  // scrollIntoView scrolls every scrollable ancestor; a scroll outside the
+  // list closes it, so opening must not use it.
+  const scrollIntoView = vi.fn(function (this: Element) {
+    document.body.dispatchEvent(new Event("scroll"));
+  });
+  Element.prototype.scrollIntoView = scrollIntoView;
+  try {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(combobox());
+    await user.keyboard("{End}");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  } finally {
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  }
+});

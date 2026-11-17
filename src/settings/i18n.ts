@@ -317,6 +317,7 @@ export const english: Record<string, string> = {
   테마: "Theme",
   모양: "Appearance",
   "{0} 줄이기": "Decrease {0}",
+  "{0} 기본값으로 되돌리기": "Reset {0} to default",
   "{0} 늘리기": "Increase {0}",
   "시스템이 라이트 모드면 라이트 테마, 다크 모드면 다크 테마를 씁니다.":
     "The light theme is used when the system is light, the dark theme when it is dark.",
