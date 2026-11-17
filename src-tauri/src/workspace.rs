@@ -17,6 +17,7 @@ mod registry;
 mod replace;
 mod transfers;
 mod visibility;
+mod watcher;
 pub use advanced::*;
 pub use images::*;
 pub use index::*;
@@ -24,9 +25,12 @@ pub use monitor::*;
 pub use recovery::*;
 pub use replace::*;
 pub use transfers::*;
+pub use watcher::*;
 
 const MAX_DOCUMENT_BYTES: u64 = 5 * 1024 * 1024;
 const MAX_DIRECTORY_ENTRIES: usize = 10_000;
+/// Folders skipped at any depth by search, indexing and change watching.
+const SKIPPED_FOLDERS: [&str; 4] = [".git", "node_modules", "target", "dist"];
 pub struct RegistryGate(pub Mutex<()>);
 
 #[derive(Clone, Default, Serialize, Deserialize)]

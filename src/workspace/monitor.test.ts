@@ -1,5 +1,5 @@
-import { afterEach, expect, it, vi } from "vitest";
-import { workspaceApi } from "./api";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { workspaceApi, type ChangeBatch } from "./api";
 import { createWorkspaceStore, isDirty } from "./store";
 import { startWorkspaceMonitor } from "./monitor";
 
@@ -237,4 +237,86 @@ it("외부 읽기 대기 중 시작한 편집 보호", async () => {
   } finally {
     stop();
   }
+});
+
+describe("파일 감시 이벤트", () => {
+  function watching() {
+    const { api, store } = fixture();
+    let emit!: (batch: ChangeBatch) => void;
+    const unwatch = vi.fn();
+    const watch = vi.fn(async (_root: string, onChange: typeof emit) => {
+      emit = onChange;
+      return unwatch;
+    });
+    const advanced = { ...api.advanced, watch };
+    const monitored = { ...api, advanced };
+    const change = (paths: string[], rescan = false) =>
+      emit({ root: "C:/notes", paths, rescan });
+    return { api: monitored, store, watch, unwatch, change };
+  }
+
+  it("감시 중에는 주기 조회 없이 변경 이벤트에만 확인하고 종료 시 감시 해제", async () => {
+    vi.useFakeTimers();
+    const { api, store, watch, unwatch, change } = watching();
+    const stop = startWorkspaceMonitor("C:/notes", store, api);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(watch).toHaveBeenCalledWith("C:/notes", expect.any(Function));
+    const baseline = api.advanced.probe.mock.calls.length;
+    expect(baseline).toBe(1);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(api.advanced.probe).toHaveBeenCalledTimes(baseline);
+
+    api.advanced.probe.mockResolvedValue([
+      { path: "a.md", stamp: "v2" },
+      { path: "", stamp: "dir1" },
+    ]);
+    change(["a.md"]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(api.advanced.probe).toHaveBeenCalledTimes(baseline + 1);
+    expect(store.getState().documents[0].diskContent).toBe("external");
+    stop();
+    expect(unwatch).toHaveBeenCalledOnce();
+  });
+
+  it("확인 중·작업 중에 온 이벤트도 끝난 뒤 다시 확인", async () => {
+    vi.useFakeTimers();
+    const { api, store, change } = watching();
+    let finish!: () => void;
+    const stop = startWorkspaceMonitor("C:/notes", store, api);
+    await vi.advanceTimersByTimeAsync(0);
+    const baseline = api.advanced.probe.mock.calls.length;
+
+    api.advanced.probe.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve([{ path: "a.md", stamp: "v1" }]);
+        }),
+    );
+    change(["a.md"]);
+    change(["b.md"]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(api.advanced.probe).toHaveBeenCalledTimes(baseline + 1);
+    finish();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(api.advanced.probe).toHaveBeenCalledTimes(baseline + 2);
+
+    store.setState({ busy: true });
+    change(["a.md"]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(api.advanced.probe).toHaveBeenCalledTimes(baseline + 2);
+    store.setState({ busy: false });
+    await vi.advanceTimersByTimeAsync(500);
+    expect(api.advanced.probe).toHaveBeenCalledTimes(baseline + 3);
+    stop();
+  });
+
+  it("감시를 시작할 수 없으면 주기 조회 유지", async () => {
+    vi.useFakeTimers();
+    const { api, store, watch } = watching();
+    watch.mockRejectedValueOnce(Error("unsupported"));
+    const stop = startWorkspaceMonitor("C:/notes", store, api);
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(api.advanced.probe).toHaveBeenCalledTimes(2);
+    stop();
+  });
 });

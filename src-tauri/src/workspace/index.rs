@@ -53,9 +53,7 @@ pub(super) fn index_at(root: &Path) -> Result<FileIndex, String> {
                 continue;
             }
             if kind.is_dir() {
-                if ![".git", "node_modules", "target", "dist"]
-                    .contains(&entry.file_name().to_string_lossy().as_ref())
-                {
+                if !SKIPPED_FOLDERS.contains(&entry.file_name().to_string_lossy().as_ref()) {
                     pending.push((path, depth + 1));
                 }
             } else if kind.is_file() {

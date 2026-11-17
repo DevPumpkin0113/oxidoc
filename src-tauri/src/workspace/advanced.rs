@@ -616,9 +616,7 @@ fn search_within(
                 continue;
             }
             if kind.is_dir() {
-                if ![".git", "node_modules", "target", "dist"]
-                    .contains(&entry.file_name().to_string_lossy().as_ref())
-                {
+                if !SKIPPED_FOLDERS.contains(&entry.file_name().to_string_lossy().as_ref()) {
                     pending.push((path, depth + 1));
                 }
                 continue;

@@ -1,8 +1,17 @@
 import { workspaceApi, type WorkspaceApi } from "./api";
 import { createWorkspaceStore, useWorkspace } from "./store";
 
+/** Fallback interval when the file watcher cannot start. */
 const POLL_INTERVAL_MS = 3000;
 const PROBE_BATCH_SIZE = 1000;
+/** Retry delay for a check requested while the workspace is busy. */
+const BUSY_RETRY_MS = 500;
+
+/**
+ * Detects external changes of the open project. Checks run when the file
+ * watcher reports a change (or every 3 s if it cannot start) and when the
+ * window regains focus.
+ */
 export function startWorkspaceMonitor(
   root: string,
   store: ReturnType<typeof createWorkspaceStore> = useWorkspace,
@@ -11,18 +20,38 @@ export function startWorkspaceMonitor(
   const stamps = new Map<string, string | null>();
   let stopped = false,
     running = false;
-  async function check(force = false) {
-    const snapshot = store.getState();
-    if (
-      stopped ||
-      running ||
-      snapshot.busy ||
-      !snapshot.desktop ||
-      snapshot.project?.path !== root ||
-      !api.advanced
-    )
+  /** Requested check, `true` when it must re-read everything; `null` if none. */
+  let queued: boolean | null = null;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+
+  function request(force = false) {
+    queued = (queued ?? false) || force;
+    void drain();
+  }
+  // Runs one check at a time; requests made meanwhile are merged and run next,
+  // so a change reported during a check or busy operation is not lost.
+  async function drain() {
+    if (stopped || running || queued === null) return;
+    if (store.getState().busy) {
+      clearTimeout(retry);
+      retry = setTimeout(() => void drain(), BUSY_RETRY_MS);
       return;
+    }
+    const force = queued;
+    queued = null;
     running = true;
+    try {
+      await check(force);
+    } finally {
+      running = false;
+    }
+    void drain();
+  }
+
+  async function check(force: boolean) {
+    const snapshot = store.getState();
+    if (!snapshot.desktop || snapshot.project?.path !== root || !api.advanced)
+      return;
     const valid = () =>
       !stopped &&
       !store.getState().busy &&
@@ -108,16 +137,34 @@ export function startWorkspaceMonitor(
     } catch (error) {
       if (valid())
         store.setState({ error: `외부 변경 확인 실패: ${String(error)}` });
-    } finally {
-      running = false;
     }
   }
-  const timer = setInterval(() => void check(), POLL_INTERVAL_MS);
-  const focus = () => void check(true);
+
+  let poll: ReturnType<typeof setInterval> | undefined = setInterval(
+    () => request(),
+    POLL_INTERVAL_MS,
+  );
+  let unwatch: (() => void) | undefined;
+  api.advanced
+    ?.watch?.(root, (batch) => request(batch.rescan))
+    .then((stop) => {
+      if (stopped) return stop();
+      unwatch = stop;
+      clearInterval(poll);
+      poll = undefined;
+      // Record a baseline for changes made before the watcher started.
+      request();
+    })
+    .catch(() => {
+      /* Keep polling when the watcher is unavailable. */
+    });
+  const focus = () => request(true);
   window.addEventListener("focus", focus);
   return () => {
     stopped = true;
-    clearInterval(timer);
+    clearInterval(poll);
+    clearTimeout(retry);
+    unwatch?.();
     window.removeEventListener("focus", focus);
   };
 }

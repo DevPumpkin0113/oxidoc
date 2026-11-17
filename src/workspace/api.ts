@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 export interface Project {
   name: string;
@@ -46,6 +47,14 @@ export interface ProjectPatch {
   tags?: string[];
   touch?: boolean;
 }
+/** Batched external changes reported by the project file watcher. */
+export interface ChangeBatch {
+  root: string;
+  /** Root-relative, `/`-separated changed paths. */
+  paths: string[];
+  /** The path list is incomplete; re-check everything. */
+  rescan: boolean;
+}
 export interface AdvancedApi {
   pasteImage: (root: string, data: string) => Promise<Entry>;
   previewReplace: (
@@ -67,6 +76,11 @@ export interface AdvancedApi {
     root: string,
     paths: string[],
   ) => Promise<{ path: string; stamp: string | null }[]>;
+  /** Watches a project for external changes; resolves to a stop function. */
+  watch?: (
+    root: string,
+    onChange: (batch: ChangeBatch) => void,
+  ) => Promise<() => void>;
   create: (
     root: string,
     parent: string,
@@ -139,6 +153,24 @@ export const workspaceApi: WorkspaceApi = {
     saveRecovery: (root, documents) =>
       invoke("save_recovery", { root, documents }),
     probe: (root, paths) => invoke("probe_entries", { root, paths }),
+    watch: async (root, onChange) => {
+      const unlisten = await listen<ChangeBatch>(
+        "workspace-changed",
+        (event) => {
+          if (event.payload.root === root) onChange(event.payload);
+        },
+      );
+      try {
+        await invoke("watch_project", { root });
+      } catch (error) {
+        unlisten();
+        throw error;
+      }
+      return () => {
+        unlisten();
+        void invoke("unwatch_project", { root }).catch(() => {});
+      };
+    },
     create: (root, parent, name, isDirectory) =>
       invoke("create_entry", { root, parent, name, isDirectory }),
     rename: (root, path, name) => invoke("rename_entry", { root, path, name }),

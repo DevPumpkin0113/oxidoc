@@ -23,6 +23,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(workspace::RegistryGate(std::sync::Mutex::new(())))
+        .manage(workspace::WatcherState(std::sync::Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             runtime_info,
             settings::load_settings,
@@ -37,6 +38,8 @@ pub fn run() {
             workspace::move_file,
             workspace::transfer_entry,
             workspace::probe_entries,
+            workspace::watch_project,
+            workspace::unwatch_project,
             workspace::index_files,
             workspace::save_pasted_image,
             workspace::preview_replace,
