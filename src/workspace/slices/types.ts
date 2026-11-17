@@ -44,6 +44,8 @@ export interface DocumentSlice {
   save: (id: string) => Promise<boolean>;
   saveAs: (id: string) => Promise<boolean>;
   close: (id: string) => void;
+  /** Moves an open document to `index` in the tab order. */
+  moveDocument: (id: string, index: number) => void;
   reopenClosed: () => Promise<void>;
   noticeExternal: (id: string, content: string | null) => void;
   resolveExternal: (id: string, reload: boolean) => void;

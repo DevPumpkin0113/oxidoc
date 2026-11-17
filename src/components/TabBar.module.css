@@ -21,7 +21,7 @@
   align-items: center;
   flex-shrink: 0;
   min-width: 136px;
-  max-width: 200px;
+  max-width: 240px;
   margin-right: 4px;
   margin-bottom: 3px;
   border: 1px solid transparent;
@@ -49,6 +49,43 @@
 .tab > button:first-child > span {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tabName {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Folder hint of same-named documents; shrinks before the name does. */
+.tabHint {
+  flex: 0 10 auto;
+  min-width: 0;
+  font-size: calc(var(--ui-font-size, 13px) * 11 / 13);
+  opacity: 0.75;
+}
+
+.draggingTab {
+  opacity: 0.5;
+}
+
+.dropBefore::before,
+.dropAfter::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.dropBefore::before {
+  left: -3px;
+}
+
+.dropAfter::after {
+  right: -3px;
 }
 
 .tab:not(.activeTab) > button:first-child > img {

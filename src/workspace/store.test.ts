@@ -138,3 +138,26 @@ describe("실제 작업 공간 상태", () => {
     expect(store.getState().project).toEqual(project);
   });
 });
+
+describe("탭 순서", () => {
+  it("문서를 지정한 위치로 옮기고 범위를 벗어나면 끝으로", () => {
+    const { store } = fixture();
+    const doc = (id: string) => ({
+      id,
+      name: id,
+      folder: "",
+      content: "",
+      savedContent: "",
+    });
+    store.setState({ documents: [doc("a"), doc("b"), doc("c")] });
+    const ids = () => store.getState().documents.map((item) => item.id);
+    store.getState().moveDocument("a", 2);
+    expect(ids()).toEqual(["b", "c", "a"]);
+    store.getState().moveDocument("c", 0);
+    expect(ids()).toEqual(["c", "b", "a"]);
+    store.getState().moveDocument("b", 99);
+    expect(ids()).toEqual(["c", "a", "b"]);
+    store.getState().moveDocument("missing", 0);
+    expect(ids()).toEqual(["c", "a", "b"]);
+  });
+});

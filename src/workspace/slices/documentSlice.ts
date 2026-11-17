@@ -179,6 +179,20 @@ export function createDocumentSlice({
               : state.activeId,
         };
       }),
+    moveDocument: (id, index) =>
+      set((state) => {
+        const from = state.documents.findIndex(
+          (document) => document.id === id,
+        );
+        if (from < 0) return {};
+        const documents = state.documents.filter(
+          (document) => document.id !== id,
+        );
+        const to = Math.max(0, Math.min(index, documents.length));
+        if (to === from) return {};
+        documents.splice(to, 0, state.documents[from]);
+        return { documents };
+      }),
     reopenClosed: async () => {
       const { project, busy, closedEntries } = get();
       if (!project || busy) return;
