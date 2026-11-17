@@ -44,7 +44,6 @@ export function inputMenu(
   return [
     {
       label: t("잘라내기"),
-      icon: "cut",
       allowBusy: true,
       disabled: !editable || start === end,
       run: async () => {

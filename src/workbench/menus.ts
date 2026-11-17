@@ -89,7 +89,6 @@ export function entryClipboardActions(entry: Entry): MenuItem[] {
     {
       id: "entry-cut",
       label: t("잘라내기"),
-      icon: "cut",
       shortcut: "Ctrl+X",
       run: () => workspace().copyEntry(entry, true),
     },
@@ -208,7 +207,6 @@ export function manageEditor(context: EditorContext) {
   const items: MenuItem[] = [
     {
       label: t("잘라내기"),
-      icon: "cut",
       disabled: !context.hasSelection || context.readOnly,
       run: () => editorAction("cut"),
     },
