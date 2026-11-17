@@ -7,6 +7,15 @@ import MarkdownPreview from "./MarkdownPreview";
 import { useWorkspace } from "../workspace/store";
 import { workspaceApi } from "../workspace/api";
 
+/** Picks a tag in the project panel's tag dropdown. */
+async function chooseTag(
+  user: ReturnType<typeof userEvent.setup>,
+  name: string,
+) {
+  await user.click(screen.getByRole("combobox", { name: "태그 필터" }));
+  await user.click(screen.getByRole("option", { name }));
+}
+
 beforeEach(() => useWorkspace.setState(useWorkspace.getInitialState(), true));
 describe("프로젝트·명령 팔레트", () => {
   it("팔레트에서 비활성 명령 미실행 및 실행 시점 상태 재검사", async () => {
@@ -40,6 +49,31 @@ describe("프로젝트·명령 팔레트", () => {
       screen.getByRole("button", { name: "프로젝트 목록 다시 불러오기" }),
     );
     expect(initialize).toHaveBeenCalledWith(true);
+  });
+  it("사이드바 보기를 바꿨다 돌아와도 정렬·태그·즐겨찾기 필터 유지", async () => {
+    const user = userEvent.setup();
+    useWorkspace.setState({
+      projects: [{ name: "Work", path: "C:/work", tags: ["work"] }],
+    });
+    const panel = () => (
+      <ProjectManager
+        onActivate={vi.fn()}
+        onRegister={vi.fn()}
+        onManage={vi.fn()}
+      />
+    );
+    const first = render(panel());
+    await chooseTag(user, "work");
+    await user.click(screen.getByRole("combobox", { name: "프로젝트 정렬" }));
+    await user.click(screen.getByRole("option", { name: "이름순" }));
+    first.unmount();
+    render(panel());
+    expect(
+      screen.getByRole("combobox", { name: "태그 필터" }),
+    ).toHaveTextContent("work");
+    expect(
+      screen.getByRole("combobox", { name: "프로젝트 정렬" }),
+    ).toHaveTextContent("이름순");
   });
   it("복수 태그 그룹·태그 없음·고유 프로젝트 개수 및 필터/열기 유지", async () => {
     const user = userEvent.setup(),
@@ -85,12 +119,12 @@ describe("프로젝트·명령 팔레트", () => {
     expect(screen.getByText("4개의 프로젝트")).toBeInTheDocument();
     await user.click(within(work).getByRole("button", { name: "Shared" }));
     expect(activate).toHaveBeenCalledWith(shared);
-    await user.selectOptions(screen.getByLabelText("태그 필터"), "work");
+    await chooseTag(user, "work");
     expect(
       screen.queryByRole("region", { name: "hobby" }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("2개의 프로젝트")).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("태그 필터"), "");
+    await chooseTag(user, "모든 태그");
     await user.click(screen.getByLabelText("즐겨찾기만"));
     expect(screen.getByText("1개의 프로젝트")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Shared" })).toHaveLength(2);
@@ -186,9 +220,9 @@ describe("프로젝트·명령 팔레트", () => {
     await user.type(screen.getByLabelText("프로젝트 검색"), "C:/work");
     expect(cards()).toEqual(["Recent", "Old"]);
     await user.clear(screen.getByLabelText("프로젝트 검색"));
-    await user.selectOptions(screen.getByLabelText("태그 필터"), "personal");
+    await chooseTag(user, "personal");
     expect(cards()).toEqual(["Favorite"]);
-    await user.selectOptions(screen.getByLabelText("태그 필터"), "");
+    await chooseTag(user, "모든 태그");
     await user.click(screen.getByLabelText("즐겨찾기만"));
     expect(cards()).toEqual(["Favorite"]);
   });

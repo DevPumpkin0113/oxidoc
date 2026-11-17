@@ -1,11 +1,18 @@
 import { t } from "../settings/i18n";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspace } from "../workspace/store";
 import type { Project } from "../workspace/api";
 import Icon from "./Icon";
+import Dropdown from "./Dropdown";
+import { useUi, type ProjectFilters } from "../workbench/uiStore";
 import styles from "./ProjectManager.module.css";
 import panelStyles from "./panel.module.css";
+const setFilters = (patch: Partial<ProjectFilters>) =>
+  useUi.setState((state) => ({
+    projectFilters: { ...state.projectFilters, ...patch },
+  }));
+
 export default function ProjectManager({
   onActivate,
   onRegister,
@@ -34,10 +41,10 @@ export default function ProjectManager({
       updateProject: state.updateProject,
     })),
   );
-  const [query, setQuery] = useState("");
-  const [tag, setTag] = useState("");
-  const [favorites, setFavorites] = useState(false);
-  const [sort, setSort] = useState("recent");
+  // Kept in the workbench store so switching sidebar views keeps the filters.
+  const { query, tag, favorites, sort } = useUi(
+    useShallow((state) => state.projectFilters),
+  );
   const tags = useMemo(
     () =>
       [...new Set(projects.flatMap((project) => project.tags ?? []))].sort(),
@@ -110,37 +117,41 @@ export default function ProjectManager({
         className={panelStyles.panelInput}
         placeholder={t("이름 또는 경로")}
         value={query}
-        onChange={(event) => setQuery(event.target.value)}
+        onChange={(event) => setFilters({ query: event.target.value })}
       />
       <div className={panelStyles.projectFilters}>
-        <select
-          aria-label={t("프로젝트 정렬")}
+        <Dropdown
+          label={t("프로젝트 정렬")}
           value={sort}
-          onChange={(event) => setSort(event.target.value)}
-        >
-          <option value="recent">{t("최근 사용순")}</option>
-          <option value="name">{t("이름순")}</option>
-        </select>
-        <select
-          aria-label={t("태그 필터")}
+          options={[
+            { value: "recent", label: t("최근 사용순") },
+            { value: "name", label: t("이름순") },
+          ]}
+          onChange={(sort) => setFilters({ sort })}
+        />
+        <Dropdown
+          label={t("태그 필터")}
           value={tag}
-          onChange={(event) => setTag(event.target.value)}
-        >
-          <option value="">{t("모든 태그")}</option>
-          {tag && !tags.includes(tag) ? (
-            <option value={tag}>{tag}</option>
-          ) : null}
-          {tags.map((tag) => (
-            <option key={tag}>{tag}</option>
-          ))}
-        </select>
+          options={[
+            { value: "", label: t("모든 태그") },
+            ...(tag && !tags.includes(tag) ? [tag] : []).map((value) => ({
+              value,
+              label: value,
+              disabled: true,
+            })),
+            ...tags.map((value) => ({ value, label: value })),
+          ]}
+          onChange={(tag) => setFilters({ tag })}
+        />
       </div>
       <div className={panelStyles.projectListMeta}>
         <label className={panelStyles.favoriteFilter}>
           <input
             type="checkbox"
             checked={favorites}
-            onChange={(event) => setFavorites(event.target.checked)}
+            onChange={(event) =>
+              setFilters({ favorites: event.target.checked })
+            }
           />
           {t("즐겨찾기만")}
         </label>

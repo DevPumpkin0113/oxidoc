@@ -30,6 +30,14 @@ export interface SearchState {
   response?: { key: string; results: SearchResults; error?: string };
 }
 
+/** Project panel search text, sort order, tag and favourites filter. */
+export interface ProjectFilters {
+  query: string;
+  sort: "recent" | "name";
+  tag: string;
+  favorites: boolean;
+}
+
 /** Workbench UI state shared by the shell components and command modules. */
 export interface UiState {
   settingsOpen: boolean;
@@ -46,6 +54,7 @@ export interface UiState {
   searchScope: { root: string; path: string } | null;
   search: SearchState;
   linkUpdate: LinkUpdateRequest | null;
+  projectFilters: ProjectFilters;
   command?: EditorCommand;
   navigation?: Navigation & { documentId: string };
   scrollTarget?: ScrollTarget & { documentId: string };
@@ -70,6 +79,7 @@ export const useUi = create<UiState>(() => ({
     revision: 0,
   },
   linkUpdate: null,
+  projectFilters: { query: "", sort: "recent", tag: "", favorites: false },
   revealTarget: null,
   sampleNotice: true,
 }));
