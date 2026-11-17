@@ -19,6 +19,7 @@ import { explorerTree, searchInput, useUi } from "../workbench/uiStore";
 import Icon, { type IconName } from "./Icon";
 import ProjectManager from "./ProjectManager";
 import ProjectSearch from "./ProjectSearch";
+import ScrollArea from "./ScrollArea";
 import TreeDropTarget from "./TreeDropTarget";
 import WorkspaceTree from "./WorkspaceTree";
 import styles from "./Sidebar.module.css";
@@ -259,15 +260,18 @@ export default function Sidebar() {
       <div className={styles.sidebarHeading}>
         <span>{activity === "projects" ? t("프로젝트 목록") : label}</span>
       </div>
-      {activity === "files" ? <ExplorerPanel /> : null}
-      {activity === "search" ? <SearchPanel /> : null}
-      {activity === "projects" ? (
-        <ProjectManager
-          onActivate={(item) => void activateProject(item)}
-          onRegister={() => void chooseProject()}
-          onManage={manageProject}
-        />
-      ) : null}
+      {/* Activity bar and heading stay put; only the panel scrolls. */}
+      <ScrollArea className={styles.panelArea}>
+        {activity === "files" ? <ExplorerPanel /> : null}
+        {activity === "search" ? <SearchPanel /> : null}
+        {activity === "projects" ? (
+          <ProjectManager
+            onActivate={(item) => void activateProject(item)}
+            onRegister={() => void chooseProject()}
+            onManage={manageProject}
+          />
+        ) : null}
+      </ScrollArea>
     </aside>
   );
 }

@@ -15,6 +15,7 @@ import { useWorkspace } from "../workspace/store";
 import { t, translateError } from "../settings/i18n";
 import Icon from "./Icon";
 import { FileIcon } from "./FileIcon";
+import ScrollArea from "./ScrollArea";
 import dialogStyles from "./dialog.module.css";
 import styles from "./ProjectReplace.module.css";
 
@@ -326,7 +327,10 @@ export default function ProjectReplace({
               </label>
               <span className={styles.fileCount}>{files.length}</span>
             </div>
-            <div className={styles.fileList}>
+            <ScrollArea
+              className={styles.fileListArea}
+              viewportClassName={styles.fileList}
+            >
               {files.map((file) => {
                 const name = file.path.split("/").pop() ?? file.path;
                 const folder = file.path.split("/").slice(0, -1).join("/");
@@ -380,7 +384,7 @@ export default function ProjectReplace({
                   {t(previewed ? "변경할 파일 없음" : "미리보기 대기")}
                 </p>
               ) : null}
-            </div>
+            </ScrollArea>
           </aside>
 
           <section

@@ -57,16 +57,12 @@ svg {
   background: var(--selection);
   color: var(--text);
 }
+/* Native bars take layout space; ScrollArea draws overlay bars instead
+   (guides/desktop-app.md). Monaco draws its own. */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 4px;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 input,

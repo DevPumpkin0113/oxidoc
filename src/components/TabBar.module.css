@@ -8,12 +8,13 @@
   background: transparent;
 }
 
+.tabsArea {
+  flex: 0 1 auto;
+}
+
 .tabs {
   display: flex;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
 }
 
 .tab {

@@ -100,7 +100,7 @@
   isolation: isolate;
 }
 
-.outlinePanel {
+.outlineBox {
   position: absolute;
   z-index: 5;
   top: 10px;
@@ -110,9 +110,12 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 28px #0005;
-  overflow: auto;
+  overflow: hidden;
   background: color-mix(in srgb, var(--surface) 78%, transparent);
   backdrop-filter: blur(12px);
+}
+
+.outlinePanel {
   padding: 0 5px 6px;
 }
 

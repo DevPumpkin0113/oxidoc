@@ -67,6 +67,10 @@
 
 /* Settings and common theme surfaces. */
 
+.settingsArea {
+  flex: 1 1 auto;
+}
+
 .settingsContainer {
   flex: 1;
   min-height: 0;

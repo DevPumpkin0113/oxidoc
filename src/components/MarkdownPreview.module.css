@@ -1,3 +1,7 @@
+.previewArea {
+  flex: 1 1 auto;
+}
+
 .preview {
   flex: 1;
   min-height: 0;

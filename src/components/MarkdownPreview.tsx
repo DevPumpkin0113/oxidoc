@@ -25,6 +25,7 @@ import {
 } from "../workspace/markdown";
 import styles from "./MarkdownPreview.module.css";
 import MermaidDiagram from "./MermaidDiagram";
+import ScrollArea from "./ScrollArea";
 import { isMermaidFile } from "../workspace/documentTypes";
 import {
   blockSource,
@@ -182,7 +183,15 @@ function PreviewCodeBlock({
       />
     );
   }
-  return <pre data-source-line={node?.position?.start.line}>{children}</pre>;
+  return (
+    <ScrollArea
+      as="pre"
+      axis="x"
+      boxProps={{ "data-source-line": node?.position?.start.line }}
+    >
+      {children}
+    </ScrollArea>
+  );
 }
 const previewComponents = {
   pre: PreviewCodeBlock,
@@ -515,9 +524,11 @@ export default function MarkdownPreview({
   );
   return (
     <PreviewContext value={context}>
-      <article
-        ref={article}
-        className={styles.preview}
+      <ScrollArea
+        as="article"
+        className={styles.previewArea}
+        viewportClassName={styles.preview}
+        viewportRef={article}
         aria-label={t(standalone ? "Mermaid 미리보기" : "Markdown 미리보기")}
         onScroll={onScroll}
       >
@@ -537,7 +548,7 @@ export default function MarkdownPreview({
             </div>
           ))
         )}
-      </article>
+      </ScrollArea>
     </PreviewContext>
   );
 }

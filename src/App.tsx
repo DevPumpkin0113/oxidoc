@@ -1,4 +1,5 @@
 import DocumentView from "./components/DocumentView";
+import ScrollArea from "./components/ScrollArea";
 import SettingsPanel from "./components/SettingsPanel";
 import Sidebar from "./components/Sidebar";
 import StatusBar from "./components/StatusBar";
@@ -29,14 +30,15 @@ function ContentPanel() {
       <RecoveryNotice />
       <ErrorNotice />
       {settingsOpen ? (
-        <div
+        <ScrollArea
           id="settings-panel"
           role="tabpanel"
           aria-labelledby="settings-tab"
-          className={styles.settingsContainer}
+          className={styles.settingsArea}
+          viewportClassName={styles.settingsContainer}
         >
           <SettingsPanel onInstallUpdate={installUpdate} />
-        </div>
+        </ScrollArea>
       ) : activeDocument ? (
         <DocumentView document={activeDocument} />
       ) : (

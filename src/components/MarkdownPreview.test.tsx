@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 import MarkdownPreview from "./MarkdownPreview";
 const content = "# Start\n\nParagraph\n\n## End\n\nLast paragraph";
 function dimensions(article: HTMLElement, height = 2000) {
@@ -65,17 +65,20 @@ describe("미리보기 스크롤 동기화", () => {
     expect(scroll.mock.calls[scroll.mock.calls.length - 1][1]).toBeUndefined();
   });
   it("이미지 등 늦은 높이 변경 시 하단 유지, 사용자 반대쪽 스크롤 시 관찰 해제", () => {
-    let resized = () => {};
-    const disconnected = vi.fn();
+    // ScrollArea creates observers too; follow only the one the end-pin
+    // effect creates.
+    const observers: { resized: () => void; disconnected: Mock }[] = [];
     vi.stubGlobal(
       "ResizeObserver",
       class {
+        record: (typeof observers)[number];
         constructor(callback: () => void) {
-          resized = callback;
+          this.record = { resized: callback, disconnected: vi.fn() };
+          observers.push(this.record);
         }
         observe() {}
         disconnect() {
-          disconnected();
+          this.record.disconnected();
         }
       },
     );
@@ -83,14 +86,17 @@ describe("미리보기 스크롤 동기화", () => {
       const { rerender } = render(<MarkdownPreview content={content} />);
       const article = screen.getByRole("article");
       dimensions(article);
+      const before = observers.length;
       rerender(
         <MarkdownPreview
           content={content}
           syncTarget={{ source: "editor", line: 2, edge: "end", token: 1 }}
         />,
       );
+      const pin = observers[before];
+      const disconnected = pin.disconnected;
       dimensions(article, 2800);
-      act(() => resized());
+      act(() => pin.resized());
       expect(article.scrollTop).toBe(2300);
       rerender(
         <MarkdownPreview

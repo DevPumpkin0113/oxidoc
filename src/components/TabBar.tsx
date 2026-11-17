@@ -23,6 +23,7 @@ import { dropIndex, tabHints, TAB_DRAG_TYPE } from "../workbench/tabs";
 import { useUi } from "../workbench/uiStore";
 import { FileIcon } from "./FileIcon";
 import Icon from "./Icon";
+import ScrollArea from "./ScrollArea";
 import Titlebar from "./Titlebar";
 import styles from "./TabBar.module.css";
 
@@ -175,8 +176,10 @@ export default function TabBar() {
 
   return (
     <div className={styles.tabBar}>
-      <div
-        className={styles.tabs}
+      <ScrollArea
+        axis="x"
+        className={styles.tabsArea}
+        viewportClassName={styles.tabs}
         role="tablist"
         aria-label={t("열린 문서")}
         onWheel={scrollWithWheel}
@@ -245,7 +248,7 @@ export default function TabBar() {
             onDragEnd={endDrag}
           />
         ))}
-      </div>
+      </ScrollArea>
       <button
         className={styles.paletteButton}
         title={t("명령 팔레트 (Ctrl Shift P)")}

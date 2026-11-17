@@ -50,9 +50,20 @@
   --sidebar-content-top: 8px;
   --sidebar-inline-padding: 12px;
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   background: var(--sidebar);
+}
+
+.sidebar > .activityBar,
+.sidebar > .sidebarHeading {
+  flex-shrink: 0;
+}
+
+.panelArea {
+  flex: 1 1 auto;
 }
 
 .sidebarHeading {

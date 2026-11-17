@@ -15,6 +15,7 @@ import DocumentToolbar from "./DocumentToolbar";
 import { DiskNotice } from "./WorkspaceNotices";
 import { DocumentEditor, DocumentPreview, OutlineList } from "./DocumentPanes";
 import Icon from "./Icon";
+import ScrollArea from "./ScrollArea";
 import styles from "./DocumentView.module.css";
 
 const clearCommand = () => useUi.setState({ command: undefined });
@@ -116,9 +117,11 @@ export default function DocumentView({
           ) : null}
         </div>
         {outline ? (
-          <aside
+          <ScrollArea
+            as="aside"
             id="document-outline"
-            className={styles.outlinePanel}
+            className={styles.outlineBox}
+            viewportClassName={styles.outlinePanel}
             aria-label={t("문서 개요")}
           >
             <div className={styles.outlineHeading}>
@@ -136,7 +139,7 @@ export default function DocumentView({
               documentId={id}
               onSelect={(line) => navigateTo(id, line)}
             />
-          </aside>
+          </ScrollArea>
         ) : null}
       </div>
     </>

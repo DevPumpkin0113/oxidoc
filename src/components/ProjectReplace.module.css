@@ -242,6 +242,9 @@
   background: var(--hover);
   color: var(--muted);
 }
+.fileListArea {
+  flex: 1 1 auto;
+}
 .fileList {
   flex: 1;
   min-height: 0;

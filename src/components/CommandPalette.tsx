@@ -1,6 +1,7 @@
 import { t } from "../settings/i18n";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import Icon from "./Icon";
+import ScrollArea from "./ScrollArea";
 import styles from "./CommandPalette.module.css";
 import dialogStyles from "./dialog.module.css";
 import {
@@ -133,7 +134,7 @@ export default function CommandPalette({
             <Icon name="close" size={16} />
           </button>
         </div>
-        <div id="palette-options" role="listbox">
+        <ScrollArea id="palette-options" role="listbox">
           {filtered.map((command, i) => (
             <div
               key={command.id}
@@ -151,7 +152,7 @@ export default function CommandPalette({
             </div>
           ))}
           {!filtered.length ? <p>{t("일치하는 명령이 없습니다.")}</p> : null}
-        </div>
+        </ScrollArea>
         <footer>{footer}</footer>
       </div>
     </div>
