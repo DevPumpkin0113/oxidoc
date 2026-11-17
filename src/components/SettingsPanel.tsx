@@ -249,6 +249,7 @@ function EditorFontInput({
         </p>
       </div>
       <input
+        autoComplete="off"
         id="setting-editorFontFamily"
         className={styles.textInput}
         type="text"

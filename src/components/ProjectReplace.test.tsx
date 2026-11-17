@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import ProjectReplace from "./ProjectReplace";
 import { workspaceApi } from "../workspace/api";
 import { useWorkspace } from "../workspace/store";
+import { useUi } from "../workbench/uiStore";
 vi.mock("./ReplacementDiff", () => ({
   default: ({
     before,
@@ -149,4 +150,67 @@ it("부분 실패 후 실패 원인·대상·선택 유지", async () => {
   expect(screen.getByText("파일이 변경되었습니다.")).toBeInTheDocument();
   expect(screen.getByRole("checkbox", { name: "a.md 선택" })).toBeChecked();
   expect(screen.getByText("old")).toBeInTheDocument();
+});
+
+it("검색과 같은 조건으로 미리보기하고, 조건을 바꾸면 이전 미리보기를 버림", async () => {
+  const user = userEvent.setup();
+  const preview = vi
+    .spyOn(workspaceApi.advanced!, "previewReplace")
+    .mockResolvedValueOnce({
+      files: [{ path: "a.md", before: "item-1", after: "#1", count: 1 }],
+      truncated: false,
+      skipped: 0,
+    })
+    .mockRejectedValueOnce("잘못된 정규식: unclosed group");
+  useWorkspace.setState(
+    {
+      ...useWorkspace.getInitialState(),
+      desktop: true,
+      project: { name: "Notes", path: "C:/notes" },
+    },
+    true,
+  );
+  render(
+    <ProjectReplace root="C:/notes" suspended={false} onClose={vi.fn()} />,
+  );
+  const query = screen.getByRole("textbox", { name: "검색어" });
+  await user.type(query, "item-(\\d)");
+  await user.keyboard("{Alt>}r{/Alt}");
+  await user.type(screen.getByRole("textbox", { name: "대체어" }), "#$1");
+  await user.click(screen.getByRole("button", { name: "파일 조건" }));
+  await user.type(screen.getByLabelText("포함할 파일"), "*.md");
+  await user.click(screen.getByRole("button", { name: "변경 미리보기" }));
+  expect(preview).toHaveBeenLastCalledWith("C:/notes", "item-(\\d)", "#$1", {
+    caseSensitive: false,
+    regex: true,
+    wholeWord: false,
+    include: "*.md",
+    exclude: "",
+  });
+  expect(await screen.findByText("item-1")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "단어 단위" }));
+  expect(screen.queryByText("item-1")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "변경 미리보기" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "잘못된 정규식: unclosed group",
+  );
+});
+
+it("사이드바 검색어와 조건을 이어받아 시작", () => {
+  useUi.setState((state) => ({
+    search: {
+      ...state.search,
+      query: "needle",
+      options: { ...state.search.options, regex: true, include: "*.md" },
+    },
+  }));
+  render(
+    <ProjectReplace root="C:/notes" suspended={false} onClose={vi.fn()} />,
+  );
+  expect(screen.getByRole("textbox", { name: "검색어" })).toHaveValue("needle");
+  expect(screen.getByRole("button", { name: "정규식 사용" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(screen.getByLabelText("포함할 파일")).toHaveValue("*.md");
 });

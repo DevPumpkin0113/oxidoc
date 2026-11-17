@@ -6,6 +6,11 @@ import type { MenuItem } from "../components/ContextMenu";
 import type { EditorCommand } from "../components/MarkdownEditor";
 import type { Navigation, ScrollTarget } from "../components/MarkdownPreview";
 import type { UnsavedChoice } from "../components/UnsavedDialog";
+import type { SearchResults } from "../workspace/api";
+import {
+  defaultSearchOptions,
+  type SearchOptions,
+} from "../workspace/searchOptions";
 
 export interface ContextMenuState {
   x: number;
@@ -13,6 +18,15 @@ export interface ContextMenuState {
   items: MenuItem[];
   returnFocus: HTMLElement | null;
   title?: string;
+}
+
+/** Project search sidebar input, conditions and last response. */
+export interface SearchState {
+  query: string;
+  options: SearchOptions;
+  showPatterns: boolean;
+  revision: number;
+  response?: { key: string; results: SearchResults; error?: string };
 }
 
 /** Workbench UI state shared by the shell components and command modules. */
@@ -29,6 +43,7 @@ export interface UiState {
     resolve: (choice: UnsavedChoice) => void;
   } | null;
   searchScope: { root: string; path: string } | null;
+  search: SearchState;
   command?: EditorCommand;
   navigation?: Navigation & { documentId: string };
   scrollTarget?: ScrollTarget & { documentId: string };
@@ -46,6 +61,12 @@ export const useUi = create<UiState>(() => ({
   actionRequest: null,
   confirmation: null,
   searchScope: null,
+  search: {
+    query: "",
+    options: defaultSearchOptions,
+    showPatterns: false,
+    revision: 0,
+  },
   revealTarget: null,
   sampleNotice: true,
 }));

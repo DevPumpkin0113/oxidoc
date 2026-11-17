@@ -42,6 +42,11 @@ export const spriteIcons = {
   paste: "clippy",
   collapse: "collapse-all",
   replace: "replace-all",
+  caseSensitive: "case-sensitive",
+  wholeWord: "whole-word",
+  regex: "regex",
+  filter: "filter",
+  filterActive: "filter-filled",
 } as const;
 
 // Codicons missing from the bundled sprite (dist/codicon.svg), copied from

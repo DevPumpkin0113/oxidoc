@@ -634,3 +634,14 @@
     animation: none;
   }
 }
+.patterns {
+  grid-column: 1 / -1;
+}
+.patterns > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px 12px;
+}
+.patterns > div > p {
+  grid-column: 1 / -1;
+}

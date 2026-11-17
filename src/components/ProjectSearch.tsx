@@ -1,5 +1,7 @@
 import { translateError, t } from "../settings/i18n";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { useUi, type SearchState } from "../workbench/uiStore";
 import {
   workspaceApi,
   type SearchResults,
@@ -10,12 +12,33 @@ import { sampleDocuments } from "../data/sampleDocuments";
 import Icon from "./Icon";
 import { FileIcon } from "./FileIcon";
 import styles from "./ProjectSearch.module.css";
+import { FilePatterns, SearchToggles } from "./SearchConditions";
+import {
+  activeConditions,
+  pathFilter,
+  queryPattern,
+  toggledByShortcut,
+  type SearchOptions,
+} from "../workspace/searchOptions";
 
 const EMPTY_RESULTS: SearchResults = {
   matches: [],
   truncated: false,
   skipped: 0,
 };
+
+// Kept in the workbench store so switching sidebar views keeps the search.
+const setSearch = (patch: Partial<SearchState>) =>
+  useUi.setState((state) => ({ search: { ...state.search, ...patch } }));
+const setQuery = (query: string) => setSearch({ query });
+const setOptions = (options: SearchOptions) => setSearch({ options });
+const setResponse = (response: SearchState["response"]) =>
+  setSearch({ response });
+const togglePatterns = () =>
+  setSearch({ showPatterns: !useUi.getState().search.showPatterns });
+// Bumped by the refresh button to repeat the same search.
+const refresh = () =>
+  setSearch({ revision: useUi.getState().search.revision + 1 });
 
 export default function ProjectSearch({
   onResult,
@@ -32,14 +55,19 @@ export default function ProjectSearch({
 }) {
   const root = useWorkspace((state) => state.project?.path);
   const desktop = useWorkspace((state) => state.desktop);
-  const [query, setQuery] = useState("");
-  const [sensitive, setSensitive] = useState(false);
-  const [response, setResponse] = useState<{
-    key: string;
-    results: SearchResults;
-    error?: string;
-  }>();
-  const requestKey = JSON.stringify([root, desktop, query, sensitive, folder]);
+  const { query, options, showPatterns, revision, response } = useUi(
+    useShallow((state) => state.search),
+  );
+  const requestKey = JSON.stringify([
+    root,
+    desktop,
+    query,
+    options,
+    folder,
+    revision,
+  ]);
+  const conditions = activeConditions(options);
+  const patternsActive = Boolean(conditions.include || conditions.exclude);
   const current = response?.key === requestKey ? response : undefined;
   const results = current?.results ?? EMPTY_RESULTS;
   const error = current?.error;
@@ -67,33 +95,8 @@ export default function ProjectSearch({
     let cancelled = false;
     const timer = setTimeout(() => {
       const searching = desktop
-        ? workspaceApi.advanced!.search(root, query, sensitive, folder)
-        : Promise.resolve({
-            matches: sampleDocuments
-              .filter(
-                (document) => !folder || document.id.startsWith(folder + "/"),
-              )
-              .flatMap((document) =>
-                document.content.split("\n").flatMap((text, index) => {
-                  const column = (
-                    sensitive ? text : text.toLowerCase()
-                  ).indexOf(sensitive ? query : query.toLowerCase());
-                  return column < 0
-                    ? []
-                    : [
-                        {
-                          path: document.id,
-                          name: document.name,
-                          line: index + 1,
-                          column: column + 1,
-                          text,
-                        },
-                      ];
-                }),
-              ),
-            truncated: false,
-            skipped: 0,
-          });
+        ? workspaceApi.advanced!.search(root, query, options, folder)
+        : sampleSearch(query, options, folder);
       void searching
         .then((results) => {
           if (!cancelled) setResponse({ key: requestKey, results });
@@ -111,7 +114,7 @@ export default function ProjectSearch({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [root, desktop, query, sensitive, folder, requestKey]);
+  }, [root, desktop, query, options, folder, requestKey]);
 
   return (
     <div className={styles.panel}>
@@ -136,12 +139,19 @@ export default function ProjectSearch({
             <Icon name={loading ? "refresh" : "search"} size={14} />
           </span>
           <input
+            autoComplete="off"
             ref={inputRef}
             id="document-search"
             placeholder={t("파일 내용 검색")}
             value={query}
             disabled={!root}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              const next = toggledByShortcut(event, options);
+              if (!next) return;
+              event.preventDefault();
+              setOptions(next);
+            }}
           />
           {query ? (
             <button
@@ -157,17 +167,36 @@ export default function ProjectSearch({
               <Icon name="close" size={13} />
             </button>
           ) : null}
+          <SearchToggles
+            options={options}
+            onChange={setOptions}
+            disabled={!root}
+          />
         </div>
         <div className={styles.options}>
-          <label className={styles.caseOption} data-checked={sensitive}>
-            <input
-              type="checkbox"
-              checked={sensitive}
-              disabled={!root}
-              onChange={(event) => setSensitive(event.target.checked)}
-            />
-            <span>{t("대소문자 구분")}</span>
-          </label>
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label={t("파일 조건")}
+            aria-expanded={showPatterns}
+            aria-controls="search-file-patterns"
+            title={t("파일 조건")}
+            data-active={patternsActive}
+            disabled={!root}
+            onClick={togglePatterns}
+          >
+            <Icon name={patternsActive ? "filterActive" : "filter"} size={14} />
+          </button>
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label={t("결과 새로고침")}
+            title={t("결과 새로고침")}
+            disabled={!query || !root || loading}
+            onClick={refresh}
+          >
+            <Icon name="refresh" size={14} />
+          </button>
           <span className={styles.count} role="status" aria-live="polite">
             {query && root
               ? loading
@@ -178,6 +207,27 @@ export default function ProjectSearch({
               : ""}
           </span>
         </div>
+        {showPatterns ? (
+          <div id="search-file-patterns">
+            <FilePatterns
+              idPrefix="search"
+              options={options}
+              onChange={setOptions}
+              disabled={!root}
+            />
+          </div>
+        ) : null}
+        {conditions.flags.length || patternsActive ? (
+          <p className={styles.conditions} aria-label={t("검색 조건")}>
+            {[
+              ...conditions.flags.map((flag) => t(flag)),
+              conditions.include && t("포함: {0}", conditions.include),
+              conditions.exclude && t("제외: {0}", conditions.exclude),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
         {folder ? (
           <div className={styles.scope}>
             <Icon name="folder" size={12} />
@@ -259,9 +309,9 @@ export default function ProjectSearch({
                         <>
                           {match.text.slice(0, start)}
                           <mark>
-                            {match.text.slice(start, start + query.length)}
+                            {match.text.slice(start, start + match.length)}
                           </mark>
-                          {match.text.slice(start + query.length)}
+                          {match.text.slice(start + match.length)}
                         </>
                       ) : (
                         match.text
@@ -291,4 +341,45 @@ export default function ProjectSearch({
       ) : null}
     </div>
   );
+}
+
+/** Search over the browser preview's sample documents. */
+async function sampleSearch(
+  query: string,
+  options: SearchOptions,
+  folder: string,
+): Promise<SearchResults> {
+  let pattern: RegExp;
+  try {
+    pattern = queryPattern(query, options);
+  } catch (error) {
+    return Promise.reject(
+      new Error(`잘못된 정규식: ${(error as Error).message}`),
+    );
+  }
+  const included = pathFilter(options);
+  return {
+    matches: sampleDocuments
+      .filter(
+        (document) =>
+          (!folder || document.id.startsWith(folder + "/")) &&
+          included(document.id),
+      )
+      .flatMap((document) =>
+        document.content.split("\n").flatMap((text, index) =>
+          [...text.matchAll(pattern)]
+            .filter((found) => found[0])
+            .map((found) => ({
+              path: document.id,
+              name: document.name,
+              line: index + 1,
+              column: found.index + 1,
+              length: found[0].length,
+              text,
+            })),
+        ),
+      ),
+    truncated: false,
+    skipped: 0,
+  };
 }

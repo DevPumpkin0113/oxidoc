@@ -1,4 +1,6 @@
 use super::*;
+const MAX_REPLACE_FILES: usize = 100;
+const MAX_REPLACE_BYTES: usize = 20 * 1024 * 1024;
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Replacement {
     path: String,
@@ -22,31 +24,23 @@ fn preview_at(
     root: &Path,
     query: &str,
     replacement: &str,
-    sensitive: bool,
+    options: &SearchOptions,
 ) -> Result<ReplacePreview, String> {
-    preview_files(
-        &ProjectFiles::uncached(root)?,
-        query,
-        replacement,
-        sensitive,
-    )
+    preview_files(&ProjectFiles::uncached(root)?, query, replacement, options)
 }
 fn preview_files(
     files: &ProjectFiles,
     query: &str,
     replacement: &str,
-    sensitive: bool,
+    options: &SearchOptions,
 ) -> Result<ReplacePreview, String> {
-    if query.is_empty() || query.len() > 512 || replacement.len() as u64 > MAX_DOCUMENT_BYTES {
+    if replacement.len() as u64 > MAX_DOCUMENT_BYTES {
         return Err("검색어·대체어 길이가 올바르지 않습니다.".into());
     }
     if replacement.contains('\0') {
         return Err("대체어에 NUL 문자를 사용할 수 없습니다.".into());
     }
-    let pattern = regex::RegexBuilder::new(&regex::escape(query))
-        .case_insensitive(!sensitive)
-        .build()
-        .map_err(|error| error.to_string())?;
+    let matcher = Matcher::new(query, options)?;
     let index = &files.index;
     let mut preview = ReplacePreview {
         files: vec![],
@@ -54,7 +48,11 @@ fn preview_files(
         skipped: index.skipped,
     };
     let mut bytes = 0;
-    for entry in &index.entries {
+    for entry in index
+        .entries
+        .iter()
+        .filter(|entry| matcher.includes(&entry.path))
+    {
         if index::is_binary_file(&entry.path) {
             preview.skipped += 1;
             continue;
@@ -63,32 +61,24 @@ fn preview_files(
             preview.skipped += 1;
             continue;
         };
-        let (count, matched_bytes) = pattern
-            .find_iter(&before)
-            .fold((0usize, 0usize), |(count, bytes), found| {
-                (count + 1, bytes + found.len())
-            });
-        if count == 0 {
+        if matcher.find_iter(&before).next().is_none() {
             continue;
         }
-        let Some(estimated) = count
-            .checked_mul(replacement.len())
-            .and_then(|inserted| (before.len() - matched_bytes).checked_add(inserted))
+        if preview.files.len() >= MAX_REPLACE_FILES {
+            preview.truncated = true;
+            break;
+        }
+        // Results larger than a document are skipped before they are built.
+        let Some((after, count)) =
+            matcher.replace(&before, replacement, MAX_DOCUMENT_BYTES as usize)
         else {
             preview.skipped += 1;
             continue;
         };
-        if estimated as u64 > MAX_DOCUMENT_BYTES {
-            preview.skipped += 1;
-            continue;
-        }
-        if preview.files.len() >= 100 || bytes + before.len() + estimated > 20 * 1024 * 1024 {
+        if bytes + before.len() + after.len() > MAX_REPLACE_BYTES {
             preview.truncated = true;
             break;
         }
-        let after = pattern
-            .replace_all(&before, regex::NoExpand(replacement))
-            .into_owned();
         if *before == after {
             continue;
         }
@@ -105,12 +95,12 @@ fn preview_files(
 fn apply_at(root: &Path, files: Vec<Replacement>) -> Result<Vec<ReplaceResult>, String> {
     let mut bytes = 0;
     let mut paths = std::collections::HashSet::new();
-    if files.len() > 100 {
+    if files.len() > MAX_REPLACE_FILES {
         return Err("최대 100개 파일만 적용할 수 있습니다.".into());
     }
     for file in &files {
         bytes += file.before.len() + file.after.len();
-        if bytes > 20 * 1024 * 1024
+        if bytes > MAX_REPLACE_BYTES
             || file.before.len() as u64 > MAX_DOCUMENT_BYTES
             || file.after.len() as u64 > MAX_DOCUMENT_BYTES
             || file.after.contains('\0')
@@ -161,7 +151,7 @@ pub async fn preview_replace(
     root: String,
     query: String,
     replacement: String,
-    sensitive: bool,
+    options: SearchOptions,
 ) -> Result<ReplacePreview, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let folder = authorized_root(&app, &root)?;
@@ -169,7 +159,7 @@ pub async fn preview_replace(
             &project_files(&app, &root, &folder)?,
             &query,
             &replacement,
-            sensitive,
+            &options,
         )
     })
     .await
@@ -189,11 +179,54 @@ pub async fn apply_replace(
 mod tests {
     use super::*;
     #[test]
+    fn search_and_replace_share_conditions() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        fs::create_dir_all(root.join("docs/old")).unwrap();
+        let text = "Item-1 item-22\r\nitems-3 끝\n😀 item-4";
+        for path in ["docs/a.md", "docs/old/b.md", "c.txt"] {
+            fs::write(root.join(path), text).unwrap();
+        }
+        let options = SearchOptions {
+            regex: true,
+            whole_word: true,
+            include: "*.md".into(),
+            exclude: "docs/old".into(),
+            ..SearchOptions::default()
+        };
+        let found = advanced::search_within(&root, "", r"item-(\d+)", &options).unwrap();
+        let positions: Vec<_> = found
+            .matches
+            .iter()
+            .map(|found| (found.path.as_str(), found.line, found.column, found.length))
+            .collect();
+        assert_eq!(
+            positions,
+            [
+                ("docs/a.md", 1, 1, 6),
+                ("docs/a.md", 1, 8, 7),
+                ("docs/a.md", 3, 4, 6)
+            ]
+        );
+        assert_eq!(found.matches[0].text, "Item-1 item-22");
+        let preview = preview_at(&root, r"item-(\d+)", "#${1}", &options).unwrap();
+        assert_eq!(preview.files.len(), 1);
+        assert_eq!(preview.files[0].path, "docs/a.md");
+        assert_eq!(preview.files[0].count, found.matches.len());
+        assert_eq!(preview.files[0].after, "#1 #22\r\nitems-3 끝\n😀 #4");
+        let invalid = SearchOptions {
+            regex: true,
+            ..SearchOptions::default()
+        };
+        assert!(preview_at(&root, "(", "x", &invalid).is_err());
+        assert!(advanced::search_within(&root, "", "(", &invalid).is_err());
+    }
+    #[test]
     fn expanding_replacements_are_bounded_before_allocation() {
         let dir = tempfile::tempdir().unwrap();
         let root = fs::canonicalize(dir.path()).unwrap();
         fs::write(root.join("a.md"), "a".repeat(1024)).unwrap();
-        let preview = preview_at(&root, "a", &"b".repeat(8192), true).unwrap();
+        let preview = preview_at(&root, "a", &"b".repeat(8192), &SearchOptions::default()).unwrap();
         assert!(preview.files.is_empty());
         assert_eq!(preview.skipped, 1);
     }
@@ -203,7 +236,7 @@ mod tests {
         let root = fs::canonicalize(dir.path()).unwrap();
         fs::write(root.join("a.md"), "\u{feff}Hello hello").unwrap();
         fs::write(root.join("b.md"), "hello").unwrap();
-        let preview = preview_at(&root, "hello", "$1", false).unwrap();
+        let preview = preview_at(&root, "hello", "$1", &SearchOptions::default()).unwrap();
         assert_eq!(preview.files.len(), 2);
         assert_eq!(preview.files[0].after, "$1 $1");
         fs::write(root.join("b.md"), "external").unwrap();

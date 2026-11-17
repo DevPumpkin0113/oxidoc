@@ -536,43 +536,45 @@ pub async fn save_session(
 
 #[derive(Serialize)]
 pub struct SearchMatch {
-    path: String,
-    name: String,
-    line: usize,
-    column: usize,
-    text: String,
+    pub(super) path: String,
+    pub(super) name: String,
+    pub(super) line: usize,
+    pub(super) column: usize,
+    /// Highlighted UTF-16 length within `text`, clipped to the line.
+    pub(super) length: usize,
+    pub(super) text: String,
 }
+const MAX_SNIPPET_CHARS: usize = 240;
 const MAX_SEARCH_MATCHES: usize = 500;
 #[derive(Serialize)]
 pub struct SearchResults {
-    matches: Vec<SearchMatch>,
+    pub(super) matches: Vec<SearchMatch>,
     truncated: bool,
     skipped: usize,
 }
 #[cfg(test)]
 fn search_at(root: &Path, query: &str, case_sensitive: bool) -> Result<SearchResults, String> {
-    search_within(root, "", query, case_sensitive)
+    let options = SearchOptions {
+        case_sensitive,
+        ..SearchOptions::default()
+    };
+    search_within(root, "", query, &options)
 }
 #[cfg(test)]
-fn search_within(
+pub(super) fn search_within(
     root: &Path,
     folder: &str,
     query: &str,
-    case_sensitive: bool,
+    options: &SearchOptions,
 ) -> Result<SearchResults, String> {
-    search_files(
-        &ProjectFiles::uncached(root)?,
-        folder,
-        query,
-        case_sensitive,
-    )
+    search_files(&ProjectFiles::uncached(root)?, folder, query, options)
 }
 /// Searches the indexed files under `folder` (root-relative, `""` for all).
 fn search_files(
     files: &ProjectFiles,
     folder: &str,
     query: &str,
-    case_sensitive: bool,
+    options: &SearchOptions,
 ) -> Result<SearchResults, String> {
     let (root, index) = (files.root.as_path(), &files.index);
     let directory = contained_path(root, folder)?;
@@ -587,13 +589,7 @@ fn search_files(
     if query.is_empty() {
         return Ok(result);
     }
-    if query.len() > 512 {
-        return Err("검색어가 너무 깁니다.".into());
-    }
-    let pattern = regex::RegexBuilder::new(&regex::escape(query))
-        .case_insensitive(!case_sensitive)
-        .build()
-        .map_err(|e| e.to_string())?;
+    let matcher = Matcher::new(query, options)?;
     let prefix = directory
         .strip_prefix(root)
         .map_err(|_| "프로젝트 외부 경로입니다.")?
@@ -607,7 +603,11 @@ fn search_files(
     };
     result.truncated = index.truncated;
     result.skipped = index.skipped;
-    for entry in index.entries.iter().filter(|entry| scoped(&entry.path)) {
+    for entry in index
+        .entries
+        .iter()
+        .filter(|entry| scoped(&entry.path) && matcher.includes(&entry.path))
+    {
         if index::is_binary_file(&entry.path) {
             result.skipped += 1;
             continue;
@@ -616,19 +616,37 @@ fn search_files(
             result.skipped += 1;
             continue;
         };
-        for (line_number, line) in text.lines().enumerate() {
-            for found in pattern.find_iter(line) {
-                result.matches.push(SearchMatch {
-                    path: entry.path.clone(),
-                    name: entry.name.clone(),
-                    line: line_number + 1,
-                    column: line[..found.start()].encode_utf16().count() + 1,
-                    text: line.chars().take(240).collect(),
-                });
-                if result.matches.len() >= MAX_SEARCH_MATCHES {
-                    result.truncated = true;
-                    return Ok(result);
-                }
+        // Matches run over the whole text (as replace does) and are mapped
+        // back to their line; a match spanning lines is shown on its first.
+        let (mut line_number, mut line_start, mut scanned) = (1, 0, 0);
+        for found in matcher.find_iter(&text) {
+            let before = &text[scanned..found.start()];
+            line_number += before.matches('\n').count();
+            if let Some(newline) = before.rfind('\n') {
+                line_start = scanned + newline + 1;
+            }
+            scanned = found.start();
+            let line_end = text[line_start..]
+                .find('\n')
+                .map_or(text.len(), |end| line_start + end);
+            let line = text[line_start..line_end].trim_end_matches('\r');
+            let snippet: String = line.chars().take(MAX_SNIPPET_CHARS).collect();
+            let column = text[line_start..found.start()].encode_utf16().count();
+            let visible = snippet.encode_utf16().count().saturating_sub(column);
+            let matched = text[found.start()..found.end().min(line_start + line.len())]
+                .encode_utf16()
+                .count();
+            result.matches.push(SearchMatch {
+                path: entry.path.clone(),
+                name: entry.name.clone(),
+                line: line_number,
+                column: column + 1,
+                length: matched.min(visible),
+                text: snippet,
+            });
+            if result.matches.len() >= MAX_SEARCH_MATCHES {
+                result.truncated = true;
+                return Ok(result);
             }
         }
     }
@@ -639,7 +657,7 @@ pub async fn search_project(
     app: AppHandle,
     root: String,
     query: String,
-    case_sensitive: bool,
+    options: SearchOptions,
     folder: Option<String>,
 ) -> Result<SearchResults, String> {
     io(move || {
@@ -648,7 +666,7 @@ pub async fn search_project(
             &project_files(&app, &root, &folder_root)?,
             folder.as_deref().unwrap_or(""),
             &query,
-            case_sensitive,
+            &options,
         )
     })
     .await
@@ -760,11 +778,11 @@ mod tests {
             display_path(Path::new(r"\\?\UNC\server\share")),
             r"\\server\share"
         );
-        let found = search_within(&root, "docs", "needle", false).unwrap();
+        let found = search_within(&root, "docs", "needle", &SearchOptions::default()).unwrap();
         assert_eq!(found.matches.len(), 1);
         assert_eq!(found.matches[0].path, "docs/a.md");
-        assert!(search_within(&root, "..", "needle", false).is_err());
-        assert!(search_within(&root, "b.md", "needle", false).is_err());
+        assert!(search_within(&root, "..", "needle", &SearchOptions::default()).is_err());
+        assert!(search_within(&root, "b.md", "needle", &SearchOptions::default()).is_err());
     }
     #[test]
     fn move_file_preserves_bytes_supports_root_and_rejects_conflicts_and_escape() {

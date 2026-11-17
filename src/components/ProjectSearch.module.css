@@ -291,3 +291,13 @@
     animation: none;
   }
 }
+.conditions {
+  margin: 0;
+  color: var(--accent);
+  font-size: calc(var(--ui-font-size) - 3px);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.iconButton[data-active="true"] {
+  color: var(--accent);
+}

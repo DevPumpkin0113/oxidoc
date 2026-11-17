@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { SearchOptions } from "./searchOptions";
 
 export interface Project {
   name: string;
@@ -34,6 +35,8 @@ export interface SearchMatch {
   name: string;
   line: number;
   column: number;
+  /** Highlighted UTF-16 length within `text`. */
+  length: number;
   text: string;
 }
 export interface SearchResults {
@@ -61,7 +64,7 @@ export interface AdvancedApi {
     root: string,
     query: string,
     replacement: string,
-    sensitive: boolean,
+    options: SearchOptions,
   ) => Promise<{ files: Replacement[]; truncated: boolean; skipped: number }>;
   applyReplace: (
     root: string,
@@ -120,7 +123,7 @@ export interface AdvancedApi {
   search: (
     root: string,
     query: string,
-    caseSensitive: boolean,
+    options: SearchOptions,
     folder?: string,
   ) => Promise<SearchResults>;
   image: (root: string, path: string) => Promise<string>;
@@ -145,8 +148,8 @@ export interface ReplaceResult {
 export const workspaceApi: WorkspaceApi = {
   advanced: {
     pasteImage: (root, data) => invoke("save_pasted_image", { root, data }),
-    previewReplace: (root, query, replacement, sensitive) =>
-      invoke("preview_replace", { root, query, replacement, sensitive }),
+    previewReplace: (root, query, replacement, options) =>
+      invoke("preview_replace", { root, query, replacement, options }),
     applyReplace: (root, files) => invoke("apply_replace", { root, files }),
     index: (root) => invoke("index_files", { root }),
     loadRecovery: (root) => invoke("load_recovery", { root }),
@@ -192,8 +195,8 @@ export const workspaceApi: WorkspaceApi = {
     loadSession: (root) => invoke("load_session", { root }),
     saveSession: (root, session, layout) =>
       invoke("save_session", { root, session, layout }),
-    search: (root, query, caseSensitive, folder = "") =>
-      invoke("search_project", { root, query, caseSensitive, folder }),
+    search: (root, query, options, folder = "") =>
+      invoke("search_project", { root, query, options, folder }),
     image: (root, path) => invoke("read_image", { root, path }),
     external: (url) => invoke("open_external", { url }),
   },

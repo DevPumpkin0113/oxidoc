@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { defaultSearchOptions } from "./workspace/searchOptions";
 import { useWorkspace } from "./workspace/store";
 import { useSettings } from "./settings/store";
 import packageInfo from "../package.json";
@@ -377,7 +378,7 @@ describe("작업 공간 UI", () => {
       expect(invoke).toHaveBeenCalledWith("search_project", {
         root: "C:/notes",
         query: "needle",
-        caseSensitive: false,
+        options: defaultSearchOptions,
         folder: "docs",
       }),
     );
@@ -388,7 +389,7 @@ describe("작업 공간 UI", () => {
       expect(invoke).toHaveBeenCalledWith("search_project", {
         root: "C:/notes",
         query: "needle",
-        caseSensitive: false,
+        options: defaultSearchOptions,
         folder: "",
       }),
     );

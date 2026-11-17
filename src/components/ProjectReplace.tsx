@@ -12,12 +12,19 @@ import {
   type ReplaceResult,
 } from "../workspace/api";
 import { useWorkspace } from "../workspace/store";
+import { useUi } from "../workbench/uiStore";
 import { t, translateError } from "../settings/i18n";
 import Icon from "./Icon";
 import { FileIcon } from "./FileIcon";
 import ScrollArea from "./ScrollArea";
 import dialogStyles from "./dialog.module.css";
 import styles from "./ProjectReplace.module.css";
+import { FilePatterns, SearchToggles } from "./SearchConditions";
+import {
+  activeConditions,
+  toggledByShortcut,
+  type SearchOptions,
+} from "../workspace/searchOptions";
 
 const ReplacementDiff = lazy(() => import("./ReplacementDiff"));
 
@@ -30,9 +37,16 @@ export default function ProjectReplace({
   suspended: boolean;
   onClose: () => void;
 }) {
-  const [query, setQuery] = useState("");
+  // Starts from the sidebar search so the same matches are replaced.
+  const [query, setQuery] = useState(() => useUi.getState().search.query);
   const [replacement, setReplacement] = useState("");
-  const [sensitive, setSensitive] = useState(false);
+  const [options, setOptions] = useState<SearchOptions>(
+    () => useUi.getState().search.options,
+  );
+  const [showPatterns, setShowPatterns] = useState(() => {
+    const { include, exclude } = useUi.getState().search.options;
+    return Boolean(include.trim() || exclude.trim());
+  });
   const [files, setFiles] = useState<Replacement[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [shown, setShown] = useState<string | null>(null);
@@ -87,6 +101,12 @@ export default function ProjectReplace({
     return () => window.removeEventListener("keydown", escape, true);
   }, []);
 
+  const conditions = activeConditions(options);
+  const patternsActive = Boolean(conditions.include || conditions.exclude);
+  function changeOptions(next: SearchOptions) {
+    setOptions(next);
+    invalidate();
+  }
   function invalidate() {
     setFiles([]);
     setSelected(new Set());
@@ -105,7 +125,7 @@ export default function ProjectReplace({
         root,
         query,
         replacement,
-        sensitive,
+        options,
       );
       if (!mounted.current || useWorkspace.getState().project?.path !== root)
         return;
@@ -228,6 +248,10 @@ export default function ProjectReplace({
           onKeyDown={(event) => {
             if (event.key === "Enter" && event.nativeEvent.isComposing)
               event.preventDefault();
+            const next = working ? null : toggledByShortcut(event, options);
+            if (!next) return;
+            event.preventDefault();
+            changeOptions(next);
           }}
         >
           <label className={styles.field}>
@@ -235,6 +259,7 @@ export default function ProjectReplace({
             <div className={styles.inputWrap}>
               <Icon name="search" size={15} />
               <input
+                autoComplete="off"
                 data-replace-control
                 ref={input}
                 aria-label={t("검색어")}
@@ -246,6 +271,12 @@ export default function ProjectReplace({
                   invalidate();
                 }}
               />
+              <SearchToggles
+                options={options}
+                onChange={changeOptions}
+                disabled={working}
+                controlProps={{ "data-replace-control": true }}
+              />
             </div>
           </label>
           <label className={styles.field}>
@@ -253,9 +284,14 @@ export default function ProjectReplace({
             <div className={styles.inputWrap}>
               <Icon name="replace" size={15} />
               <input
+                autoComplete="off"
                 data-replace-control
                 aria-label={t("대체어")}
-                placeholder={t("바꿀 내용 · 비워 두면 삭제")}
+                placeholder={t(
+                  options.regex
+                    ? "바꿀 내용 · $1·${이름}으로 그룹 참조"
+                    : "바꿀 내용 · 비워 두면 삭제",
+                )}
                 value={replacement}
                 disabled={working}
                 onChange={(event) => {
@@ -265,19 +301,19 @@ export default function ProjectReplace({
               />
             </div>
           </label>
-          <label className={styles.caseOption} data-checked={sensitive}>
-            <input
-              data-replace-control
-              type="checkbox"
-              checked={sensitive}
-              disabled={working}
-              onChange={(event) => {
-                setSensitive(event.target.checked);
-                invalidate();
-              }}
-            />
-            <span>{t("대소문자 구분")}</span>
-          </label>
+          <button
+            data-replace-control
+            type="button"
+            className={styles.caseOption}
+            data-checked={patternsActive}
+            aria-expanded={showPatterns}
+            aria-controls="replace-file-patterns"
+            disabled={working}
+            onClick={() => setShowPatterns((shown) => !shown)}
+          >
+            <Icon name={patternsActive ? "filterActive" : "filter"} size={14} />
+            <span>{t("파일 조건")}</span>
+          </button>
           <button
             data-replace-control
             className={styles.previewButton}
@@ -290,6 +326,17 @@ export default function ProjectReplace({
             />
             {t(operation === "preview" ? "미리보기 중…" : "변경 미리보기")}
           </button>
+          {showPatterns ? (
+            <div id="replace-file-patterns" className={styles.patterns}>
+              <FilePatterns
+                idPrefix="replace"
+                options={options}
+                onChange={changeOptions}
+                disabled={working}
+                controlProps={{ "data-replace-control": true }}
+              />
+            </div>
+          ) : null}
         </form>
         {error ? (
           <div className={styles.error} role="alert">

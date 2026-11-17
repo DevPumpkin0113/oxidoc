@@ -108,6 +108,7 @@ export default function CommandPalette({
       >
         <div className={styles.paletteHeader}>
           <input
+            autoComplete="off"
             ref={input}
             role="combobox"
             aria-label={inputLabel}

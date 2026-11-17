@@ -105,6 +105,7 @@ export default function ProjectManager({
         {t("프로젝트 검색")}
       </label>
       <input
+        autoComplete="off"
         id="project-search"
         className={panelStyles.panelInput}
         placeholder={t("이름 또는 경로")}
