@@ -68,6 +68,17 @@ test("version bump synchronizes manifests without changing dependencies", () =>
       /name = "dependency"\nversion = "9.9.9"/,
     );
   }));
+test("version bump keeps the Tauri config layout", () =>
+  fixture((dir, cli) => {
+    const config =
+      '{\n  "productName": "Oxidoc",\n  "version": "0.1.0",\n  "bundle": { "targets": ["nsis"] }\n}\n';
+    writeFileSync(join(dir, "src-tauri/tauri.conf.json"), config);
+    assert.equal(cli("0.2.0").status, 0);
+    assert.equal(
+      readFileSync(join(dir, "src-tauri/tauri.conf.json"), "utf8"),
+      config.replace('"0.1.0"', '"0.2.0"'),
+    );
+  }));
 test("invalid input and incomplete manifests do not partially rewrite versions", () =>
   fixture((dir, cli) => {
     assert.notEqual(cli("01.2.0").status, 0);

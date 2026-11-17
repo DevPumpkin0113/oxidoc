@@ -15,7 +15,8 @@ function main() {
   }
   const pkg = JSON.parse(read("package.json"));
   const lock = JSON.parse(read("package-lock.json"));
-  const tauri = JSON.parse(read("src-tauri/tauri.conf.json"));
+  const tauriText = read("src-tauri/tauri.conf.json");
+  const tauri = JSON.parse(tauriText);
   const cargo = read("src-tauri/Cargo.toml");
   const cargoLock = read("src-tauri/Cargo.lock");
   const cargoPattern =
@@ -52,12 +53,19 @@ function main() {
   pkg.version = version;
   lock.version = version;
   lock.packages[""].version = version;
-  tauri.version = version;
+  // Replace only the version text so the file keeps its Prettier layout;
+  // JSON.stringify would expand one-line arrays and fail `format:check`.
+  let tauriContents = tauriText.replace(
+    /("version"\s*:\s*")([^"]*)(")/,
+    (_, before, _old, after) => before + version + after,
+  );
+  if (JSON.parse(tauriContents).version !== version)
+    tauriContents = JSON.stringify({ ...tauri, version }, null, 2) + "\n";
   // Read and validate every manifest before writing any of them.
   const changes = new Map([
     ["package.json", JSON.stringify(pkg, null, 2) + "\n"],
     ["package-lock.json", JSON.stringify(lock, null, 2) + "\n"],
-    ["src-tauri/tauri.conf.json", JSON.stringify(tauri, null, 2) + "\n"],
+    ["src-tauri/tauri.conf.json", tauriContents],
     [
       "src-tauri/Cargo.toml",
       cargo.replace(
