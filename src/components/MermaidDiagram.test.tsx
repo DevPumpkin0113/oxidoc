@@ -3,7 +3,10 @@ import { afterEach, expect, it, vi } from "vitest";
 import MermaidDiagram from "./MermaidDiagram";
 import MarkdownPreview from "./MarkdownPreview";
 import { renderDiagram } from "../workspace/mermaidRenderer";
-vi.mock("../workspace/mermaidRenderer", () => ({ renderDiagram: vi.fn() }));
+vi.mock("../workspace/mermaidRenderer", () => ({
+  renderDiagram: vi.fn(),
+  cachedDiagram: vi.fn(),
+}));
 afterEach(() => vi.resetAllMocks());
 it("Markdown mermaid 블록과 독립 파일 렌더링, 일반 코드는 유지", async () => {
   vi.mocked(renderDiagram).mockResolvedValue("data:image/svg+xml,test");

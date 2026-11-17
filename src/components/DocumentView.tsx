@@ -102,6 +102,7 @@ export default function DocumentView({
                 }
               >
                 <DocumentPreview
+                  key={id}
                   documentPath={id}
                   root={projectPath}
                   desktop={desktop}

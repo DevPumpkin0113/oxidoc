@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { effectiveTheme, useSettings } from "../settings/store";
 import { t } from "../settings/i18n";
-import { renderDiagram } from "../workspace/mermaidRenderer";
+import { cachedDiagram, renderDiagram } from "../workspace/mermaidRenderer";
 import styles from "./MermaidDiagram.module.css";
+
+/** Waits for a pause in typing before rendering an uncached diagram. */
+const RENDER_DELAY_MS = 250;
 
 export default function MermaidDiagram({
   source,
@@ -19,7 +22,9 @@ export default function MermaidDiagram({
     image?: string;
     error?: string;
   }>();
+  const cached = cachedDiagram(source, theme, size);
   useEffect(() => {
+    if (cached) return;
     let active = true;
     const timer = setTimeout(() => {
       void renderDiagram(source, theme, size, () => active)
@@ -29,13 +34,13 @@ export default function MermaidDiagram({
         .catch((error) => {
           if (active) setResponse({ key, error: String(error) });
         });
-    }, 250);
+    }, RENDER_DELAY_MS);
     return () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [source, theme, size, key]);
-  const result = response?.key === key ? response : undefined;
+  }, [source, theme, size, key, cached]);
+  const result = cached ?? (response?.key === key ? response : undefined);
   return (
     <div className={styles.diagram} data-source-line={line}>
       {result?.image ? (

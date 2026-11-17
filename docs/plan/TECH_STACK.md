@@ -27,6 +27,7 @@
 - React·Zustand: 작업 공간 상태는 `workspace/store.ts`(기능별 slice는 `workspace/slices/`, 자동 저장 구독은 `workspace/persistence.ts`), 대화상자·메뉴·팔레트 같은 화면 상태는 `workbench/uiStore.ts`. 컴포넌트는 필요한 값만 선택자로 구독하고, 문서 본문·커서는 편집기·미리보기·개요만 구독한다.
 - 앱 셸: `App.tsx`는 배치만 맡고, 메뉴·팔레트 명령·문서 작업·전역 단축키는 `src/workbench/` 모듈이 store에서 현재 상태를 읽어 처리한다.
 - Monaco: 문서 편집 모델과 실행 취소 이력. Monaco와 렌더러는 지연 로딩.
+- Markdown 분석·미리보기: `workspace/markdownBlocks.ts`가 문서를 독립 파싱 가능한 블록으로 나누고 블록별 결과를 캐시한다. remark 파서는 큰 문서에서 크기보다 빠르게 느려지므로(1MB 약 11초) 문서 전체를 한 번에 파싱하지 않는다.
 - Rust: 등록된 프로젝트 경로와 실제 대상 경로를 검증한 파일 처리·검색·설정 값 검증. 프런트엔드에 범용 파일·설정 저장 권한을 주지 않는다.
 - 문서 본문은 실제 파일로만 관리하고, 앱 데이터에는 메타데이터·설정·세션·복구 임시본만 둔다.
 

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 import { isDirty, useWorkspace, type Document } from "./store";
 
@@ -53,6 +53,32 @@ export function useDocumentContent(id: string) {
     (state) =>
       state.documents.find((document) => document.id === id)?.content ?? "",
   );
+}
+
+/** Above this size the preview and outline wait for a pause in typing. */
+const LARGE_DOCUMENT_CHARS = 100_000;
+const LARGE_DOCUMENT_DELAY_MS = 200;
+
+/** Document content for derived views, debounced for large documents. */
+export function useSettledContent(id: string) {
+  const content = useDocumentContent(id);
+  const large = content.length >= LARGE_DOCUMENT_CHARS;
+  const [settled, setSettled] = useState({ id, content });
+  useEffect(() => {
+    if (!large) return;
+    const timer = setTimeout(
+      () => setSettled({ id, content }),
+      LARGE_DOCUMENT_DELAY_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [id, content, large]);
+  const value = large && settled.id === id ? settled.content : content;
+  // Defer only edits of the same document. A deferred value from another
+  // document would render the new path with the old content and keep the old
+  // document's background rendering ahead of the new one.
+  const current = useMemo(() => ({ id, value }), [id, value]);
+  const deferred = useDeferredValue(current);
+  return deferred.id === id ? deferred.value : value;
 }
 
 /** Editor cursor position, kept outside the workspace store to isolate updates. */

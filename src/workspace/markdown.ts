@@ -1,6 +1,12 @@
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
+import {
+  blockSource,
+  lruCache,
+  splitBlocks,
+  type SplitResult,
+} from "./markdownBlocks";
 interface MarkdownNode {
   type: string;
   depth?: number;
@@ -28,38 +34,30 @@ export interface DocumentLink {
   endLine: number;
   endColumn: number;
 }
-export function markdownCodeRegions(content: string) {
-  const regions: {
-    startLine: number;
-    startColumn: number;
-    endLine: number;
-    endColumn: number;
-  }[] = [];
-  function visit(node: MarkdownNode) {
-    if (
-      (node.type === "code" || node.type === "inlineCode") &&
-      node.position?.end
-    )
-      regions.push({
-        startLine: node.position.start.line,
-        startColumn: node.position.start.column ?? 1,
-        endLine: node.position.end.line,
-        endColumn: node.position.end.column,
-      });
-    else node.children?.forEach(visit);
-  }
-  visit(parser.parse(content) as MarkdownNode);
-  return regions;
+export interface CodeRegion {
+  startLine: number;
+  startColumn: number;
+  endLine: number;
+  endColumn: number;
 }
-export function documentLinks(content: string): {
+const MAX_DOCUMENT_LINKS = 500;
+const plain = (node: MarkdownNode): string =>
+  node.value ?? node.alt ?? node.children?.map(plain).join("") ?? "";
+
+/** Parse results of one block, with lines relative to the block. */
+interface BlockAnalysis {
+  headings: Omit<Heading, "id">[];
+  code: CodeRegion[];
   links: DocumentLink[];
-  truncated: boolean;
-} {
-  const root = parser.parse(content) as MarkdownNode;
+}
+const analyses = lruCache<BlockAnalysis>(20_000);
+
+function analyze(source: string): BlockAnalysis {
+  const cached = analyses.get(source);
+  if (cached) return cached;
+  const root = parser.parse(source) as MarkdownNode;
   const definitions = new Map<string, string>();
-  const links: DocumentLink[] = [];
-  let truncated = false;
-  function definitionsIn(node: MarkdownNode) {
+  (function definitionsIn(node: MarkdownNode) {
     if (
       node.type === "definition" &&
       node.identifier &&
@@ -68,9 +66,27 @@ export function documentLinks(content: string): {
     )
       definitions.set(node.identifier, node.url);
     node.children?.forEach(definitionsIn);
-  }
-  definitionsIn(root);
-  function visit(node: MarkdownNode) {
+  })(root);
+  const result: BlockAnalysis = { headings: [], code: [], links: [] };
+  (function visit(node: MarkdownNode) {
+    if (node.type === "heading")
+      result.headings.push({
+        title: plain(node),
+        depth: node.depth ?? 1,
+        line: node.position?.start.line ?? 1,
+      });
+    if (
+      (node.type === "code" || node.type === "inlineCode") &&
+      node.position?.end
+    ) {
+      result.code.push({
+        startLine: node.position.start.line,
+        startColumn: node.position.start.column ?? 1,
+        endLine: node.position.end.line,
+        endColumn: node.position.end.column,
+      });
+      return;
+    }
     if (
       ["link", "image", "linkReference", "imageReference"].includes(
         node.type,
@@ -78,12 +94,8 @@ export function documentLinks(content: string): {
       node.position
     ) {
       const href = node.url ?? definitions.get(node.identifier ?? "");
-      if (href) {
-        if (links.length >= 500) {
-          truncated = true;
-          return;
-        }
-        links.push({
+      if (href)
+        result.links.push({
           href,
           line: node.position.start.line,
           column: node.position.start.column ?? 1,
@@ -91,24 +103,64 @@ export function documentLinks(content: string): {
           endColumn:
             node.position.end?.column ?? (node.position.start.column ?? 1) + 1,
         });
-      }
     }
     node.children?.forEach(visit);
-  }
-  visit(root);
-  return { links, truncated };
+  })(root);
+  analyses.set(source, result);
+  return result;
 }
-const plain = (node: MarkdownNode): string =>
-  node.value ?? node.alt ?? node.children?.map(plain).join("") ?? "";
-export function headings(content: string): Heading[] {
-  const root = parser.parse(content) as MarkdownNode;
-  const result: Heading[] = [];
+
+/** Each block's cached analysis and the line offset that makes it absolute. */
+function analyzedBlocks(
+  { blocks, definitions }: SplitResult,
+  limit = blocks.length,
+) {
+  return blocks.slice(0, limit).map((block) => ({
+    offset: block.line - 1,
+    analysis: analyze(blockSource(block, definitions)),
+  }));
+}
+
+export function markdownCodeRegions(content: string): CodeRegion[] {
+  return analyzedBlocks(splitBlocks(content)).flatMap(({ offset, analysis }) =>
+    analysis.code.map((region) => ({
+      ...region,
+      startLine: region.startLine + offset,
+      endLine: region.endLine + offset,
+    })),
+  );
+}
+
+export function documentLinks(content: string): {
+  links: DocumentLink[];
+  truncated: boolean;
+} {
+  const links: DocumentLink[] = [];
+  for (const { offset, analysis } of analyzedBlocks(splitBlocks(content)))
+    for (const link of analysis.links) {
+      if (links.length >= MAX_DOCUMENT_LINKS) return { links, truncated: true };
+      links.push({
+        ...link,
+        line: link.line + offset,
+        endLine: link.endLine + offset,
+      });
+    }
+  return { links, truncated: false };
+}
+
+export const headings = (content: string): Heading[] =>
+  blockHeadings(splitBlocks(content));
+
+/**
+ * Headings of the first `limit` blocks. Ids only depend on earlier headings,
+ * so a prefix gets the same ids as the whole document.
+ */
+export function blockHeadings(split: SplitResult, limit?: number): Heading[] {
   const used = new Set<string>();
-  function visit(node: MarkdownNode) {
-    if (node.type === "heading") {
-      const title = plain(node);
+  return analyzedBlocks(split, limit).flatMap(({ offset, analysis }) =>
+    analysis.headings.map((heading) => {
       const slug =
-        title
+        heading.title
           .toLowerCase()
           .replace(/[^\p{L}\p{N}\s_-]/gu, "")
           .trim()
@@ -117,17 +169,9 @@ export function headings(content: string): Heading[] {
       let suffix = 0;
       while (used.has(id)) id = `${slug}-${++suffix}`;
       used.add(id);
-      result.push({
-        title,
-        depth: node.depth ?? 1,
-        line: node.position?.start.line ?? 1,
-        id,
-      });
-    }
-    for (const child of node.children ?? []) visit(child);
-  }
-  visit(root);
-  return result;
+      return { ...heading, line: heading.line + offset, id };
+    }),
+  );
 }
 export type LinkTarget =
   | { kind: "local"; path: string; hash: string }

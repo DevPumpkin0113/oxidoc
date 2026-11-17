@@ -1,7 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, expect, it } from "vitest";
 import { useWorkspace } from "./store";
-import { useDocumentContent, useDocumentSummaries } from "./selectors";
+import {
+  useDocumentContent,
+  useDocumentSummaries,
+  useSettledContent,
+} from "./selectors";
 
 const document = {
   id: "notes/a.md",
@@ -46,6 +50,24 @@ it("요약은 내용만 바뀌면 같은 배열을 유지하고 변경·디스�
     })),
   );
   expect(result.current[0].disk).toBeNull();
+});
+
+it("문서를 바꾸는 렌더에서 이전 문서 내용을 내보내지 않음", () => {
+  useWorkspace.setState({
+    documents: [document, { ...document, id: "b.md", content: "# B" }],
+  });
+  const seen: string[] = [];
+  const { rerender } = renderHook(
+    ({ id }) => {
+      const content = useSettledContent(id);
+      seen.push(`${id}=${content}`);
+      return content;
+    },
+    { initialProps: { id: document.id } },
+  );
+  rerender({ id: "b.md" });
+  expect(seen).not.toContain("b.md=# A");
+  expect(seen[seen.length - 1]).toBe("b.md=# B");
 });
 
 it("문서 내용 선택자는 해당 문서 내용만 반환", () => {
