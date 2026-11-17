@@ -1,5 +1,19 @@
 use super::*;
-#[derive(Serialize)]
+/// Extensions that are never text; search and replace skip them unread.
+const BINARY_EXTENSIONS: [&str; 30] = [
+    "png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "ico", "tif", "tiff", "psd", "pdf", "zip",
+    "gz", "7z", "rar", "tar", "exe", "dll", "so", "dylib", "bin", "woff", "woff2", "ttf", "otf",
+    "mp3", "mp4", "mov", "wav",
+];
+/// Whether a project-relative path names a known binary file type.
+pub(super) fn is_binary_file(path: &str) -> bool {
+    Path::new(path).extension().is_some_and(|extension| {
+        BINARY_EXTENSIONS
+            .iter()
+            .any(|binary| extension.to_string_lossy().eq_ignore_ascii_case(binary))
+    })
+}
+#[derive(Clone, Serialize)]
 pub struct FileIndex {
     pub(super) entries: Vec<Entry>,
     pub(super) truncated: bool,
@@ -71,9 +85,12 @@ pub(super) fn index_at(root: &Path) -> Result<FileIndex, String> {
 }
 #[tauri::command]
 pub async fn index_files(app: AppHandle, root: String) -> Result<FileIndex, String> {
-    tauri::async_runtime::spawn_blocking(move || index_at(&authorized_root(&app, &root)?))
-        .await
-        .map_err(|error| error.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        let folder = authorized_root(&app, &root)?;
+        Ok(project_files(&app, &root, &folder)?.index.as_ref().clone())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 #[cfg(test)]
 mod tests {

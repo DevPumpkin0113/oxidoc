@@ -17,8 +17,22 @@ pub struct ReplaceResult {
     path: String,
     error: Option<String>,
 }
+#[cfg(test)]
 fn preview_at(
     root: &Path,
+    query: &str,
+    replacement: &str,
+    sensitive: bool,
+) -> Result<ReplacePreview, String> {
+    preview_files(
+        &ProjectFiles::uncached(root)?,
+        query,
+        replacement,
+        sensitive,
+    )
+}
+fn preview_files(
+    files: &ProjectFiles,
     query: &str,
     replacement: &str,
     sensitive: bool,
@@ -33,16 +47,19 @@ fn preview_at(
         .case_insensitive(!sensitive)
         .build()
         .map_err(|error| error.to_string())?;
-    let index = index::index_at(root)?;
+    let index = &files.index;
     let mut preview = ReplacePreview {
         files: vec![],
         truncated: index.truncated,
         skipped: index.skipped,
     };
     let mut bytes = 0;
-    for entry in index.entries {
-        let path = contained_path(root, &entry.path)?;
-        let Ok((before, _)) = read_text(&path) else {
+    for entry in &index.entries {
+        if index::is_binary_file(&entry.path) {
+            preview.skipped += 1;
+            continue;
+        }
+        let Some(before) = files.text(&entry.path) else {
             preview.skipped += 1;
             continue;
         };
@@ -72,13 +89,13 @@ fn preview_at(
         let after = pattern
             .replace_all(&before, regex::NoExpand(replacement))
             .into_owned();
-        if before == after {
+        if *before == after {
             continue;
         }
         bytes += before.len() + after.len();
         preview.files.push(Replacement {
-            path: entry.path,
-            before,
+            path: entry.path.clone(),
+            before: before.to_string(),
             after,
             count,
         });
@@ -147,8 +164,9 @@ pub async fn preview_replace(
     sensitive: bool,
 ) -> Result<ReplacePreview, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        preview_at(
-            &authorized_root(&app, &root)?,
+        let folder = authorized_root(&app, &root)?;
+        preview_files(
+            &project_files(&app, &root, &folder)?,
             &query,
             &replacement,
             sensitive,

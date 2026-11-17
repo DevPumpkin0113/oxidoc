@@ -1,8 +1,8 @@
 use super::*;
-use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher, event::ModifyKind};
 use std::{
     collections::BTreeSet,
-    sync::mpsc,
+    sync::{Arc, mpsc},
     time::{Duration, Instant},
 };
 use tauri::Emitter;
@@ -27,7 +27,29 @@ pub struct ChangeBatch {
 pub struct WatcherState(pub Mutex<Option<ProjectWatcher>>);
 pub struct ProjectWatcher {
     root: String,
+    /// Only a watched project can trust cached files; events keep it current.
+    cache: Arc<ProjectCache>,
     _watcher: RecommendedWatcher,
+}
+
+impl WatcherState {
+    /// Cache of `root` if it is the watched project.
+    pub(super) fn cache_for(&self, root: &str) -> Option<Arc<ProjectCache>> {
+        self.0
+            .lock()
+            .ok()?
+            .as_ref()
+            .filter(|watcher| watcher.root == root)
+            .map(|watcher| watcher.cache.clone())
+    }
+}
+
+/// Changes collected in one batch window.
+pub struct Batch {
+    pub paths: Vec<String>,
+    pub rescan: bool,
+    /// Files or folders were created, removed or renamed.
+    pub structural: bool,
 }
 
 /// Root-relative path of a change, or `None` when it is outside the root or
@@ -51,6 +73,7 @@ fn relevant_path(root: &Path, path: &Path) -> Option<String> {
 struct Pending {
     paths: BTreeSet<String>,
     rescan: bool,
+    structural: bool,
 }
 
 impl Pending {
@@ -68,10 +91,15 @@ impl Pending {
         if matches!(event.kind, EventKind::Access(_)) {
             return;
         }
+        let structural = matches!(
+            event.kind,
+            EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
+        );
         for path in &event.paths {
             let Some(path) = relevant_path(root, path) else {
                 continue;
             };
+            self.structural |= structural;
             if self.paths.len() < MAX_BATCH_PATHS {
                 self.paths.insert(path);
             } else {
@@ -85,7 +113,7 @@ impl Pending {
 /// returned watcher is dropped.
 pub fn watch_folder(
     root: PathBuf,
-    sink: impl Fn(Vec<String>, bool) + Send + 'static,
+    sink: impl Fn(Batch) + Send + 'static,
 ) -> Result<RecommendedWatcher, String> {
     let (sender, receiver) = mpsc::channel();
     let mut watcher =
@@ -105,7 +133,11 @@ pub fn watch_folder(
                 pending.add(&root, next);
             }
             if pending.rescan || !pending.paths.is_empty() {
-                sink(pending.paths.into_iter().collect(), pending.rescan);
+                sink(Batch {
+                    paths: pending.paths.into_iter().collect(),
+                    rescan: pending.rescan,
+                    structural: pending.structural,
+                });
             }
         }
     });
@@ -119,13 +151,16 @@ pub async fn watch_project(app: AppHandle, root: String) -> Result<(), String> {
         let folder = authorized_root(&app, &root)?;
         let emitter = app.clone();
         let label = root.clone();
-        let watcher = watch_folder(folder, move |paths, rescan| {
+        let cache = Arc::new(ProjectCache::default());
+        let stale = cache.clone();
+        let watcher = watch_folder(folder, move |batch| {
+            stale.forget(&batch.paths, batch.structural, batch.rescan);
             let _ = emitter.emit(
                 CHANGE_EVENT,
                 ChangeBatch {
                     root: label.clone(),
-                    paths,
-                    rescan,
+                    paths: batch.paths,
+                    rescan: batch.rescan,
                 },
             );
         })?;
@@ -134,6 +169,7 @@ pub async fn watch_project(app: AppHandle, root: String) -> Result<(), String> {
             .lock()
             .map_err(|e| e.to_string())? = Some(ProjectWatcher {
             root,
+            cache,
             _watcher: watcher,
         });
         Ok(())
@@ -192,22 +228,39 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = fs::canonicalize(dir.path()).unwrap();
         let (sender, receiver) = mpsc::channel();
-        let _watcher = watch_folder(root.clone(), move |paths, rescan| {
-            let _ = sender.send((paths, rescan));
+        let _watcher = watch_folder(root.clone(), move |batch| {
+            let _ = sender.send(batch);
         })
         .unwrap();
+        let collect = |until: &str| {
+            let mut seen = BTreeSet::new();
+            let mut structural = false;
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while !seen.contains(until) && Instant::now() < deadline {
+                if let Ok(batch) = receiver.recv_timeout(Duration::from_millis(500)) {
+                    seen.extend(batch.paths);
+                    structural |= batch.structural;
+                }
+            }
+            // Let trailing events of the same change arrive before the next step.
+            while let Ok(batch) = receiver.recv_timeout(Duration::from_millis(400)) {
+                seen.extend(batch.paths);
+                structural |= batch.structural;
+            }
+            (seen, structural)
+        };
         fs::create_dir(root.join("notes")).unwrap();
         fs::write(root.join("notes/a.md"), "hello").unwrap();
         fs::create_dir(root.join(".git")).unwrap();
         fs::write(root.join(".git/index"), "ignored").unwrap();
-        let mut seen = BTreeSet::new();
-        let deadline = Instant::now() + Duration::from_secs(10);
-        while !seen.contains("notes/a.md") && Instant::now() < deadline {
-            if let Ok((paths, _)) = receiver.recv_timeout(Duration::from_millis(500)) {
-                seen.extend(paths);
-            }
-        }
+        let (seen, structural) = collect("notes/a.md");
         assert!(seen.contains("notes/a.md"), "{seen:?}");
         assert!(!seen.contains(".git/index"), "{seen:?}");
+        assert!(structural);
+
+        fs::write(root.join("notes/a.md"), "hello again").unwrap();
+        let (seen, structural) = collect("notes/a.md");
+        assert!(seen.contains("notes/a.md"), "{seen:?}");
+        assert!(!structural, "content edits keep the cached file list");
     }
 }

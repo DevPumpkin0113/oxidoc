@@ -9,6 +9,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
 mod advanced;
+mod cache;
 mod images;
 mod index;
 mod monitor;
@@ -19,6 +20,7 @@ mod transfers;
 mod visibility;
 mod watcher;
 pub use advanced::*;
+pub use cache::*;
 pub use images::*;
 pub use index::*;
 pub use monitor::*;
@@ -44,7 +46,7 @@ pub struct Project {
     pub status: String,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Entry {
     path: String,

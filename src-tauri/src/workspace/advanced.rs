@@ -542,6 +542,7 @@ pub struct SearchMatch {
     column: usize,
     text: String,
 }
+const MAX_SEARCH_MATCHES: usize = 500;
 #[derive(Serialize)]
 pub struct SearchResults {
     matches: Vec<SearchMatch>,
@@ -552,12 +553,28 @@ pub struct SearchResults {
 fn search_at(root: &Path, query: &str, case_sensitive: bool) -> Result<SearchResults, String> {
     search_within(root, "", query, case_sensitive)
 }
+#[cfg(test)]
 fn search_within(
     root: &Path,
     folder: &str,
     query: &str,
     case_sensitive: bool,
 ) -> Result<SearchResults, String> {
+    search_files(
+        &ProjectFiles::uncached(root)?,
+        folder,
+        query,
+        case_sensitive,
+    )
+}
+/// Searches the indexed files under `folder` (root-relative, `""` for all).
+fn search_files(
+    files: &ProjectFiles,
+    folder: &str,
+    query: &str,
+    case_sensitive: bool,
+) -> Result<SearchResults, String> {
+    let (root, index) = (files.root.as_path(), &files.index);
     let directory = contained_path(root, folder)?;
     if !directory.is_dir() {
         return Err("대상 폴더가 아닙니다.".into());
@@ -577,71 +594,40 @@ fn search_within(
         .case_insensitive(!case_sensitive)
         .build()
         .map_err(|e| e.to_string())?;
-    let mut pending = vec![(directory, 0usize)];
-    let mut visited = 0;
-    while let Some((directory, depth)) = pending.pop() {
-        if depth > 64 {
+    let prefix = directory
+        .strip_prefix(root)
+        .map_err(|_| "프로젝트 외부 경로입니다.")?
+        .to_string_lossy()
+        .replace('\\', "/");
+    let scoped = |path: &str| {
+        prefix.is_empty()
+            || path
+                .strip_prefix(prefix.as_str())
+                .is_some_and(|rest| rest.starts_with('/'))
+    };
+    result.truncated = index.truncated;
+    result.skipped = index.skipped;
+    for entry in index.entries.iter().filter(|entry| scoped(&entry.path)) {
+        if index::is_binary_file(&entry.path) {
             result.skipped += 1;
             continue;
         }
-        let entries = match fs::read_dir(directory) {
-            Ok(e) => e,
-            Err(_) => {
-                result.skipped += 1;
-                continue;
-            }
+        let Some(text) = files.text(&entry.path) else {
+            result.skipped += 1;
+            continue;
         };
-        for entry in entries {
-            visited += 1;
-            if visited > 20_000 || result.matches.len() >= 500 {
-                result.truncated = true;
-                return Ok(result);
-            }
-            let Ok(entry) = entry else {
-                result.skipped += 1;
-                continue;
-            };
-            let Ok(kind) = entry.file_type() else {
-                result.skipped += 1;
-                continue;
-            };
-            if kind.is_symlink() {
-                continue;
-            }
-            let Ok(path) = fs::canonicalize(entry.path()) else {
-                result.skipped += 1;
-                continue;
-            };
-            if !path.starts_with(root) {
-                continue;
-            }
-            if kind.is_dir() {
-                if !SKIPPED_FOLDERS.contains(&entry.file_name().to_string_lossy().as_ref()) {
-                    pending.push((path, depth + 1));
-                }
-                continue;
-            }
-            if !kind.is_file() {
-                continue;
-            }
-            let Ok((text, _)) = read_text(&path) else {
-                result.skipped += 1;
-                continue;
-            };
-            for (line_number, line) in text.lines().enumerate() {
-                for found in pattern.find_iter(line) {
-                    let entry = relative_entry(root, &path)?;
-                    result.matches.push(SearchMatch {
-                        path: entry.path,
-                        name: entry.name,
-                        line: line_number + 1,
-                        column: line[..found.start()].encode_utf16().count() + 1,
-                        text: line.chars().take(240).collect(),
-                    });
-                    if result.matches.len() >= 500 {
-                        result.truncated = true;
-                        return Ok(result);
-                    }
+        for (line_number, line) in text.lines().enumerate() {
+            for found in pattern.find_iter(line) {
+                result.matches.push(SearchMatch {
+                    path: entry.path.clone(),
+                    name: entry.name.clone(),
+                    line: line_number + 1,
+                    column: line[..found.start()].encode_utf16().count() + 1,
+                    text: line.chars().take(240).collect(),
+                });
+                if result.matches.len() >= MAX_SEARCH_MATCHES {
+                    result.truncated = true;
+                    return Ok(result);
                 }
             }
         }
@@ -657,8 +643,9 @@ pub async fn search_project(
     folder: Option<String>,
 ) -> Result<SearchResults, String> {
     io(move || {
-        search_within(
-            &authorized_root(&app, &root)?,
+        let folder_root = authorized_root(&app, &root)?;
+        search_files(
+            &project_files(&app, &root, &folder_root)?,
             folder.as_deref().unwrap_or(""),
             &query,
             case_sensitive,
