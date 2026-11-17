@@ -38,6 +38,8 @@ const monacoMock = vi.hoisted(() => {
         return { dispose: () => options.model.listeners.delete(listener) };
       },
       onDidChangeCursorPosition: disposable,
+      onDidChangeCursorSelection: disposable,
+      getSelections: () => [],
       onDidScrollChange: disposable,
       saveViewState: () => ({}),
       restoreViewState: vi.fn(),

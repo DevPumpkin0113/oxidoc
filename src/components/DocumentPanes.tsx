@@ -1,8 +1,10 @@
-import { lazy, useCallback, useMemo } from "react";
+import { lazy, useCallback, useEffect, useMemo } from "react";
 import type { ComponentProps } from "react";
 import { t } from "../settings/i18n";
+import { effectiveLanguage, useSettings } from "../settings/store";
 import { isMermaidFile } from "../workspace/documentTypes";
 import { headings } from "../workspace/markdown";
+import { countText } from "../workspace/textStats";
 import { useWorkspace } from "../workspace/store";
 import {
   useCursor,
@@ -28,18 +30,23 @@ export function DocumentEditor(props: EditorProps) {
     (content: string) => useWorkspace.getState().edit(documentId, content),
     [documentId],
   );
+  // A hidden editor (preview-only view) has no selection to report.
+  useEffect(() => () => setSelection(""), []);
   return (
     <MarkdownEditor
       {...props}
       value={value}
       onChange={onChange}
       onCursor={setCursor}
+      onSelection={setSelection}
     />
   );
 }
 
 const setCursor = (line: number, column: number) =>
   useCursor.setState({ line, column });
+const setSelection = (text: string) =>
+  useCursor.setState({ selection: text ? countText(text) : null });
 
 type PreviewProps = Omit<ComponentProps<typeof MarkdownPreview>, "content">;
 
@@ -70,6 +77,25 @@ export function OutlineList({
       {heading.title}
     </button>
   ));
+}
+
+/** Character and word counts of the selection, or of the document. */
+export function TextStatus({ documentId }: { documentId: string }) {
+  const content = useSettledContent(documentId);
+  const total = useMemo(() => countText(content), [content]);
+  const selection = useCursor((state) => state.selection);
+  const language = useSettings(effectiveLanguage);
+  const format = (count: number) => count.toLocaleString(language);
+  const stats = selection ?? total;
+  return (
+    <span>
+      {t(
+        selection ? "선택 {0}자 · {1}단어" : "{0}자 · {1}단어",
+        format(stats.characters),
+        format(stats.words),
+      )}
+    </span>
+  );
 }
 
 export function CursorStatus() {

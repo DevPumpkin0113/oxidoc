@@ -55,3 +55,12 @@
     padding: 0 7px;
   }
 }
+
+.saveState[data-state="unsaved"] {
+  color: var(--text);
+}
+
+.saveState[data-state="changed"],
+.saveState[data-state="missing"] {
+  color: var(--warning, #d7ba7d);
+}

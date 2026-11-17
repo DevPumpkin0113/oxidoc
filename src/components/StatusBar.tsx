@@ -2,20 +2,38 @@ import { t } from "../settings/i18n";
 import { useUpdater } from "../settings/updater";
 import { isMermaidFile } from "../workspace/documentTypes";
 import { useWorkspace } from "../workspace/store";
-import { useDocumentSummaries } from "../workspace/selectors";
+import {
+  useDocumentSummaries,
+  type DocumentSummary,
+} from "../workspace/selectors";
 import { setSettingsOpen, setSidebar } from "../workbench/actions";
-import { CursorStatus } from "./DocumentPanes";
+import { CursorStatus, TextStatus } from "./DocumentPanes";
 import Icon from "./Icon";
 import styles from "./StatusBar.module.css";
 
 const UPDATE_NOTICE_PHASES = ["available", "downloading", "ready", "error"];
+
+type SaveState = "saved" | "unsaved" | "changed" | "missing";
+const SAVE_STATE_LABELS: Record<SaveState, string> = {
+  saved: "저장됨",
+  unsaved: "저장 안 됨",
+  changed: "외부에서 변경됨",
+  missing: "파일 없음",
+};
+function saveState(document: DocumentSummary): SaveState {
+  if (document.disk === null) return "missing";
+  if (document.disk === "changed") return "changed";
+  return document.dirty ? "unsaved" : "saved";
+}
 
 export default function StatusBar() {
   const sidebar = useWorkspace((state) => state.layout.sidebar);
   const projectName = useWorkspace((state) => state.project?.name);
   const busy = useWorkspace((state) => state.busy);
   const activeId = useWorkspace((state) => state.activeId);
-  const anyDirty = useDocumentSummaries().some((document) => document.dirty);
+  const documents = useDocumentSummaries();
+  const anyDirty = documents.some((document) => document.dirty);
+  const active = documents.find((document) => document.id === activeId);
   const updatePhase = useUpdater((state) => state.phase);
   const updateVersion = useUpdater((state) => state.version);
   const sidebarLabel = sidebar ? t("사이드바 닫기") : t("사이드바 열기");
@@ -59,14 +77,18 @@ export default function StatusBar() {
             {t("업데이트 {0}", updateVersion)}
           </button>
         ) : null}
-        {activeId ? (
+        {active ? (
           <>
+            <span className={styles.saveState} data-state={saveState(active)}>
+              {t(SAVE_STATE_LABELS[saveState(active)])}
+            </span>
+            <TextStatus documentId={active.id} />
             <CursorStatus />
             <span className={styles.optionalStatus}>UTF-8</span>
             <span className={styles.optionalStatus}>{t("공백: 2")}</span>
             <span>
               <Icon name="markdown" size={13} />
-              {isMermaidFile(activeId) ? "Mermaid" : "Markdown"}
+              {isMermaidFile(active.id) ? "Mermaid" : "Markdown"}
             </span>
           </>
         ) : (

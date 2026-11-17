@@ -46,6 +46,8 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   onCursor: (line: number, column: number) => void;
+  /** Selected text of all selections, `""` when nothing is selected. */
+  onSelection?: (text: string) => void;
   readOnly?: boolean;
   onScrollLine?: (line: number, edge?: ScrollEdge) => void;
   syncTarget?: ScrollTarget;
@@ -60,6 +62,7 @@ export default function MarkdownEditor({
   value,
   onChange,
   onCursor,
+  onSelection,
   readOnly = false,
   onScrollLine,
   syncTarget,
@@ -80,7 +83,13 @@ export default function MarkdownEditor({
   const emitted = useRef<string | null>(null);
   const imagePasting = useRef(false);
   const frame = useRef(0);
-  const callbacks = useRef({ onChange, onCursor, onScrollLine, onContextMenu });
+  const callbacks = useRef({
+    onChange,
+    onCursor,
+    onSelection,
+    onScrollLine,
+    onContextMenu,
+  });
   useEffect(() => {
     setMonacoLanguage(language);
   }, [language]);
@@ -92,8 +101,14 @@ export default function MarkdownEditor({
     });
   }, [theme, fontSize]);
   useEffect(() => {
-    callbacks.current = { onChange, onCursor, onScrollLine, onContextMenu };
-  }, [onChange, onCursor, onScrollLine, onContextMenu]);
+    callbacks.current = {
+      onChange,
+      onCursor,
+      onSelection,
+      onScrollLine,
+      onContextMenu,
+    };
+  }, [onChange, onCursor, onSelection, onScrollLine, onContextMenu]);
   useEffect(() => {
     editor.current?.updateOptions({ readOnly });
   }, [readOnly]);
@@ -196,6 +211,19 @@ export default function MarkdownEditor({
         event.position.column,
       ),
     );
+    const reportSelection = () => {
+      const model = instance.getModel();
+      const ranges = (instance.getSelections() ?? []).filter(
+        (selection) => !selection.isEmpty(),
+      );
+      callbacks.current.onSelection?.(
+        model
+          ? ranges.map((range) => model.getValueInRange(range)).join("\n")
+          : "",
+      );
+    };
+    const selection = instance.onDidChangeCursorSelection(reportSelection);
+    reportSelection();
     const scrolling = instance.onDidScrollChange(() => {
       if (suppress.current) return;
       const line = instance.getVisibleRanges()[0]?.startLineNumber ?? 1;
@@ -219,6 +247,7 @@ export default function MarkdownEditor({
       changes.dispose();
       stopLinkTools();
       cursor.dispose();
+      selection.dispose();
       scrolling.dispose();
       contextMenu.dispose();
       pasteContainer.removeEventListener("paste", pasteImage, true);

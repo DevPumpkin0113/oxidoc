@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
+import type { TextStats } from "./textStats";
 import { isDirty, useWorkspace, type Document } from "./store";
 
 /** Document fields that change on save/disk events, not on every keystroke. */
@@ -81,5 +82,11 @@ export function useSettledContent(id: string) {
   return deferred.id === id ? deferred.value : value;
 }
 
-/** Editor cursor position, kept outside the workspace store to isolate updates. */
-export const useCursor = create(() => ({ line: 1, column: 1 }));
+/** Editor cursor position and selection counts, kept outside the workspace
+ * store to isolate updates. */
+export const useCursor = create<{
+  line: number;
+  column: number;
+  /** Counts of the selected text, or `null` without a selection. */
+  selection: TextStats | null;
+}>(() => ({ line: 1, column: 1, selection: null }));
