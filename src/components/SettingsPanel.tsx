@@ -2,6 +2,8 @@ import { translateError, t } from "../settings/i18n";
 import { useState } from "react";
 import {
   effectiveLanguage,
+  MAX_FONT_FAMILY_LENGTH,
+  normalizeFontFamily,
   useSettings,
   type Settings,
 } from "../settings/store";
@@ -165,6 +167,28 @@ export default function SettingsPanel({
         ))}
         <p className={styles.settingsHint}>{t("변경 즉시 적용·자동 저장")}</p>
       </fieldset>
+      <fieldset disabled={!initialized}>
+        <legend>{t("편집기")}</legend>
+        <EditorFontInput
+          key={settings.editorFontFamily}
+          value={settings.editorFontFamily}
+          onCommit={(value) => set("editorFontFamily", value)}
+        />
+        <div className={styles.settingRow}>
+          <div>
+            <label htmlFor="setting-editorWordWrap">{t("자동 줄 바꿈")}</label>
+            <p>{t("편집기 폭에 맞춰 긴 줄을 접어서 표시")}</p>
+          </div>
+          <input
+            id="setting-editorWordWrap"
+            type="checkbox"
+            role="switch"
+            className={styles.switch}
+            checked={settings.editorWordWrap}
+            onChange={(e) => set("editorWordWrap", e.target.checked)}
+          />
+        </div>
+      </fieldset>
       <fieldset>
         <legend>{t("앱 정보 및 업데이트")}</legend>
         <div className={styles.settingRow}>
@@ -197,5 +221,51 @@ export default function SettingsPanel({
         )}
       </div>
     </section>
+  );
+}
+
+/** Font names apply on Enter or blur, so half-typed names never reach the editor. */
+function EditorFontInput({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (value: string) => void;
+}) {
+  const [invalid, setInvalid] = useState(false);
+  function commit(input: HTMLInputElement) {
+    const family = normalizeFontFamily(input.value);
+    setInvalid(family === null);
+    if (family !== null && family !== value) onCommit(family);
+  }
+  return (
+    <div className={styles.settingRow}>
+      <div>
+        <label htmlFor="setting-editorFontFamily">{t("글꼴")}</label>
+        <p>
+          {invalid
+            ? t("글꼴 이름에는 문자·숫자·공백과 , ' \" . _ - 만 쓸 수 있음")
+            : t("설치된 글꼴 이름을 쉼표로 구분해 입력, 비우면 기본 글꼴")}
+        </p>
+      </div>
+      <input
+        id="setting-editorFontFamily"
+        className={styles.textInput}
+        type="text"
+        spellCheck={false}
+        maxLength={MAX_FONT_FAMILY_LENGTH}
+        placeholder="Cascadia Code, Consolas"
+        defaultValue={value}
+        aria-invalid={invalid}
+        onBlur={(e) => commit(e.currentTarget)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit(e.currentTarget);
+          else if (e.key === "Escape") {
+            e.currentTarget.value = value;
+            setInvalid(false);
+          }
+        }}
+      />
+    </div>
   );
 }

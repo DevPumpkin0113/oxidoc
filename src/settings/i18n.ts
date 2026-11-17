@@ -308,6 +308,13 @@ export const english: Record<string, string> = {
   "라이트 테마": "Light theme",
   "다크 테마": "Dark theme",
   "글꼴 크기": "Font sizes",
+  "자동 줄 바꿈": "Word wrap",
+  "편집기 폭에 맞춰 긴 줄을 접어서 표시": "Wrap long lines to the editor width",
+  글꼴: "Font",
+  "글꼴 이름에는 문자·숫자·공백과 , ' \" . _ - 만 쓸 수 있음":
+    "Font names may only contain letters, digits, spaces and , ' \" . _ -",
+  "설치된 글꼴 이름을 쉼표로 구분해 입력, 비우면 기본 글꼴":
+    "Installed font names separated by commas; leave empty for the default",
   "변경 즉시 적용·자동 저장":
     "Changes apply immediately and save automatically",
   "앱 정보 및 업데이트": "About & Updates",

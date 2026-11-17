@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createSettingsStore,
   defaults,
+  DEFAULT_EDITOR_FONT,
+  editorFontStack,
+  normalizeFontFamily,
   effectiveLanguage,
   effectiveTheme,
   languageFor,
@@ -110,6 +113,8 @@ describe("앱 전역 설정", () => {
       uiFontSize: 18,
       editorFontSize: 23,
       previewFontSize: 25,
+      editorFontFamily: "D2Coding, 'Fira Code'",
+      editorWordWrap: false,
     };
     const { store, api } = fixture(saved);
     await store.getState().initialize();
@@ -132,9 +137,26 @@ describe("앱 전역 설정", () => {
         uiFontSize: 200,
         editorFontSize: NaN,
         previewFontSize: "24",
+        editorFontFamily: "x; } body { color: red",
+        editorWordWrap: "off",
       }),
     ).toEqual(defaults);
     expect(parseSettings(null)).toEqual(defaults);
+  });
+  it("편집기 글꼴 이름을 다듬고 기본 글꼴을 대체 글꼴로 붙임", () => {
+    expect(normalizeFontFamily("  D2Coding, '나눔고딕코딩' ")).toBe(
+      "D2Coding, '나눔고딕코딩'",
+    );
+    expect(normalizeFontFamily("a</style>")).toBeNull();
+    expect(normalizeFontFamily("a".repeat(201))).toBeNull();
+    expect(parseSettings({ editorFontFamily: " Fira Code " })).toMatchObject({
+      editorFontFamily: "Fira Code",
+      editorWordWrap: true,
+    });
+    expect(editorFontStack("")).toBe(DEFAULT_EDITOR_FONT);
+    expect(editorFontStack("Fira Code")).toBe(
+      `Fira Code, ${DEFAULT_EDITOR_FONT}`,
+    );
   });
   it("빠른 연속 변경을 순서대로 저장, 실패 안내 및 다음 저장 재시도", async () => {
     const { store, api } = fixture();

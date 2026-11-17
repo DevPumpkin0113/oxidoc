@@ -1,6 +1,7 @@
 import { act, render } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import MarkdownEditor from "./MarkdownEditor";
+import { DEFAULT_EDITOR_FONT, useSettings } from "../settings/store";
 
 const monacoMock = vi.hoisted(() => {
   const normalize = (value: string) => value.replace(/\r\n|\r/g, "\n");
@@ -148,4 +149,38 @@ it("탭 전환 시 다른 문서에 변경 알림 없이 미저장 버퍼 유지
   view.rerender(<MarkdownEditor {...props} value="unsaved first" />);
   expect(firstModel.getValue()).toBe("unsaved first");
   expect(onFirstChange).not.toHaveBeenCalled();
+});
+
+it("글꼴·줄 바꿈 설정은 편집기를 다시 만들지 않고 옵션만 바꿔 실행 취소 이력 유지", () => {
+  render(
+    <MarkdownEditor
+      documentId="options.md"
+      value="text"
+      onChange={vi.fn()}
+      onCursor={vi.fn()}
+    />,
+  );
+  const created = monacoMock.create.mock.calls.length;
+  const results = monacoMock.create.mock.results;
+  const instance = results[results.length - 1].value;
+  expect(monacoMock.create.mock.calls[created - 1][1]).toMatchObject({
+    wordWrap: "on",
+    fontFamily: DEFAULT_EDITOR_FONT,
+  });
+  act(() =>
+    useSettings.setState((state) => ({
+      settings: {
+        ...state.settings,
+        editorFontFamily: "D2Coding",
+        editorWordWrap: false,
+      },
+    })),
+  );
+  expect(monacoMock.create).toHaveBeenCalledTimes(created);
+  expect(instance.updateOptions).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      wordWrap: "off",
+      fontFamily: `D2Coding, ${DEFAULT_EDITOR_FONT}`,
+    }),
+  );
 });

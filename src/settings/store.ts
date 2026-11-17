@@ -10,7 +10,26 @@ export interface Settings {
   uiFontSize: number;
   editorFontSize: number;
   previewFontSize: number;
+  /** Font names typed by the user; empty uses the bundled default stack. */
+  editorFontFamily: string;
+  editorWordWrap: boolean;
 }
+export const MAX_FONT_FAMILY_LENGTH = 200;
+export const DEFAULT_EDITOR_FONT =
+  "'Cascadia Code', Consolas, 'Malgun Gothic', monospace";
+// Monaco writes the value into CSS, so only characters used in font names pass.
+const FONT_FAMILY_PATTERN = /^[\p{L}\p{N} ,'"._-]*$/u;
+/** Trimmed font list, or `null` when it cannot be a CSS font-family value. */
+export function normalizeFontFamily(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length <= MAX_FONT_FAMILY_LENGTH &&
+    FONT_FAMILY_PATTERN.test(trimmed)
+    ? trimmed
+    : null;
+}
+/** User fonts first, falling back to the default stack for missing glyphs. */
+export const editorFontStack = (family: string) =>
+  family ? `${family}, ${DEFAULT_EDITOR_FONT}` : DEFAULT_EDITOR_FONT;
 export const defaults: Settings = {
   language: "system",
   mode: "system",
@@ -19,6 +38,8 @@ export const defaults: Settings = {
   uiFontSize: 13,
   editorFontSize: 13,
   previewFontSize: 15,
+  editorFontFamily: "",
+  editorWordWrap: true,
 };
 export function languageFor(locale: string) {
   return /^ko(?:[-_]|$)/i.test(locale) ? "ko" : "en";
@@ -60,6 +81,15 @@ export function parseSettings(input: unknown): Settings {
       32,
       defaults.previewFontSize,
     ),
+    editorFontFamily:
+      typeof data.editorFontFamily === "string"
+        ? (normalizeFontFamily(data.editorFontFamily) ??
+          defaults.editorFontFamily)
+        : defaults.editorFontFamily,
+    editorWordWrap:
+      typeof data.editorWordWrap === "boolean"
+        ? data.editorWordWrap
+        : defaults.editorWordWrap,
   };
 }
 export interface SettingsApi {

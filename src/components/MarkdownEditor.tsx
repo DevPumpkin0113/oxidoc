@@ -2,6 +2,7 @@ import {
   useSettings,
   effectiveTheme,
   effectiveLanguage,
+  editorFontStack,
 } from "../settings/store";
 import {
   setMonacoLanguage,
@@ -74,6 +75,12 @@ export default function MarkdownEditor({
   const theme = useSettings(effectiveTheme);
   const language = useSettings(effectiveLanguage);
   const fontSize = useSettings((state) => state.settings.editorFontSize);
+  const fontFamily = useSettings((state) =>
+    editorFontStack(state.settings.editorFontFamily),
+  );
+  const wordWrap = useSettings((state) =>
+    state.settings.editorWordWrap ? "on" : "off",
+  );
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const suppress = useRef(false);
@@ -95,11 +102,14 @@ export default function MarkdownEditor({
   }, [language]);
   useEffect(() => {
     applyMonacoTheme(monaco, theme);
+    // Options change on the live editor so the model and its undo stack stay.
     editor.current?.updateOptions({
       fontSize,
+      fontFamily,
       lineHeight: Math.round(fontSize * 1.9),
+      wordWrap,
     });
-  }, [theme, fontSize]);
+  }, [theme, fontSize, fontFamily, wordWrap]);
   useEffect(() => {
     callbacks.current = {
       onChange,
@@ -136,13 +146,13 @@ export default function MarkdownEditor({
       contextmenu: false,
       theme: "oxidoc",
       automaticLayout: true,
-      fontFamily: "'Cascadia Code', Consolas, 'Malgun Gothic', monospace",
+      fontFamily,
       fontSize,
       lineHeight: Math.round(fontSize * 1.9),
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
       find: { addExtraSpaceOnTop: false },
-      wordWrap: "on",
+      wordWrap,
       padding: { top: 25, bottom: 32 },
       lineNumbersMinChars: 3,
       glyphMargin: false,

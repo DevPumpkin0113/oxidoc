@@ -38,6 +38,23 @@ pub struct Settings {
     ui_font_size: u8,
     editor_font_size: u8,
     preview_font_size: u8,
+    // Settings saved before these fields existed still load.
+    #[serde(default)]
+    editor_font_family: String,
+    #[serde(default = "word_wrap_default")]
+    editor_word_wrap: bool,
+}
+const MAX_FONT_FAMILY_LENGTH: usize = 200;
+fn word_wrap_default() -> bool {
+    true
+}
+/// Matches the frontend rule: the value ends up in CSS, so only font-name characters.
+fn valid_font_family(value: &str) -> bool {
+    value.chars().count() <= MAX_FONT_FAMILY_LENGTH
+        && value.trim() == value
+        && value
+            .chars()
+            .all(|c| c.is_alphanumeric() || " ,'\"._-".contains(c))
 }
 impl Settings {
     fn validate(&self) -> Result<(), String> {
@@ -62,6 +79,7 @@ impl Settings {
             || !(11..=20).contains(&self.ui_font_size)
             || !(10..=32).contains(&self.editor_font_size)
             || !(12..=32).contains(&self.preview_font_size)
+            || !valid_font_family(&self.editor_font_family)
         {
             return Err("유효하지 않은 설정 값입니다.".into());
         }
@@ -98,7 +116,7 @@ pub fn save_settings(app: AppHandle, settings: Settings) -> Result<(), String> {
 mod tests {
     use super::*;
     fn valid() -> serde_json::Value {
-        serde_json::json!({"language":"system","mode":"system","lightTheme":"light-modern","darkTheme":"dark-modern","uiFontSize":13,"editorFontSize":13,"previewFontSize":15})
+        serde_json::json!({"language":"system","mode":"system","lightTheme":"light-modern","darkTheme":"dark-modern","uiFontSize":13,"editorFontSize":13,"previewFontSize":15,"editorFontFamily":"D2Coding, 'Fira Code'","editorWordWrap":false})
     }
     #[test]
     fn accepts_valid_settings_and_rejects_out_of_range_or_unknown_values() {
@@ -115,6 +133,12 @@ mod tests {
             ("uiFontSize", serde_json::json!(21)),
             ("editorFontSize", serde_json::json!(9)),
             ("previewFontSize", serde_json::json!(33)),
+            (
+                "editorFontFamily",
+                serde_json::json!("x; } body { color: red"),
+            ),
+            ("editorFontFamily", serde_json::json!(" padded")),
+            ("editorFontFamily", serde_json::json!("a".repeat(201))),
         ] {
             let mut data = valid();
             data[key] = value;
@@ -134,5 +158,19 @@ mod tests {
         let mut data = valid();
         data["editorFontSize"] = serde_json::json!("24");
         assert!(serde_json::from_value::<Settings>(data).is_err());
+        let mut data = valid();
+        data["editorWordWrap"] = serde_json::json!("on");
+        assert!(serde_json::from_value::<Settings>(data).is_err());
+    }
+    #[test]
+    fn settings_saved_before_editor_font_fields_still_load() {
+        let mut data = valid();
+        let object = data.as_object_mut().unwrap();
+        object.remove("editorFontFamily");
+        object.remove("editorWordWrap");
+        let settings = serde_json::from_value::<Settings>(data).unwrap();
+        assert!(settings.validate().is_ok());
+        assert_eq!(settings.editor_font_family, "");
+        assert!(settings.editor_word_wrap);
     }
 }

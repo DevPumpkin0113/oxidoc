@@ -3,7 +3,11 @@ import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/languages/definitions/markdown/register.js";
 import "../workspace/monacoEnvironment";
 import "../styles/monaco-icons.css";
-import { useSettings, effectiveTheme } from "../settings/store";
+import {
+  useSettings,
+  effectiveTheme,
+  editorFontStack,
+} from "../settings/store";
 import { applyMonacoTheme } from "../settings/monacoTheme";
 import { t } from "../settings/i18n";
 import styles from "./ProjectReplace.module.css";
@@ -22,15 +26,18 @@ export default function ReplacementDiff({
   const preferences = useSettings();
   const theme = effectiveTheme(preferences);
   const fontSize = preferences.settings.editorFontSize;
-  const appearance = useRef({ fontSize, sideBySide });
+  const fontFamily = editorFontStack(preferences.settings.editorFontFamily);
+  const appearance = useRef({ fontSize, fontFamily, sideBySide });
   useEffect(() => {
     appearance.current.fontSize = fontSize;
+    appearance.current.fontFamily = fontFamily;
     applyMonacoTheme(monaco, theme);
     editor.current?.updateOptions({
       fontSize,
+      fontFamily,
       lineHeight: Math.round(fontSize * 1.7),
     });
-  }, [theme, fontSize]);
+  }, [theme, fontSize, fontFamily]);
   useEffect(() => {
     let original: monaco.editor.ITextModel | undefined;
     let modified: monaco.editor.ITextModel | undefined;
@@ -38,7 +45,7 @@ export default function ReplacementDiff({
     // Avoid starting worker computation for Strict Mode's discarded mount.
     const frame = requestAnimationFrame(() => {
       if (!container.current) return;
-      const { fontSize, sideBySide } = appearance.current;
+      const { fontSize, fontFamily, sideBySide } = appearance.current;
       original = monaco.editor.createModel(before, "markdown");
       modified = monaco.editor.createModel(after, "markdown");
       instance = monaco.editor.createDiffEditor(container.current, {
@@ -48,7 +55,7 @@ export default function ReplacementDiff({
         domReadOnly: true,
         originalEditable: false,
         contextmenu: false,
-        fontFamily: "'Cascadia Code', Consolas, 'Malgun Gothic', monospace",
+        fontFamily,
         fontSize,
         lineHeight: Math.round(fontSize * 1.7),
         minimap: { enabled: false },
