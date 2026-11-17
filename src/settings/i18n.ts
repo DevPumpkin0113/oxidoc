@@ -344,8 +344,14 @@ export const english: Record<string, string> = {
   글꼴: "Font",
   "글꼴 이름에는 문자·숫자·공백과 , ' \" . _ - 만 쓸 수 있음":
     "Font names may only contain letters, digits, spaces and , ' \" . _ -",
-  "설치된 글꼴 이름을 쉼표로 구분해 입력, 비우면 기본 글꼴":
-    "Installed font names separated by commas; leave empty for the default",
+  "설치된 글꼴을 검색해 고르거나 쉼표로 여러 개 입력, 비우면 기본 글꼴":
+    "Search installed fonts or enter several separated by commas; leave empty for the default",
+  "설치된 글꼴": "Installed fonts",
+  "설치된 글꼴을 불러오는 중…": "Loading installed fonts…",
+  "설치된 글꼴을 불러오지 못했습니다. 이름을 직접 입력할 수 있습니다.":
+    "Could not load installed fonts. You can still type a name.",
+  "맞는 글꼴이 없습니다.": "No matching fonts.",
+  고정폭: "Monospace",
   "변경 즉시 적용·자동 저장":
     "Changes apply immediately and save automatically",
   "현재 버전": "Current version",

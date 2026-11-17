@@ -4,8 +4,6 @@ import {
   effectiveLanguage,
   defaults,
   effectiveTheme,
-  MAX_FONT_FAMILY_LENGTH,
-  normalizeFontFamily,
   useSettings,
   type Settings,
 } from "../settings/store";
@@ -15,6 +13,8 @@ import AppUpdate from "./AppUpdate";
 import Icon from "./Icon";
 import NumberStepper from "./NumberStepper";
 import Dropdown from "./Dropdown";
+import FontFamilyInput from "./FontFamilyInput";
+import { loadSystemFonts } from "../settings/fonts";
 
 /** One searchable setting: its row and the text a search matches. */
 interface SettingItem {
@@ -437,6 +437,11 @@ export default function SettingsPanel({
     .filter((section) => section.items.length);
   const visibleIds = visible.map((section) => section.id).join(" ");
 
+  // Start the font scan (about a second) before the font field is opened.
+  useEffect(() => {
+    loadSystemFonts().catch(() => {});
+  }, []);
+
   // The current section is the last one whose top has scrolled into view.
   useEffect(() => {
     const viewport = panel.current?.closest<HTMLElement>("#settings-panel");
@@ -563,11 +568,6 @@ function EditorFontInput({
   onCommit: (value: string) => void;
 }) {
   const [invalid, setInvalid] = useState(false);
-  function commit(input: HTMLInputElement) {
-    const family = normalizeFontFamily(input.value);
-    setInvalid(family === null);
-    if (family !== null && family !== value) onCommit(family);
-  }
   return (
     <div className={styles.settingRow}>
       <div>
@@ -575,29 +575,19 @@ function EditorFontInput({
         <p>
           {invalid
             ? t("글꼴 이름에는 문자·숫자·공백과 , ' \" . _ - 만 쓸 수 있음")
-            : t("설치된 글꼴 이름을 쉼표로 구분해 입력, 비우면 기본 글꼴")}
+            : t(
+                "설치된 글꼴을 검색해 고르거나 쉼표로 여러 개 입력, 비우면 기본 글꼴",
+              )}
         </p>
       </div>
       <div className={styles.control}>
         <ResetButton reset={reset} />
-        <input
-          autoComplete="off"
+        <FontFamilyInput
           id="setting-editorFontFamily"
-          className={styles.textInput}
-          type="text"
-          spellCheck={false}
-          maxLength={MAX_FONT_FAMILY_LENGTH}
-          placeholder="Cascadia Code, Consolas"
-          defaultValue={value}
-          aria-invalid={invalid}
-          onBlur={(e) => commit(e.currentTarget)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit(e.currentTarget);
-            else if (e.key === "Escape") {
-              e.currentTarget.value = value;
-              setInvalid(false);
-            }
-          }}
+          value={value}
+          invalid={invalid}
+          onCommit={onCommit}
+          onValidity={(valid) => setInvalid(!valid)}
         />
       </div>
     </div>

@@ -28,6 +28,7 @@ pub fn run() {
             runtime_info,
             settings::load_settings,
             settings::save_settings,
+            fonts::system_fonts,
             workspace::list_projects,
             workspace::pick_project,
             workspace::list_entries,
@@ -66,6 +67,7 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("failed to run Oxidoc");
 }
+mod fonts;
 mod settings;
 #[cfg(test)]
 mod updater_tests;
