@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Windows 배포 파일 EXE·EXE 서명·latest.json으로 간소화, MSI·MSI 서명·체크섬 텍스트 제외
+
 ## [0.4.0] - 2026-11-10
 
 - Markdown Mermaid 코드 블록·mmd/mermaid 독립 문서의 다이어그램 미리보기 및 오류/원문 표시

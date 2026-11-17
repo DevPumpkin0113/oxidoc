@@ -3,20 +3,16 @@ import { fileURLToPath, URL } from "node:url";
 import { Buffer } from "node:buffer";
 import path from "node:path";
 import process from "node:process";
-import { createHash } from "node:crypto";
 
 export function createManifest(version, artifacts, notes = "") {
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version))
     throw Error("Only stable release versions can be published.");
   const platforms = {};
-  for (const type of ["nsis", "msi"]) {
+  for (const type of ["nsis"]) {
     const artifact = artifacts[type];
     if (!artifact?.signature || !artifact.name)
       throw Error(`Missing signed ${type} artifact.`);
-    const expected =
-      type === "nsis"
-        ? `Oxidoc_${version}_x64-setup.exe`
-        : `Oxidoc_${version}_x64_en-US.msi`;
+    const expected = `Oxidoc_${version}_x64-setup.exe`;
     if (artifact.name !== expected)
       throw Error(`Unexpected ${type} artifact version/name.`);
     // Reject an invalid signature envelope before publishing a broken feed.
@@ -49,12 +45,8 @@ export function writeManifest(root) {
   const artifacts = {};
   const output = path.join(root, "output", "release");
   mkdirSync(output, { recursive: true });
-  const checksums = [];
-  for (const type of ["nsis", "msi"]) {
-    const name =
-      type === "nsis"
-        ? `Oxidoc_${version}_x64-setup.exe`
-        : `Oxidoc_${version}_x64_en-US.msi`;
+  for (const type of ["nsis"]) {
+    const name = `Oxidoc_${version}_x64-setup.exe`;
     const source = path.join(
       root,
       "src-tauri",
@@ -64,14 +56,10 @@ export function writeManifest(root) {
       type,
       name,
     );
-    const bytes = readFileSync(source);
     const signature = readFileSync(`${source}.sig`, "utf8");
     artifacts[type] = { name, signature };
     copyFileSync(source, path.join(output, name));
     copyFileSync(`${source}.sig`, path.join(output, `${name}.sig`));
-    checksums.push(
-      `${createHash("sha256").update(bytes).digest("hex")}  ${name}`,
-    );
   }
   const changelog = readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
   const notes = (changelog.split(`## [${version}]`)[1] ?? "")
@@ -82,10 +70,6 @@ export function writeManifest(root) {
   writeFileSync(
     path.join(output, "latest.json"),
     JSON.stringify(manifest, null, 2) + "\n",
-  );
-  writeFileSync(
-    path.join(output, "SHA256SUMS.txt"),
-    checksums.join("\n") + "\n",
   );
   return output;
 }

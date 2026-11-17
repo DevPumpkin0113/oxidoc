@@ -20,7 +20,7 @@ const result = spawnSync(
     path.join(root, "node_modules", "@tauri-apps", "cli", "tauri.js"),
     "build",
     "--bundles",
-    "nsis,msi",
+    "nsis",
   ],
   { cwd: root, env, stdio: "inherit" },
 );
