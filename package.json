@@ -30,6 +30,7 @@
     "check": "npm run version:check && npm run test:version && npm run test:release && npm run typecheck && npm run lint && npm run test && npm run build && npm run format:check && npm run format:rust:check && npm run lint:rust && npm run test:rust",
     "tauri": "tauri",
     "version:check": "node scripts/version.mjs --check",
+    "screenshots": "node scripts/readme-screenshots.mjs",
     "version:set": "node scripts/version.mjs",
     "test:version": "node --test scripts/version.test.mjs",
     "build:release": "node scripts/release-build.mjs",

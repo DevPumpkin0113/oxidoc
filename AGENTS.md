@@ -26,7 +26,8 @@
 
 ## 먼저 읽을 문서
 
-- `README.md` — 실행·검증 명령, 지원 범위, 폴더 구성
+- `README.md` — 사용자용 기능 소개·설치·화면(스크린샷은 `npm run screenshots`로 갱신)
+- `docs/DEVELOPMENT.md` — 개발 환경, 검증 명령, 폴더 구성
 - `docs/plan/TECH_STACK.md` — 기술 구성·역할 분담·저장 위치·보안 경계. 앱 기반 구성 변경 시 확인
 - `docs/plan/UI.md` — 레이아웃, 기능 동작, 설정·업데이트, 단축키, 제한 값. 화면·기능 변경 시 확인하고 함께 갱신
 - `docs/plan/RELEASING.md` — 버전·태그·릴리즈 게시 절차와 브랜치 역할
