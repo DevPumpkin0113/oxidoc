@@ -1,5 +1,7 @@
 # 버전 및 릴리즈
 
+릴리즈 준비·게시·게시 후 확인의 단계별 체크리스트는 `release-prep` 스킬을 따른다. 이 문서에는 Oxidoc 전용 값과 절차를 적는다.
+
 - 공개 저장소: https://github.com/DevPumpkin0113/oxidoc
 - 브랜치: `develop` 개발 작업·커밋, `main` 공개 기준
 - 태그: `vMAJOR.MINOR.PATCH`. 기능 추가 `minor`, 호환 수정 `patch`, 호환성 파괴 `major`. 게시한 태그는 재사용·이동하지 않는다.
