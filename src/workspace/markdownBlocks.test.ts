@@ -82,6 +82,27 @@ describe("Markdown 블록 분할", () => {
     expect(new Set(blocks.map((block) => block.key)).size).toBe(blocks.length);
   });
 
+  it("빈 줄을 품은 HTML 컨테이너는 닫는 태그까지 한 블록, 인라인 코드 속 태그는 무시", () => {
+    const content = [
+      "<details>",
+      "<summary>a</summary>",
+      "",
+      "<div>",
+      "",
+      "b",
+      "",
+      "</div>",
+      "</details>",
+      "",
+      "`<div>` c",
+      "",
+      "d",
+    ].join("\n");
+    expect(splitBlocks(content).blocks.map((block) => block.line)).toEqual([
+      1, 11, 13,
+    ]);
+  });
+
   it("각주가 있으면 문서 전체를 한 블록으로 유지", () => {
     const content = "a[^1]\n\nb\n\n[^1]: note";
     expect(splitBlocks(content).blocks).toEqual([

@@ -25,6 +25,21 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const LIST_ITEM = /^([-+*]|\d{1,9}[.)])([ \t]|$)/;
 const DEFINITION = /^ {0,3}\[[^\]^][^\]]*\]:[ \t]*\S/;
 const BLANK = /^[ \t]*$/;
+// HTML containers whose content may span blank lines (`<details>` wrapping
+// Markdown); their open and close tags must be parsed in the same block.
+const HTML_CONTAINER =
+  /<(\/?)(details|div|dl|table|blockquote)(?=[\s/>])[^>]*>/gi;
+const INLINE_CODE = /(`+)[^`]*?\1/g;
+
+/** Change in open HTML container depth caused by one line. */
+function htmlDepthChange(line: string) {
+  if (!line.includes("<")) return 0;
+  let change = 0;
+  for (const match of line.replace(INLINE_CODE, "").matchAll(HTML_CONTAINER))
+    if (match[1]) change--;
+    else if (!match[0].endsWith("/>")) change++;
+  return change;
+}
 
 /** Whether a blank line before `next` may end a block without changing meaning. */
 const canStartBlock = (next: string) =>
@@ -53,6 +68,7 @@ export function splitBlocks(content: string): SplitResult {
   const seen = new Map<string, number>();
   let fence: { char: string; length: number } | null = null;
   let comment = false;
+  let htmlDepth = 0;
   let start = -1;
   const push = (end: number) => {
     if (start < 0) return;
@@ -81,7 +97,8 @@ export function splitBlocks(content: string): SplitResult {
     }
     if (BLANK.test(line)) {
       const next = nextText[index];
-      if (next === undefined || canStartBlock(next)) push(index);
+      if (next === undefined || (htmlDepth === 0 && canStartBlock(next)))
+        push(index);
       continue;
     }
     if (start < 0) start = index;
@@ -89,6 +106,7 @@ export function splitBlocks(content: string): SplitResult {
     if (open) fence = { char: open[1][0], length: open[1].length };
     else if (/^ {0,3}<!--/.test(line) && !line.includes("-->")) comment = true;
     else if (DEFINITION.test(line)) definitions.push(line);
+    else htmlDepth = Math.max(0, htmlDepth + htmlDepthChange(line));
   }
   push(lines.length);
   return { blocks, definitions: definitions.join("\n") };

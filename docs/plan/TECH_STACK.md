@@ -8,19 +8,19 @@
 
 ## 기술 구성
 
-| 영역              | 기술                                                      | 용도                                         |
-| ----------------- | --------------------------------------------------------- | -------------------------------------------- |
-| 데스크톱 앱       | Tauri 2                                                   | 창 관리·파일 접근·설치 패키지·업데이트       |
-| UI                | React + TypeScript                                        | 탐색기·탭·프로젝트·명령 팔레트               |
-| 개발·빌드         | Vite                                                      | 프런트엔드 개발 서버 및 빌드                 |
-| 편집기            | Monaco Editor                                             | Markdown 편집·구문 강조·찾기·바꾸기          |
-| Markdown 미리보기 | react-markdown + remark-gfm (코드 강조는 Monaco colorize) | 제목·목록·표·체크박스 렌더링                 |
-| 다이어그램        | Mermaid + DOMPurify                                       | 지연 로딩 렌더링·정제된 SVG 이미지 미리보기  |
-| 상태 관리         | Zustand                                                   | 열린 탭·활성 프로젝트·레이아웃·설정 상태     |
-| 로컬 저장         | Rust JSON·Tauri Store                                     | 프로젝트 목록·즐겨찾기·설정·세션             |
-| 파일 처리·검색    | Rust 명령                                                 | 파일 입출력·경로 검증·프로젝트 검색          |
-| 스타일            | CSS Modules + CSS 변수                                    | 컴포넌트별 모듈, 공용 tree·dialog·panel 모듈 |
-| 검증              | Vitest + React Testing Library / Rust 테스트              | UI 동작 및 파일 처리 검증                    |
+| 영역              | 기술                                                                                   | 용도                                         |
+| ----------------- | -------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 데스크톱 앱       | Tauri 2                                                                                | 창 관리·파일 접근·설치 패키지·업데이트       |
+| UI                | React + TypeScript                                                                     | 탐색기·탭·프로젝트·명령 팔레트               |
+| 개발·빌드         | Vite                                                                                   | 프런트엔드 개발 서버 및 빌드                 |
+| 편집기            | Monaco Editor                                                                          | Markdown 편집·구문 강조·찾기·바꾸기          |
+| Markdown 미리보기 | react-markdown + remark-gfm + rehype-raw·rehype-sanitize (코드 강조는 Monaco colorize) | 제목·목록·표·체크박스 렌더링                 |
+| 다이어그램        | Mermaid + DOMPurify                                                                    | 지연 로딩 렌더링·정제된 SVG 이미지 미리보기  |
+| 상태 관리         | Zustand                                                                                | 열린 탭·활성 프로젝트·레이아웃·설정 상태     |
+| 로컬 저장         | Rust JSON·Tauri Store                                                                  | 프로젝트 목록·즐겨찾기·설정·세션             |
+| 파일 처리·검색    | Rust 명령                                                                              | 파일 입출력·경로 검증·프로젝트 검색          |
+| 스타일            | CSS Modules + CSS 변수                                                                 | 컴포넌트별 모듈, 공용 tree·dialog·panel 모듈 |
+| 검증              | Vitest + React Testing Library / Rust 테스트                                           | UI 동작 및 파일 처리 검증                    |
 
 ## 역할 분담
 
@@ -50,7 +50,7 @@
 
 ## 보안 경계
 
-- 미리보기: 원시 HTML·원격 이미지·SVG 이미지 차단. 등록 경로 내부 래스터 이미지와 상대 문서 링크만 허용, HTTP/HTTPS 링크는 기본 브라우저로 연다.
+- 미리보기: 원시 HTML은 rehype-raw로 파싱한 뒤 rehype-sanitize 허용 목록(`workspace/previewHtml.ts`, GitHub 기본 정제에서 `picture`·`source`·폼 속성·`class`·`style` 제외)만 통과. `script`·`style`·`iframe`·`object`·`embed`·`svg`·`math`·`textarea` 등은 내용째 제거, 그 밖의 태그는 글자만 남김, 이벤트 속성·`javascript:` 링크 제거, `input`은 작업 목록 체크 상자만. HTML의 `a`·`img`도 Markdown과 같은 링크·로컬 이미지 컴포넌트를 거치므로 원격 이미지·SVG 이미지 차단, 등록 경로 내부 래스터 이미지와 상대 문서 링크만 허용, HTTP/HTTPS 링크는 기본 브라우저로 연다. `<`가 없는 블록은 HTML 파싱을 건너뛴다.
 - Mermaid: 원시 SVG 삽입 대신 DOMPurify로 정제한 SVG 이미지로 격리, 외부 링크·HTML 동작 비활성.
 - 타이틀바 제어 권한은 해당 Tauri 창 명령으로 제한.
 - 업데이트: 앱에 포함된 공개 키로 서명을 검증한 뒤에만 설치. 비밀 키는 Git 제외 `.local/keys/oxidoc-updater.key`에 두고 별도 백업한다.

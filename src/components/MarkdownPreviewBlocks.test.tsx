@@ -61,9 +61,32 @@ const TRICKY = [
   "## Title",
 ].join("\n");
 
+const HTML = [
+  "<details>",
+  "<summary>요약</summary>",
+  "",
+  "- [x] 완료 <kbd>K</kbd>",
+  "- [ ] 할 일",
+  "",
+  '<div align="center">',
+  "",
+  "본문",
+  "",
+  "</div>",
+  "</details>",
+  "",
+  "`<details>` 는 코드",
+  "",
+  "끝",
+].join("\n");
+
 describe("블록 단위 미리보기", () => {
   it("블록 렌더링 결과가 문서 전체 렌더링과 같음", () => {
-    for (const content of [TRICKY, ...sampleDocuments.map((d) => d.content)])
+    for (const content of [
+      TRICKY,
+      HTML,
+      ...sampleDocuments.map((d) => d.content),
+    ])
       expect(normalized(content)).toBe(normalized(whole(content)));
   });
 

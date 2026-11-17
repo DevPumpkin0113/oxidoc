@@ -111,6 +111,46 @@
   font-family: Consolas, monospace;
 }
 
+.preview kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: Consolas, monospace;
+  font-size: 0.85em;
+  line-height: 1.4;
+}
+
+.preview mark {
+  padding: 0 2px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: inherit;
+}
+
+.preview details {
+  margin: 0 0 1em;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.preview summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.preview details[open] > summary {
+  margin-bottom: 8px;
+}
+
+.preview details > :last-child {
+  margin-bottom: 0;
+}
+
 .preview pre {
   padding: 15px;
   overflow: auto;

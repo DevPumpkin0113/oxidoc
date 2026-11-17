@@ -20,7 +20,6 @@ import {
   blockHeadings as headingsOfBlocks,
   headings,
   resolveLink,
-  sourceLines,
   type LinkTarget,
 } from "../workspace/markdown";
 import styles from "./MarkdownPreview.module.css";
@@ -28,6 +27,7 @@ import MermaidDiagram from "./MermaidDiagram";
 import { effectiveTheme, useSettings } from "../settings/store";
 import { cachedHighlight, highlightCode } from "../workspace/codeHighlight";
 import ScrollArea from "./ScrollArea";
+import { previewRehypePlugins } from "../workspace/previewHtml";
 import { isMermaidFile } from "../workspace/documentTypes";
 import {
   blockSource,
@@ -250,7 +250,6 @@ const INITIAL_BLOCKS = 40;
 const BLOCK_BATCH = 40;
 
 const remarkPlugins = [remarkGfm];
-const rehypePlugins = [sourceLines];
 
 /** One Markdown block; skipped on re-render unless its source or heading ids change. */
 const PreviewBlock = memo(function PreviewBlock({
@@ -279,7 +278,7 @@ const PreviewBlock = memo(function PreviewBlock({
     <BlockHeadings value={ids}>
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
-        rehypePlugins={rehypePlugins}
+        rehypePlugins={previewRehypePlugins(source)}
         skipHtml
         components={previewComponents}
       >
