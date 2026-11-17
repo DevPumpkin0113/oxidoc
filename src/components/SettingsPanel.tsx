@@ -2,6 +2,7 @@ import { translateError, t } from "../settings/i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   effectiveLanguage,
+  effectiveTheme,
   MAX_FONT_FAMILY_LENGTH,
   normalizeFontFamily,
   useSettings,
@@ -11,6 +12,7 @@ import { themes } from "../settings/themes";
 import styles from "./SettingsPanel.module.css";
 import AppUpdate from "./AppUpdate";
 import Icon from "./Icon";
+import NumberStepper from "./NumberStepper";
 
 /** One searchable setting: its row and the text a search matches. */
 interface SettingItem {
@@ -69,6 +71,7 @@ export default function SettingsPanel({
   const [confirmReset, setConfirmReset] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState("general");
+  const [chosenKind, setChosenKind] = useState<"light" | "dark" | null>(null);
   const panel = useRef<HTMLElement>(null);
   function set<K extends keyof Settings>(key: K, value: Settings[K]) {
     void update({ [key]: value });
@@ -87,69 +90,125 @@ export default function SettingsPanel({
         description={`${min}–${max} px`}
         htmlFor={`setting-${key}`}
       >
-        <div className={styles.fontControl}>
-          <input
-            id={`setting-${key}`}
-            type="range"
-            min={min}
-            max={max}
-            step={1}
-            value={settings[key]}
-            onChange={(e) => set(key, Number(e.target.value))}
-          />
-          <output htmlFor={`setting-${key}`}>{settings[key]} px</output>
-        </div>
+        <NumberStepper
+          id={`setting-${key}`}
+          label={label}
+          value={settings[key]}
+          min={min}
+          max={max}
+          unit="px"
+          onChange={(value) => set(key, value)}
+        />
       </Row>
     ),
   });
-  const themeItem = (kind: "light" | "dark"): SettingItem => {
-    const key = kind === "light" ? "lightTheme" : "darkTheme";
-    const label = kind === "light" ? t("라이트 테마") : t("다크 테마");
-    const options = themes.filter((theme) => theme.kind === kind);
-    return {
-      id: key,
-      text: [label, t("테마"), ...options.map((theme) => theme.name)],
-      render: () => (
+  const applied = effectiveTheme(state);
+  const searchedKinds = [
+    ...new Set(
+      themes
+        .filter(
+          (theme) =>
+            query.trim() &&
+            theme.name
+              .toLocaleLowerCase()
+              .includes(query.trim().toLocaleLowerCase()),
+        )
+        .map((theme) => theme.kind),
+    ),
+  ];
+  // A search for one kind's theme name opens that kind; otherwise the user's
+  // choice, else the kind applied now.
+  const themeKind =
+    searchedKinds.length === 1
+      ? searchedKinds[0]
+      : (chosenKind ?? applied.kind);
+  const themeItem: SettingItem = {
+    id: "theme",
+    text: [
+      t("테마"),
+      t("라이트 테마"),
+      t("다크 테마"),
+      ...themes.map((theme) => theme.name),
+    ],
+    render: () => {
+      const key = themeKind === "light" ? "lightTheme" : "darkTheme";
+      return (
         <div className={styles.themeGroup}>
-          <h3>{label}</h3>
+          <div className={styles.themeHeader}>
+            <strong id="theme-kind-label">{t("테마")}</strong>
+            <div
+              className={styles.segmented}
+              role="group"
+              aria-labelledby="theme-kind-label"
+            >
+              {(["light", "dark"] as const).map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  aria-pressed={themeKind === kind}
+                  onClick={() => setChosenKind(kind)}
+                >
+                  {kind === "light" ? t("라이트 테마") : t("다크 테마")}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className={styles.themeGrid}>
-            {options.map((theme) => (
-              <button
-                key={theme.id}
-                type="button"
-                className={styles.themeCard}
-                aria-label={theme.name}
-                aria-pressed={settings[key] === theme.id}
-                onClick={() => set(key, theme.id)}
-              >
-                <span
-                  className={styles.themeSample}
-                  style={{
-                    background: theme.background,
-                    color: theme.text,
-                    borderColor: theme.border,
-                  }}
-                  aria-hidden="true"
+            {themes
+              .filter((theme) => theme.kind === themeKind)
+              .map((theme) => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  className={styles.themeCard}
+                  aria-label={theme.name}
+                  aria-pressed={settings[key] === theme.id}
+                  onClick={() => set(key, theme.id)}
                 >
                   <span
+                    className={styles.themeSample}
                     style={{
-                      background: theme.surface,
+                      background: theme.background,
+                      color: theme.text,
                       borderColor: theme.border,
                     }}
-                  />
-                  <span>
-                    <b style={{ color: theme.accent }}># Markdown</b>
-                    <i style={{ background: theme.muted }} />
-                    <i style={{ background: theme.accent }} />
+                    aria-hidden="true"
+                  >
+                    <span
+                      style={{
+                        background: theme.surface,
+                        borderColor: theme.border,
+                      }}
+                    />
+                    <span>
+                      <b style={{ color: theme.accent }}># Markdown</b>
+                      <i style={{ background: theme.muted }} />
+                      <i style={{ background: theme.accent }} />
+                    </span>
                   </span>
-                </span>
-                <span>{theme.name}</span>
-              </button>
-            ))}
+                  <span className={styles.themeName}>
+                    <span>{theme.name}</span>
+                    {applied.id === theme.id ? (
+                      <small>{t("적용 중")}</small>
+                    ) : null}
+                  </span>
+                </button>
+              ))}
           </div>
+          <p className={styles.settingsHint}>
+            {settings.mode === "system"
+              ? t(
+                  "시스템이 라이트 모드면 라이트 테마, 다크 모드면 다크 테마를 씁니다.",
+                )
+              : t(
+                  "색상 모드를 '{0}'로 정해 {1}를 씁니다.",
+                  settings.mode === "light" ? t("라이트") : t("다크"),
+                  settings.mode === "light" ? t("라이트 테마") : t("다크 테마"),
+                )}
+          </p>
         </div>
-      ),
-    };
+      );
+    },
   };
 
   const sections: SettingSection[] = [
@@ -201,9 +260,10 @@ export default function SettingsPanel({
               <select
                 id="setting-mode"
                 value={settings.mode}
-                onChange={(e) =>
-                  set("mode", e.target.value as Settings["mode"])
-                }
+                onChange={(e) => {
+                  setChosenKind(null);
+                  set("mode", e.target.value as Settings["mode"]);
+                }}
               >
                 <option value="system">{t("시스템")}</option>
                 <option value="light">{t("라이트")}</option>
@@ -212,8 +272,7 @@ export default function SettingsPanel({
             </Row>
           ),
         },
-        themeItem("light"),
-        themeItem("dark"),
+        themeItem,
         fontSize("uiFontSize", t("인터페이스 글꼴 크기"), 11, 20),
       ],
     },

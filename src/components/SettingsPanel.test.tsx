@@ -59,7 +59,13 @@ it("섹션 목록으로 이동하고, 검색은 이름·설명·테마 이름으
   const search = screen.getByRole("searchbox", { name: "설정 검색" });
   await user.type(search, "dracula");
   expect(screen.getByRole("button", { name: "Dracula" })).toBeInTheDocument();
-  expect(screen.queryByText("라이트 테마")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "다크 테마" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(
+    screen.queryByRole("button", { name: "GitHub Light" }),
+  ).not.toBeInTheDocument();
   expect(screen.queryByLabelText("표시 언어")).not.toBeInTheDocument();
   expect(within(nav).getByRole("button", { name: "일반" })).toBeDisabled();
 
@@ -77,4 +83,33 @@ it("섹션 목록으로 이동하고, 검색은 이름·설명·테마 이름으
   await user.keyboard("{Escape}");
   expect(search).toHaveValue("");
   expect(screen.getByLabelText("표시 언어")).toBeInTheDocument();
+});
+
+it("테마는 적용 중인 종류를 먼저 보이고 라이트·다크 전환, 색상 모드를 바꾸면 그 종류로", async () => {
+  const update = vi.fn(async () => {});
+  useSettings.setState({ update, systemDark: false });
+  const user = userEvent.setup();
+  const view = render(<SettingsPanel onInstallUpdate={vi.fn()} />);
+  const light = screen.getByRole("button", { name: "라이트 테마" });
+  expect(light).toHaveAttribute("aria-pressed", "true");
+  expect(
+    screen.getByRole("button", { name: "VS Code Light Modern" }),
+  ).toHaveTextContent("적용 중");
+  expect(
+    screen.queryByRole("button", { name: "Dracula" }),
+  ).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "다크 테마" }));
+  await user.click(screen.getByRole("button", { name: "Dracula" }));
+  expect(update).toHaveBeenLastCalledWith({ darkTheme: "dracula" });
+
+  await user.selectOptions(screen.getByLabelText("색상 모드"), "light");
+  useSettings.setState((state) => ({
+    settings: { ...state.settings, mode: "light" },
+  }));
+  view.rerender(<SettingsPanel onInstallUpdate={vi.fn()} />);
+  expect(screen.getByRole("button", { name: "라이트 테마" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });

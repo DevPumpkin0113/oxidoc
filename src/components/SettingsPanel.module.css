@@ -223,10 +223,77 @@
   margin: 6px 0;
 }
 
-.themeGroup h3 {
-  font-size: 0.9em;
+.themeGroup {
+  padding: 12px 0;
+}
+
+.themeHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.themeHeader strong {
   font-weight: 500;
-  margin: 18px 0 10px;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--editor);
+}
+
+.settingsPanel .segmented button {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.settingsPanel .segmented button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.settingsPanel .segmented button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.themeName {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.themeName > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Over the sample's corner so long theme names keep their width. */
+.themeName small {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 0.85em;
+  line-height: 1.5;
 }
 
 .themeGrid {
@@ -236,6 +303,7 @@
 }
 
 .settingsPanel .themeCard {
+  position: relative;
   padding: 5px;
   min-width: 0;
   text-align: left;
@@ -291,23 +359,6 @@
 
 .themeSample i:last-child {
   width: 50%;
-}
-
-.fontControl {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.fontControl input {
-  width: clamp(70px, 15vw, 180px);
-  accent-color: var(--accent);
-}
-
-.fontControl output {
-  min-width: 44px;
-  font-variant-numeric: tabular-nums;
 }
 
 .versionBadge {

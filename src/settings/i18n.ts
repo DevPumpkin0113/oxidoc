@@ -316,6 +316,13 @@ export const english: Record<string, string> = {
   한국어: "한국어",
   테마: "Theme",
   모양: "Appearance",
+  "{0} 줄이기": "Decrease {0}",
+  "{0} 늘리기": "Increase {0}",
+  "시스템이 라이트 모드면 라이트 테마, 다크 모드면 다크 테마를 씁니다.":
+    "The light theme is used when the system is light, the dark theme when it is dark.",
+  "색상 모드를 '{0}'로 정해 {1}를 씁니다.":
+    "The color mode is set to '{0}', so the {1} is used.",
+  "적용 중": "Active",
   정보: "About",
   "설정 검색": "Search settings",
   "설정 섹션": "Settings sections",
