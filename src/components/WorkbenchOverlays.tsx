@@ -4,6 +4,7 @@ import { useUi } from "../workbench/uiStore";
 import ActionDialog from "./ActionDialog";
 import CommandPalette from "./CommandPalette";
 import ContextMenu from "./ContextMenu";
+import LinkUpdateDialog from "./LinkUpdateDialog";
 import ProjectReplace from "./ProjectReplace";
 import QuickOpen from "./QuickOpen";
 import UnsavedDialog from "./UnsavedDialog";
@@ -39,6 +40,12 @@ export default function WorkbenchOverlays() {
           root={root}
           suspended={suspended}
           onClose={() => useUi.setState({ replaceOpen: false })}
+        />
+      ) : null}
+      {ui.linkUpdate ? (
+        <LinkUpdateDialog
+          request={ui.linkUpdate}
+          onClose={() => useUi.setState({ linkUpdate: null })}
         />
       ) : null}
       {ui.menu ? (

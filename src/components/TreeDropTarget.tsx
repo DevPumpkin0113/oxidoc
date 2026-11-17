@@ -12,6 +12,7 @@ import {
   type DragSource,
 } from "../workspace/treeDrag";
 import styles from "./tree.module.css";
+import { moveWithLinks } from "../workbench/linkUpdates";
 
 const FOLDER_HOVER_DELAY_MS = 700;
 
@@ -110,18 +111,22 @@ export default function TreeDropTarget({
         endFileDrag();
         if (!matches) return;
         const details = event.currentTarget.parentElement;
-        void useWorkspace
-          .getState()
-          .moveFile(source.path, folderPath)
-          .then((moved) => {
-            if (moved) onMoved?.();
-            if (
-              moved &&
-              details instanceof HTMLDetailsElement &&
-              details.isConnected
-            )
-              details.open = true;
-          });
+        const name = source.path.split("/").pop() ?? source.path;
+        void moveWithLinks(
+          {
+            from: source.path,
+            to: folderPath ? `${folderPath}/${name}` : name,
+          },
+          () => useWorkspace.getState().moveFile(source.path, folderPath),
+        ).then((moved) => {
+          if (moved) onMoved?.();
+          if (
+            moved &&
+            details instanceof HTMLDetailsElement &&
+            details.isConnected
+          )
+            details.open = true;
+        });
       }}
     />
   );

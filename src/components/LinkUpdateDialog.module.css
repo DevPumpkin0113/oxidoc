@@ -1,0 +1,165 @@
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 48px);
+  padding: 22px 24px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 20px 70px #0008;
+  color: var(--text);
+}
+
+.header h2 {
+  margin: 0 0 10px;
+  font-size: calc(var(--ui-font-size, 13px) * 16 / 13);
+  font-weight: 500;
+}
+
+.header p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: calc(var(--ui-font-size, 13px) - 1px);
+  line-height: 1.6;
+}
+
+.header p > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header p > svg {
+  flex-shrink: 0;
+}
+
+.header .summary {
+  display: block;
+  color: var(--text);
+}
+
+.header .notice {
+  color: var(--muted);
+}
+
+.error {
+  display: flex;
+  gap: 7px;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 5px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: calc(var(--ui-font-size, 13px) - 1px);
+  overflow-wrap: anywhere;
+}
+
+.error > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.filesArea {
+  flex-shrink: 1;
+  min-height: 60px;
+  max-height: 200px;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.files {
+  max-height: 200px;
+  padding: 4px;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 6px;
+  border-radius: 4px;
+}
+
+.file[data-shown="true"] {
+  background: var(--hover);
+}
+
+.file input {
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.fileButton {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 6px;
+  text-align: left;
+}
+
+.fileButton > span:nth-child(2) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fileButton strong,
+.fileButton small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileButton strong {
+  font-size: calc(var(--ui-font-size, 13px) - 1px);
+  font-weight: 500;
+}
+
+.fileButton small {
+  color: var(--muted);
+  font-size: calc(var(--ui-font-size, 13px) - 3px);
+}
+
+.count {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--hover);
+  color: var(--muted);
+  font-size: calc(var(--ui-font-size, 13px) - 3px);
+}
+
+.file button:focus-visible,
+.file input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.diff {
+  display: flex;
+  flex-direction: column;
+  height: 240px;
+  min-height: 120px;
+  flex-shrink: 1;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+@media (max-height: 640px) {
+  .diff {
+    height: 150px;
+  }
+}

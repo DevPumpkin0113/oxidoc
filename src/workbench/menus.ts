@@ -5,6 +5,7 @@ import { workspaceApi, type Entry, type Project } from "../workspace/api";
 import { scopeMenu, type CommandTarget } from "../workspace/commands";
 import { isDirty, isDocumentUnder, useWorkspace } from "../workspace/store";
 import { copyText } from "../workspace/textContext";
+import { moveWithLinks } from "./linkUpdates";
 import {
   activateProject,
   closeDocuments,
@@ -63,10 +64,17 @@ async function pasteInto(parent: string) {
     name = result;
   }
   if (
-    workspace().clipboard === clipboard &&
-    workspace().project?.path === clipboard.root
+    workspace().clipboard !== clipboard ||
+    workspace().project?.path !== clipboard.root
   )
-    await workspace().pasteEntry(parent, name);
+    return;
+  const perform = () => workspace().pasteEntry(parent, name);
+  if (!clipboard.cut) {
+    await perform();
+    return;
+  }
+  const to = [parent, name ?? clipboard.entry.name].filter(Boolean).join("/");
+  await moveWithLinks({ from: clipboard.entry.path, to }, perform);
 }
 
 export function pasteAction(parent: string): MenuItem {
@@ -287,8 +295,12 @@ export function entryMenuItems(entry: Entry): MenuItem[] {
           initial: entry.name,
           input: true,
         });
-        if (name !== null && workspace().project?.path === root)
-          await workspace().renameEntry(entry.path, name);
+        if (name === null || workspace().project?.path !== root) return;
+        const parent = entry.path.split("/").slice(0, -1);
+        await moveWithLinks(
+          { from: entry.path, to: [...parent, name].join("/") },
+          () => workspace().renameEntry(entry.path, name),
+        );
       },
     },
     { type: "separator", id: "entry-trash" },

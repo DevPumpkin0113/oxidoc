@@ -70,6 +70,12 @@ export interface AdvancedApi {
     root: string,
     files: Replacement[],
   ) => Promise<ReplaceResult[]>;
+  /** Every Markdown file's text, for updating links after a move. */
+  markdownTexts: (root: string) => Promise<{
+    files: { path: string; text: string }[];
+    truncated: boolean;
+    skipped: number;
+  }>;
   index: (
     root: string,
   ) => Promise<{ entries: Entry[]; truncated: boolean; skipped: number }>;
@@ -151,6 +157,7 @@ export const workspaceApi: WorkspaceApi = {
     previewReplace: (root, query, replacement, options) =>
       invoke("preview_replace", { root, query, replacement, options }),
     applyReplace: (root, files) => invoke("apply_replace", { root, files }),
+    markdownTexts: (root) => invoke("markdown_texts", { root }),
     index: (root) => invoke("index_files", { root }),
     loadRecovery: (root) => invoke("load_recovery", { root }),
     saveRecovery: (root, documents) =>

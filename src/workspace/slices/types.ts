@@ -64,7 +64,7 @@ export interface FileSlice {
     name: string,
     directory: boolean,
   ) => Promise<void>;
-  renameEntry: (path: string, name: string) => Promise<void>;
+  renameEntry: (path: string, name: string) => Promise<boolean>;
   moveFile: (path: string, parent: string) => Promise<boolean>;
   trashEntry: (path: string) => Promise<void>;
 }

@@ -233,7 +233,9 @@ it("폴더·루트 드롭, 대상 강조와 드래그 종료 정리", async () =
   expect(root.className).not.toContain("treeDropTarget");
   fireEvent.dragStart(file, { dataTransfer });
   fireEvent.drop(root, { dataTransfer });
-  expect(moveFile).toHaveBeenLastCalledWith("source/a.md", "");
+  await waitFor(() =>
+    expect(moveFile).toHaveBeenLastCalledWith("source/a.md", ""),
+  );
 });
 it("외부 payload·다른 프로젝트·busy·브라우저 모드 이동 차단", () => {
   const moveFile = setup();

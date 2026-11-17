@@ -7,6 +7,7 @@ import type { EditorCommand } from "../components/MarkdownEditor";
 import type { Navigation, ScrollTarget } from "../components/MarkdownPreview";
 import type { UnsavedChoice } from "../components/UnsavedDialog";
 import type { SearchResults } from "../workspace/api";
+import type { LinkUpdateRequest } from "./linkUpdates";
 import {
   defaultSearchOptions,
   type SearchOptions,
@@ -44,6 +45,7 @@ export interface UiState {
   } | null;
   searchScope: { root: string; path: string } | null;
   search: SearchState;
+  linkUpdate: LinkUpdateRequest | null;
   command?: EditorCommand;
   navigation?: Navigation & { documentId: string };
   scrollTarget?: ScrollTarget & { documentId: string };
@@ -67,6 +69,7 @@ export const useUi = create<UiState>(() => ({
     showPatterns: false,
     revision: 0,
   },
+  linkUpdate: null,
   revealTarget: null,
   sampleNotice: true,
 }));
@@ -78,6 +81,7 @@ export const isModalOpen = (state: UiState) =>
     state.palette ||
     state.quickOpen ||
     state.replaceOpen ||
+    state.linkUpdate ||
     state.menu,
   );
 

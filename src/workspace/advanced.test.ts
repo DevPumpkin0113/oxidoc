@@ -12,6 +12,9 @@ function fixture() {
       .fn()
       .mockResolvedValue({ files: [], truncated: false, skipped: 0 }),
     applyReplace: vi.fn().mockResolvedValue([]),
+    markdownTexts: vi
+      .fn()
+      .mockResolvedValue({ files: [], truncated: false, skipped: 0 }),
     index: vi
       .fn()
       .mockResolvedValue({ entries: [], truncated: false, skipped: 0 }),

@@ -44,6 +44,7 @@ pub fn run() {
             workspace::save_pasted_image,
             workspace::preview_replace,
             workspace::apply_replace,
+            workspace::markdown_texts,
             workspace::load_recovery,
             workspace::save_recovery,
             workspace::entry_path,

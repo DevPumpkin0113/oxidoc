@@ -160,11 +160,12 @@ export function createFileSlice({
     },
     renameEntry: async (path, name) => {
       const target = ready();
-      if (!target) return;
-      await operate(undefined, async () => {
+      if (!target) return false;
+      return operate(false, async () => {
         const renamed = await target.advanced.rename(target.root, path, name);
         set((state) => movedState(state, path, renamed.path));
         await get().refresh();
+        return true;
       });
     },
     moveFile: async (path, parent) => {
