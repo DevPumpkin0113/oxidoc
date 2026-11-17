@@ -3,6 +3,7 @@ import { useState } from "react";
 import { visibleEntries } from "../workspace/documentTypes";
 import { FolderIcon, FileIcon } from "./FileIcon";
 import Icon from "./Icon";
+import { useShallow } from "zustand/react/shallow";
 import { useWorkspace, isDirty } from "../workspace/store";
 import styles from "../App.module.css";
 import type { Entry } from "../workspace/api";
@@ -97,7 +98,11 @@ export default function WorkspaceTree({
   const entries = useWorkspace((state) => state.tree[path]);
   const tree = useWorkspace((state) => state.tree);
   const view = useWorkspace((state) => state.layout.explorerView);
-  const documents = useWorkspace((state) => state.documents);
+  const dirtyIds = useWorkspace(
+    useShallow((state) =>
+      state.documents.filter(isDirty).map((document) => document.id),
+    ),
+  );
   const activeId = useWorkspace((state) => state.activeId);
   const busy = useWorkspace((state) => state.busy);
   const open = useWorkspace((state) => state.open);
@@ -165,9 +170,7 @@ export default function WorkspaceTree({
         >
           <FileIcon name={entry.name} />
           <span>{entry.name}</span>
-          {documents.some(
-            (document) => document.id === entry.path && isDirty(document),
-          ) ? (
+          {dirtyIds.includes(entry.path) ? (
             <span className={styles.dirtyDot} aria-label={t("변경 있음")}>
               ●
             </span>

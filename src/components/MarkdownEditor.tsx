@@ -68,14 +68,16 @@ export default function MarkdownEditor({
   onCommandHandled,
   onContextMenu,
 }: Props) {
-  const preferences = useSettings();
-  const theme = effectiveTheme(preferences);
-  const language = effectiveLanguage(preferences);
-  const fontSize = preferences.settings.editorFontSize;
+  const theme = useSettings(effectiveTheme);
+  const language = useSettings(effectiveLanguage);
+  const fontSize = useSettings((state) => state.settings.editorFontSize);
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const suppress = useRef(false);
   const updatingModel = useRef(false);
+  // Last content sent through onChange; skips copying the model when the
+  // prop is just that edit coming back.
+  const emitted = useRef<string | null>(null);
   const imagePasting = useRef(false);
   const frame = useRef(0);
   const callbacks = useRef({ onChange, onCursor, onScrollLine, onContextMenu });
@@ -181,9 +183,12 @@ export default function MarkdownEditor({
     });
     const stopLocalizing = localizeFindWidget(container.current, language);
     if (cached.view) instance.restoreViewState(cached.view);
+    emitted.current = null;
     const changes = instance.onDidChangeModelContent(() => {
-      if (!updatingModel.current)
-        callbacks.current.onChange(instance.getValue());
+      if (updatingModel.current) return;
+      const content = instance.getValue();
+      emitted.current = content;
+      callbacks.current.onChange(content);
     });
     const cursor = instance.onDidChangeCursorPosition((event) =>
       callbacks.current.onCursor(
@@ -232,12 +237,14 @@ export default function MarkdownEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, projectPath, language]);
   useEffect(() => {
+    if (value === emitted.current) return;
     const model = editor.current?.getModel();
     if (model && model.getValue() !== value) {
       // Monaco normalizes mixed line endings; loading props is not a user edit.
       updatingModel.current = true;
       try {
         model.setValue(value);
+        emitted.current = value;
       } finally {
         updatingModel.current = false;
       }

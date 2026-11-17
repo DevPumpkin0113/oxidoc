@@ -1,10 +1,7 @@
 import { translateError, t } from "./settings/i18n";
 import {
-  lazy,
   Suspense,
   useCallback,
-  useMemo,
-  useDeferredValue,
   useEffect,
   useEffectEvent,
   useRef,
@@ -49,6 +46,14 @@ import {
   type CommandTarget,
 } from "./workspace/commands";
 import { headings, type LinkTarget } from "./workspace/markdown";
+import {
+  CursorStatus,
+  DocumentEditor,
+  DocumentPreview,
+  OutlineList,
+} from "./components/DocumentPanes";
+import { useDocumentSummaries } from "./workspace/selectors";
+import { useShallow } from "zustand/react/shallow";
 import type { Navigation, ScrollTarget } from "./components/MarkdownPreview";
 import type { EditorCommand, EditorContext } from "./components/MarkdownEditor";
 import styles from "./App.module.css";
@@ -63,8 +68,6 @@ import {
 import { themeVariables } from "./settings/themes";
 import { copyText, inputMenu } from "./workspace/textContext";
 
-const MarkdownEditor = lazy(() => import("./components/MarkdownEditor"));
-const MarkdownPreview = lazy(() => import("./components/MarkdownPreview"));
 type Activity = "files" | "search" | "projects";
 type View = "edit" | "split" | "preview";
 export default function App() {
@@ -87,24 +90,28 @@ export default function App() {
     { id: "preview", label: t("미리보기"), icon: "preview" },
   ];
 
-  const preferences = useSettings();
+  const language = useSettings(effectiveLanguage);
+  const theme = useSettings(effectiveTheme);
+  const settingsInitialized = useSettings((state) => state.initialized);
+  const uiFontSize = useSettings((state) => state.settings.uiFontSize);
+  const previewFontSize = useSettings(
+    (state) => state.settings.previewFontSize,
+  );
+  const initializeSettings = useSettings((state) => state.initialize);
   const updatePhase = useUpdater((state) => state.phase);
   const updateVersion = useUpdater((state) => state.version);
-  const language = effectiveLanguage(preferences);
-  const theme = effectiveTheme(preferences);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const initializeSettings = preferences.initialize;
   useEffect(() => {
     void initializeSettings();
   }, [initializeSettings]);
   useEffect(() => {
-    if (!isTauri() || !preferences.initialized) return;
+    if (!isTauri() || !settingsInitialized) return;
     const timer = setTimeout(() => {
       if (useUpdater.getState().phase === "idle")
         void useUpdater.getState().check();
     }, 3000);
     return () => clearTimeout(timer);
-  }, [preferences.initialized]);
+  }, [settingsInitialized]);
   useEffect(() => {
     const root = document.documentElement;
     root.lang = language;
@@ -112,20 +119,9 @@ export default function App() {
     root.dataset.theme = theme.id;
     for (const [key, value] of Object.entries(themeVariables(theme)))
       root.style.setProperty(key, value);
-    root.style.setProperty(
-      "--ui-font-size",
-      `${preferences.settings.uiFontSize}px`,
-    );
-    root.style.setProperty(
-      "--preview-font-size",
-      `${preferences.settings.previewFontSize}px`,
-    );
-  }, [
-    language,
-    theme,
-    preferences.settings.uiFontSize,
-    preferences.settings.previewFontSize,
-  ]);
+    root.style.setProperty("--ui-font-size", `${uiFontSize}px`);
+    root.style.setProperty("--preview-font-size", `${previewFontSize}px`);
+  }, [language, theme, uiFontSize, previewFontSize]);
   useEffect(() => {
     const media = window.matchMedia?.("(prefers-color-scheme: dark)");
     const changed = () =>
@@ -142,8 +138,8 @@ export default function App() {
       window.removeEventListener("focus", locale);
     };
   }, []);
+  const documents = useDocumentSummaries();
   const {
-    documents,
     activeId,
     project,
     projects,
@@ -152,13 +148,28 @@ export default function App() {
     desktop,
     initialize,
     save,
-    edit,
     open,
     close,
     clearError,
     recoveryCandidates,
     recoveryError,
-  } = useWorkspace();
+  } = useWorkspace(
+    useShallow((state) => ({
+      activeId: state.activeId,
+      project: state.project,
+      projects: state.projects,
+      busy: state.busy,
+      error: state.error,
+      desktop: state.desktop,
+      initialize: state.initialize,
+      save: state.save,
+      open: state.open,
+      close: state.close,
+      clearError: state.clearError,
+      recoveryCandidates: state.recoveryCandidates,
+      recoveryError: state.recoveryError,
+    })),
+  );
   const layout = useWorkspace((state) => state.layout);
   const activity = layout.activity,
     sidebar = layout.sidebar,
@@ -210,7 +221,6 @@ export default function App() {
     ScrollTarget & { documentId: string }
   >();
   const modalOpen = useRef(false);
-  const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const [sampleNotice, setSampleNotice] = useState(true);
   const [confirmation, setConfirmation] = useState<{
     names: string[];
@@ -234,14 +244,8 @@ export default function App() {
       ? project.name
       : (project?.path.split(/[\\/]/).filter(Boolean).pop() ?? project?.name);
   const openTabs = documents.map((document) => document.id);
-  const deferredContent = useDeferredValue(activeDocument?.content ?? "");
-  const outlineHeadings = useMemo(
-    () =>
-      isMermaidFile(activeDocument?.id ?? "") ? [] : headings(deferredContent),
-    [deferredContent, activeDocument?.id],
-  );
   const dirty = (id: string) =>
-    documents.some((document) => document.id === id && isDirty(document));
+    documents.some((document) => document.id === id && document.dirty);
 
   useEffect(() => {
     void initialize(isTauri());
@@ -292,13 +296,17 @@ export default function App() {
       setActivity("files");
       return;
     }
-    if (await confirmDocuments(documents))
+    if (await confirmDocuments(useWorkspace.getState().documents))
       await useWorkspace.getState().activate(selected);
   }
   async function closeDocument(id: string) {
     if (busy) return;
     if (
-      await confirmDocuments(documents.filter((document) => document.id === id))
+      await confirmDocuments(
+        useWorkspace
+          .getState()
+          .documents.filter((document) => document.id === id),
+      )
     )
       close(id);
   }
@@ -888,7 +896,7 @@ export default function App() {
             run: async () => {
               if (
                 project?.path === item.path &&
-                !(await confirmDocuments(documents))
+                !(await confirmDocuments(useWorkspace.getState().documents))
               )
                 return;
               await useWorkspace.getState().relocateProject(item.path);
@@ -902,7 +910,7 @@ export default function App() {
             run: async () => {
               if (
                 project?.path === item.path &&
-                !(await confirmDocuments(documents))
+                !(await confirmDocuments(useWorkspace.getState().documents))
               )
                 return;
               const confirm = await requestAction({
@@ -1828,7 +1836,7 @@ export default function App() {
                       </button>
                       <button
                         className={styles.saveButton}
-                        disabled={busy || !desktop || !isDirty(activeDocument)}
+                        disabled={busy || !desktop || !activeDocument.dirty}
                         onClick={() => runAppCommand("save")}
                         title={t("저장 (Ctrl S)")}
                       >
@@ -1856,16 +1864,16 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                  {activeDocument.diskContent !== undefined ? (
+                  {activeDocument.disk !== undefined ? (
                     <div className={styles.externalNotice} role="status">
                       <span>
                         {t(
-                          activeDocument.diskContent === null
+                          activeDocument.disk === null
                             ? "파일이 삭제되었거나 읽을 수 없습니다. 편집 내용은 유지됩니다."
                             : "파일이 외부에서 변경되었습니다.",
                         )}
                       </span>
-                      {typeof activeDocument.diskContent === "string" ? (
+                      {activeDocument.disk === "changed" ? (
                         <>
                           <button
                             disabled={busy}
@@ -1929,7 +1937,7 @@ export default function App() {
                                 </div>
                               }
                             >
-                              <MarkdownEditor
+                              <DocumentEditor
                                 onContextMenu={manageEditor}
                                 documentId={activeDocument.id}
                                 projectPath={project?.path}
@@ -1949,17 +1957,10 @@ export default function App() {
                                 onScrollLine={(line, edge) =>
                                   scroll("editor", line, edge)
                                 }
-                                value={activeDocument.content}
                                 readOnly={
                                   busy ||
                                   recoveryCandidates.length > 0 ||
                                   Boolean(recoveryError)
-                                }
-                                onChange={(content) =>
-                                  edit(activeDocument.id, content)
-                                }
-                                onCursor={(line, column) =>
-                                  setCursor({ line, column })
                                 }
                               />
                             </Suspense>
@@ -1985,8 +1986,7 @@ export default function App() {
                               </div>
                             }
                           >
-                            <MarkdownPreview
-                              content={deferredContent}
+                            <DocumentPreview
                               documentPath={activeDocument.id}
                               root={project?.path}
                               desktop={desktop}
@@ -2027,27 +2027,17 @@ export default function App() {
                             <Icon name="close" size={14} />
                           </button>
                         </div>
-                        {outlineHeadings.map((heading) => (
-                          <button
-                            key={heading.id}
-                            style={{
-                              paddingLeft: 10 + (heading.depth - 1) * 10,
-                            }}
-                            onClick={() =>
-                              setNavigation({
-                                documentId: activeDocument.id,
-                                line: heading.line,
-                                column: 1,
-                                token: Date.now(),
-                              })
-                            }
-                          >
-                            {heading.title}
-                          </button>
-                        ))}
-                        {!outlineHeadings.length ? (
-                          <p>{t("제목이 없습니다.")}</p>
-                        ) : null}
+                        <OutlineList
+                          documentId={activeDocument.id}
+                          onSelect={(line) =>
+                            setNavigation({
+                              documentId: activeDocument.id,
+                              line,
+                              column: 1,
+                              token: Date.now(),
+                            })
+                          }
+                        />
                       </aside>
                     ) : null}
                   </div>
@@ -2134,7 +2124,7 @@ export default function App() {
               <Icon name="projects" size={13} />
               {project?.name ?? t("프로젝트 없음")}
             </span>
-            {busy || documents.some(isDirty) ? (
+            {busy || documents.some((document) => document.dirty) ? (
               <span className={styles.statusMessage}>
                 <Icon name="check" size={12} />
                 {busy ? t("처리 중…") : t("저장하지 않은 변경 있음")}
@@ -2155,7 +2145,7 @@ export default function App() {
             ) : null}
             {activeDocument ? (
               <>
-                <span>{t("줄 {0}, 열 {1}", cursor.line, cursor.column)}</span>
+                <CursorStatus />
                 <span className={styles.optionalStatus}>UTF-8</span>
                 <span className={styles.optionalStatus}>{t("공백: 2")}</span>
                 <span>

@@ -1,5 +1,6 @@
 import { t } from "../settings/i18n";
 import { useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useWorkspace } from "../workspace/store";
 import type { Project } from "../workspace/api";
 import Icon from "./Icon";
@@ -21,7 +22,17 @@ export default function ProjectManager({
     initialized,
     initialize,
     updateProject,
-  } = useWorkspace();
+  } = useWorkspace(
+    useShallow((state) => ({
+      projects: state.projects,
+      project: state.project,
+      busy: state.busy,
+      desktop: state.desktop,
+      initialized: state.initialized,
+      initialize: state.initialize,
+      updateProject: state.updateProject,
+    })),
+  );
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState("");
   const [favorites, setFavorites] = useState(false);
