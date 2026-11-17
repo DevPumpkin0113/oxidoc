@@ -8,19 +8,19 @@
 
 ## 기술 구성
 
-| 영역              | 기술                                         | 용도                                         |
-| ----------------- | -------------------------------------------- | -------------------------------------------- |
-| 데스크톱 앱       | Tauri 2                                      | 창 관리·파일 접근·설치 패키지·업데이트       |
-| UI                | React + TypeScript                           | 탐색기·탭·프로젝트·명령 팔레트               |
-| 개발·빌드         | Vite                                         | 프런트엔드 개발 서버 및 빌드                 |
-| 편집기            | Monaco Editor                                | Markdown 편집·구문 강조·찾기·바꾸기          |
-| Markdown 미리보기 | react-markdown + remark-gfm                  | 제목·목록·표·체크박스 렌더링                 |
-| 다이어그램        | Mermaid + DOMPurify                          | 지연 로딩 렌더링·정제된 SVG 이미지 미리보기  |
-| 상태 관리         | Zustand                                      | 열린 탭·활성 프로젝트·레이아웃·설정 상태     |
-| 로컬 저장         | Rust JSON·Tauri Store                        | 프로젝트 목록·즐겨찾기·설정·세션             |
-| 파일 처리·검색    | Rust 명령                                    | 파일 입출력·경로 검증·프로젝트 검색          |
-| 스타일            | CSS Modules + CSS 변수                       | 컴포넌트별 모듈, 공용 tree·dialog·panel 모듈 |
-| 검증              | Vitest + React Testing Library / Rust 테스트 | UI 동작 및 파일 처리 검증                    |
+| 영역              | 기술                                                      | 용도                                         |
+| ----------------- | --------------------------------------------------------- | -------------------------------------------- |
+| 데스크톱 앱       | Tauri 2                                                   | 창 관리·파일 접근·설치 패키지·업데이트       |
+| UI                | React + TypeScript                                        | 탐색기·탭·프로젝트·명령 팔레트               |
+| 개발·빌드         | Vite                                                      | 프런트엔드 개발 서버 및 빌드                 |
+| 편집기            | Monaco Editor                                             | Markdown 편집·구문 강조·찾기·바꾸기          |
+| Markdown 미리보기 | react-markdown + remark-gfm (코드 강조는 Monaco colorize) | 제목·목록·표·체크박스 렌더링                 |
+| 다이어그램        | Mermaid + DOMPurify                                       | 지연 로딩 렌더링·정제된 SVG 이미지 미리보기  |
+| 상태 관리         | Zustand                                                   | 열린 탭·활성 프로젝트·레이아웃·설정 상태     |
+| 로컬 저장         | Rust JSON·Tauri Store                                     | 프로젝트 목록·즐겨찾기·설정·세션             |
+| 파일 처리·검색    | Rust 명령                                                 | 파일 입출력·경로 검증·프로젝트 검색          |
+| 스타일            | CSS Modules + CSS 변수                                    | 컴포넌트별 모듈, 공용 tree·dialog·panel 모듈 |
+| 검증              | Vitest + React Testing Library / Rust 테스트              | UI 동작 및 파일 처리 검증                    |
 
 ## 역할 분담
 

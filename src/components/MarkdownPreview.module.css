@@ -215,3 +215,8 @@
 .preview pre code {
   font-size: inherit;
 }
+
+/* Monaco colorizer output: token classes carry the editor theme colours. */
+.highlighted {
+  display: block;
+}

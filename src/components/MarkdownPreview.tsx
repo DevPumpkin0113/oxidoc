@@ -25,6 +25,8 @@ import {
 } from "../workspace/markdown";
 import styles from "./MarkdownPreview.module.css";
 import MermaidDiagram from "./MermaidDiagram";
+import { effectiveTheme, useSettings } from "../settings/store";
+import { cachedHighlight, highlightCode } from "../workspace/codeHighlight";
 import ScrollArea from "./ScrollArea";
 import { isMermaidFile } from "../workspace/documentTypes";
 import {
@@ -166,31 +168,70 @@ function PreviewCodeBlock({
 }) {
   const code = node?.children?.[0];
   const classes = code?.properties?.className;
-  if (
-    code?.tagName === "code" &&
-    Array.isArray(classes) &&
-    classes.includes("language-mermaid")
-  ) {
-    return (
-      <MermaidDiagram
-        line={node?.position?.start.line}
-        source={
-          code.children
-            ?.map((child) => child.value ?? "")
-            .join("")
-            .replace(/\n$/, "") ?? ""
-        }
-      />
-    );
-  }
+  const language =
+    code?.tagName === "code" && Array.isArray(classes)
+      ? (classes
+          .find(
+            (name): name is string =>
+              typeof name === "string" && name.startsWith("language-"),
+          )
+          ?.slice("language-".length) ?? "")
+      : "";
+  const source =
+    code?.children
+      ?.map((child) => child.value ?? "")
+      .join("")
+      .replace(/\n$/, "") ?? "";
+  if (language === "mermaid")
+    return <MermaidDiagram line={node?.position?.start.line} source={source} />;
   return (
     <ScrollArea
       as="pre"
       axis="x"
       boxProps={{ "data-source-line": node?.position?.start.line }}
     >
-      {children}
+      {language ? (
+        <HighlightedCode language={language} source={source}>
+          {children}
+        </HighlightedCode>
+      ) : (
+        children
+      )}
     </ScrollArea>
+  );
+}
+
+/** Code shown plain first, then with the editor's colours once highlighted. */
+function HighlightedCode({
+  language,
+  source,
+  children,
+}: {
+  language: string;
+  source: string;
+  children?: React.ReactNode;
+}) {
+  const theme = useSettings(effectiveTheme);
+  const cached = cachedHighlight(source, language, theme);
+  const key = JSON.stringify([theme.id, language, source]);
+  const [result, setResult] = useState<{ key: string; html: string | null }>();
+  useEffect(() => {
+    if (cached !== undefined) return;
+    let active = true;
+    void highlightCode(source, language, theme).then((html) => {
+      if (active) setResult({ key, html });
+    });
+    return () => {
+      active = false;
+    };
+  }, [cached, key, language, source, theme]);
+  const html = cached ?? (result?.key === key ? result.html : null);
+  if (!html) return children;
+  return (
+    <code
+      className={`language-${language} ${styles.highlighted}`}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
 const previewComponents = {
