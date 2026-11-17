@@ -16,6 +16,32 @@ function fixture() {
 }
 
 describe("실제 작업 공간 상태", () => {
+  it("새로고침 중 펼친 폴더 유지, 같은 폴더 동시 펼침은 한 번만 조회", async () => {
+    const { store, project, api } = fixture();
+    const folder = { name: "docs", path: "docs", isDirectory: true };
+    const child = { name: "a.md", path: "docs/a.md", isDirectory: false };
+    vi.mocked(api.entries).mockImplementation(async (_root, path) =>
+      path === "docs" ? [child] : [folder],
+    );
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    let finishRoot!: (entries: (typeof folder)[]) => void;
+    vi.mocked(api.entries).mockImplementationOnce(
+      () => new Promise((resolve) => (finishRoot = resolve)),
+    );
+    const refreshing = store.getState().refresh();
+    await Promise.all([
+      store.getState().expand("docs"),
+      store.getState().expand("docs"),
+    ]);
+    expect(
+      vi.mocked(api.entries).mock.calls.filter(([, path]) => path === "docs"),
+    ).toHaveLength(1);
+    finishRoot([folder]);
+    await refreshing;
+    expect(store.getState().tree.docs).toEqual([child]);
+    expect(store.getState().tree[""]).toEqual([folder]);
+  });
   it("목록 로딩 실패 후 재시도 가능, 재생성한 상태에서도 저장된 즐겨찾기 복원", async () => {
     const { store, api, project } = fixture();
     vi.mocked(api.projects).mockRejectedValueOnce(Error("load failed"));

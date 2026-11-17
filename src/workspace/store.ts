@@ -148,6 +148,9 @@ const documentFrom = (path: string, content: string): Document => ({
   savedContent: content,
 });
 export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
+  // In-flight folder loads, keyed by generation and path, so repeated
+  // expand calls share one request.
+  const expanding = new Map<string, Promise<void>>();
   let persistQueue: Promise<void> = Promise.resolve();
   let recoveryQueue: Promise<void> = Promise.resolve();
   let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -598,16 +601,23 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
         set({ busy: false });
       }
     },
-    expand: async (path) => {
+    expand: (path) => {
       const { project, tree, desktop, generation } = get();
-      if (!desktop || !project || tree[path]) return;
-      try {
-        const entries = await api.entries(project.path, path);
-        if (get().generation === generation)
-          set((state) => ({ tree: { ...state.tree, [path]: entries } }));
-      } catch (error) {
-        if (get().generation === generation) set({ error: String(error) });
-      }
+      if (!desktop || !project || tree[path]) return Promise.resolve();
+      const key = `${generation} ${path}`;
+      const pending = expanding.get(key);
+      if (pending) return pending;
+      const task = (async () => {
+        try {
+          const entries = await api.entries(project.path, path);
+          if (get().generation === generation)
+            set((state) => ({ tree: { ...state.tree, [path]: entries } }));
+        } catch (error) {
+          if (get().generation === generation) set({ error: String(error) });
+        }
+      })().finally(() => expanding.delete(key));
+      expanding.set(key, task);
+      return task;
     },
     open: async (entry) => {
       const { project, documents, desktop } = get();
@@ -813,7 +823,16 @@ export function createWorkspaceStore(api: WorkspaceApi = workspaceApi) {
           }
         }
       }
-      if (get().generation === generation) set({ tree: fresh });
+      if (get().generation === generation)
+        set((state) => ({
+          tree: {
+            ...fresh,
+            // Folders expanded while this refresh was reading stay loaded.
+            ...Object.fromEntries(
+              Object.entries(state.tree).filter(([path]) => !(path in tree)),
+            ),
+          },
+        }));
     },
     createEntry: async (parent, name, directory) => {
       const { project, desktop, busy } = get();

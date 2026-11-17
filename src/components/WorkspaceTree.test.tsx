@@ -257,3 +257,28 @@ it("외부 payload·다른 프로젝트·busy·브라우저 모드 이동 차단
   fireEvent.drop(target, { dataTransfer });
   expect(moveFile).not.toHaveBeenCalled();
 });
+it("열린 폴더의 항목이 새로고침 중 사라지면 다시 불러옴", async () => {
+  setup();
+  const expand = vi.mocked(useWorkspace.getState().expand);
+  const target = screen.getByText("target").closest("details")!;
+  target.open = true;
+  fireEvent(target, new Event("toggle"));
+  await waitFor(() => expect(expand).toHaveBeenCalledWith("target"));
+  act(() =>
+    useWorkspace.setState((state) => ({
+      tree: {
+        ...state.tree,
+        target: [{ name: "b.md", path: "target/b.md", isDirectory: false }],
+      },
+    })),
+  );
+  expand.mockClear();
+  act(() =>
+    useWorkspace.setState((state) => {
+      const tree = { ...state.tree };
+      delete tree.target;
+      return { tree };
+    }),
+  );
+  await waitFor(() => expect(expand).toHaveBeenCalledWith("target"));
+});

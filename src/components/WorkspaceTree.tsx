@@ -1,5 +1,5 @@
 import { t } from "../settings/i18n";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { visibleEntries } from "../workspace/documentTypes";
 import { FolderIcon, FileIcon } from "./FileIcon";
 import Icon from "./Icon";
@@ -29,7 +29,13 @@ function FolderRow({
   const expand = useWorkspace((state) => state.expand);
   const desktop = useWorkspace((state) => state.desktop);
   const busy = useWorkspace((state) => state.busy);
+  const generation = useWorkspace((state) => state.generation);
   const [opened, setOpened] = useState(false);
+  // Reload whenever an open folder has no entries, including after a refresh
+  // or a file operation dropped a load that was still in flight.
+  useEffect(() => {
+    if (opened && !children) void expand(entry.path);
+  }, [opened, children, expand, entry.path, generation]);
   const empty = children ? children.length === 0 : entry.hasChildren === false;
   const header = (
     <TreeDropTarget
@@ -70,7 +76,6 @@ function FolderRow({
       onToggle={(event) => {
         if (event.target !== event.currentTarget) return;
         setOpened(event.currentTarget.open);
-        if (event.currentTarget.open) void expand(entry.path);
       }}
     >
       {header}
