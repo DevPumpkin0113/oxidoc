@@ -1,58 +1,61 @@
-# Oxidoc 기술 스택
-
-확정일: 2026-11-07 · 관련 작업: W001
+# 기술 스택과 구조
 
 ## 제품 범위
 
-- VS Code 스타일 UI 기반 로컬 Markdown 에디터
+- VS Code 스타일 UI 기반 로컬 Markdown 에디터, Windows 우선
 - 기존 프로젝트 폴더 등록·검색·전환 중심 프로젝트 관리
-- Windows 우선 지원
-- 프로젝트 템플릿 기능 제외
-- 2026-11-10 W083: 기존 Mermaid 제외 결정을 변경, Markdown mermaid 블록 및 mmd/mermaid 독립 문서 지원. 프로젝트 문서 안의 흐름도 확인 요구 반영.
+- 제외: 프로젝트 템플릿, VS Code 확장 실행 호환
 
 ## 기술 구성
 
-| 영역                 | 선정 기술                                    | 적용 용도                                   |
-| -------------------- | -------------------------------------------- | ------------------------------------------- |
-| 데스크톱 앱          | Tauri 2                                      | 창 관리·파일 접근·설치 패키지               |
-| UI                   | React + TypeScript                           | 탐색기·탭·프로젝트·명령 팔레트              |
-| 개발·빌드            | Vite                                         | 프런트엔드 개발 서버 및 빌드                |
-| 편집기               | Monaco Editor                                | Markdown 편집·구문 강조·찾기·바꾸기         |
-| Markdown 미리보기    | react-markdown + remark-gfm                  | 제목·목록·표·체크박스 렌더링                |
-| 다이어그램           | Mermaid + DOMPurify                          | 지연 로딩 렌더링·정제된 SVG 이미지 미리보기 |
-| 상태 관리            | Zustand                                      | 열린 탭·활성 프로젝트·레이아웃 상태         |
-| 로컬 메타데이터 저장 | Rust JSON·Tauri Store                        | 프로젝트 목록·즐겨찾기·설정·세션            |
-| 파일 처리·검색       | Tauri 파일 API + Rust                        | 파일 입출력·경로 처리·프로젝트 검색         |
-| 스타일               | CSS Modules + CSS 변수                       | VS Code 스타일 배치 및 테마                 |
-| 검증                 | Vitest + React Testing Library / Rust 테스트 | UI 동작 및 파일 처리 검증                   |
+| 영역              | 기술                                         | 용도                                        |
+| ----------------- | -------------------------------------------- | ------------------------------------------- |
+| 데스크톱 앱       | Tauri 2                                      | 창 관리·파일 접근·설치 패키지·업데이트      |
+| UI                | React + TypeScript                           | 탐색기·탭·프로젝트·명령 팔레트              |
+| 개발·빌드         | Vite                                         | 프런트엔드 개발 서버 및 빌드                |
+| 편집기            | Monaco Editor                                | Markdown 편집·구문 강조·찾기·바꾸기         |
+| Markdown 미리보기 | react-markdown + remark-gfm                  | 제목·목록·표·체크박스 렌더링                |
+| 다이어그램        | Mermaid + DOMPurify                          | 지연 로딩 렌더링·정제된 SVG 이미지 미리보기 |
+| 상태 관리         | Zustand                                      | 열린 탭·활성 프로젝트·레이아웃·설정 상태    |
+| 로컬 저장         | Rust JSON·Tauri Store                        | 프로젝트 목록·즐겨찾기·설정·세션            |
+| 파일 처리·검색    | Rust 명령                                    | 파일 입출력·경로 검증·프로젝트 검색         |
+| 스타일            | CSS Modules + CSS 변수                       | VS Code 스타일 배치 및 테마 토큰            |
+| 검증              | Vitest + React Testing Library / Rust 테스트 | UI 동작 및 파일 처리 검증                   |
 
 ## 역할 분담
 
-- React·TypeScript: UI와 사용자 상호작용
-- Monaco: 문서 편집 모델과 편집 이력
-- Zustand: 화면과 작업 공간 상태 관리, 입력마다 문서 전체 복제 방지
-- Tauri Store: 프로젝트 메타데이터와 설정 영속화, 문서 본문은 실제 파일로 관리
-- Tauri 파일 API·Rust: 허용된 프로젝트 경로 접근, 파일 처리 및 검색
-- Markdown 미리보기: 원시 HTML 초기 비활성화, 향후 허용 시 정제 처리 추가
+- React·Zustand: UI와 작업 공간 상태. 커서·대화상자는 React 상태, 입력마다 문서 전체를 복제하지 않는다.
+- Monaco: 문서 편집 모델과 실행 취소 이력. Monaco와 렌더러는 지연 로딩.
+- Rust: 등록된 프로젝트 경로와 실제 대상 경로를 검증한 파일 처리·검색·설정 값 검증. 프런트엔드에 범용 파일·설정 저장 권한을 주지 않는다.
+- 문서 본문은 실제 파일로만 관리하고, 앱 데이터에는 메타데이터·설정·세션·복구 임시본만 둔다.
 
-## 선정 근거 및 대안
+## 저장 위치
 
-- Tauri: 로컬 파일 중심 데스크톱 앱 구성에 적합한 시스템 WebView 활용
-- Monaco: VS Code와 익숙한 편집 경험 제공, 앱 레이아웃은 별도 구현
-- Electron 대안 검토: TypeScript·Node.js 중심 개발의 장점 대비 런타임 포함 배포를 고려해 Tauri 선정
-- 초기 메타데이터 저장: 설정·세션은 Tauri Store 활용. W054에서 프로젝트 등록·즐겨찾기는 기존 AppData `projects.json` 형식·위치를 유지하면서 Rust의 명시적 읽기·검증·원자적 교체로 변경. Store 초기 로드 실패가 빈 캐시로 처리되는 경로와 종료 시 캐시 저장 의존 제거. 별도 데이터베이스 도입은 검색·데이터 규모 요구에 따라 재검토.
+앱 데이터 폴더: Windows `%APPDATA%\com.oxidoc.desktop\`
 
-## 구현 확인 항목
+| 데이터                   | 저장 방식                                            |
+| ------------------------ | ---------------------------------------------------- |
+| 프로젝트·즐겨찾기        | `projects.json`, Rust 읽기·검증·원자적 교체          |
+| 설정                     | Tauri Store `settings.json`, 프로젝트 세션과 분리    |
+| 세션(열린 문서·레이아웃) | Tauri Store                                          |
+| 미저장 복구본            | 프로젝트별 임시본, 원자적 저장                       |
+| 브라우저 미리보기 설정   | `localStorage` `oxidoc.settings.v1`, 데스크톱과 별도 |
 
-- Windows WebView2 및 Rust 개발 환경 구성
-- 의존성 버전 고정과 개발·빌드·검증 명령 기록
-- 기본 창 실행과 Monaco·Markdown 미리보기 연동 검증
-- VS Code 확장 실행 호환은 현재 범위 외
+- 설정 저장은 요청 순서대로 직렬화하고, 저장 실패 시 Store 메모리 값을 복구한다. 앱 종료 전 저장 큐 완료를 기다린다.
+- 배포 식별자 `com.oxidoc.desktop`은 초기 개발용이며 바꾸면 기존 데이터 위치가 달라진다.
 
-## 공식 참고 자료
+## 보안 경계
 
-- [Tauri WebView](https://v2.tauri.app/reference/webview-versions/)
-- [Tauri 파일 시스템](https://v2.tauri.app/plugin/file-system/)
-- [Tauri Store](https://v2.tauri.app/plugin/store/)
-- [Monaco Editor](https://github.com/microsoft/monaco-editor)
-- [react-markdown](https://github.com/remarkjs/react-markdown)
+- 미리보기: 원시 HTML·원격 이미지·SVG 이미지 차단. 등록 경로 내부 래스터 이미지와 상대 문서 링크만 허용, HTTP/HTTPS 링크는 기본 브라우저로 연다.
+- Mermaid: 원시 SVG 삽입 대신 DOMPurify로 정제한 SVG 이미지로 격리, 외부 링크·HTML 동작 비활성.
+- 타이틀바 제어 권한은 해당 Tauri 창 명령으로 제한.
+- 업데이트: 앱에 포함된 공개 키로 서명을 검증한 뒤에만 설치. 비밀 키는 Git 제외 `.local/keys/oxidoc-updater.key`에 두고 별도 백업한다.
+
+## 선정 근거
+
+- Tauri: 시스템 WebView를 쓰는 로컬 파일 중심 앱. Electron은 TypeScript·Node.js 중심 개발이 편하지만 런타임을 포함한 배포 크기 때문에 제외.
+- Monaco: VS Code와 같은 편집 경험. 앱 레이아웃은 별도 구현.
+- 프로젝트 목록: Tauri Store는 초기 로드 실패가 빈 목록으로 처리될 수 있어, 기존 `projects.json` 위치·형식을 유지한 채 Rust의 명시적 검증·원자적 저장으로 바꿨다. 데이터베이스는 검색·데이터 규모 요구가 생기면 재검토.
+- Mermaid: 초기에는 제외했으나 프로젝트 문서 안의 흐름도 확인 요구로 Markdown 블록과 `.mmd`·`.mermaid` 독립 문서를 지원.
+- 업데이트: 자체 설치 실행기 대신 Tauri 공식 updater 플러그인과 GitHub 정식 릴리즈 채널. 네이티브 서명 검증과 설치 방식을 그대로 쓸 수 있다.
+- 전이 의존성: `package.json` `overrides`로 DOMPurify·minimatch를 고정(초기 의존성 감사 취약점 대응). 상위 패키지 갱신 시 재검토.

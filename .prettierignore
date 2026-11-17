@@ -5,7 +5,6 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 src-tauri/Cargo.lock
-docs/worktree/
-worktree.json
 AGENTS.md
-docs/plan/WORKTREE.md
+CLAUDE.md
+.agent/

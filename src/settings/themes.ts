@@ -11,7 +11,7 @@ export interface Theme {
   keyword: string;
   string: string;
 }
-// Curated palette adaptations; sources and attribution in docs/plan/SETTINGS.md.
+// Curated palette adaptations; sources and attribution in docs/plan/UI.md (테마).
 export const themes: Theme[] = [
   {
     id: "light-modern",
