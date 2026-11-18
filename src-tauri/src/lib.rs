@@ -1,3 +1,5 @@
+use tauri::Manager;
+
 #[derive(serde::Serialize)]
 struct RuntimeInfo {
     version: &'static str,
@@ -17,6 +19,18 @@ fn runtime_info() -> RuntimeInfo {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Must be registered first: a second launch hands its file to this
+        // window instead of starting another process on the same app data.
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            if let Some(path) = workspace::launch_path(args, std::path::Path::new(&cwd)) {
+                workspace::queue_launch(app, path);
+            }
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -24,6 +38,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(workspace::RegistryGate(std::sync::Mutex::new(())))
         .manage(workspace::WatcherState(std::sync::Mutex::new(None)))
+        .manage(workspace::LaunchState::default())
+        .setup(|app| {
+            let cwd = std::env::current_dir().unwrap_or_default();
+            if let Some(path) = workspace::launch_path(std::env::args_os(), &cwd) {
+                workspace::queue_launch(app.handle(), path);
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             runtime_info,
             settings::load_settings,
@@ -62,7 +84,9 @@ pub fn run() {
             workspace::save_session,
             workspace::search_project,
             workspace::read_image,
-            workspace::open_external
+            workspace::open_external,
+            workspace::take_launch_request,
+            workspace::register_launch_folder
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Oxidoc");

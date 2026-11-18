@@ -135,6 +135,23 @@ export interface AdvancedApi {
   image: (root: string, path: string) => Promise<string>;
   external: (url: string) => Promise<void>;
 }
+/** A file the OS asked Oxidoc to open (file association or command line). */
+export type LaunchTarget =
+  | { kind: "project"; root: string; path: string; name: string }
+  | { kind: "outside"; folder: string; name: string };
+export interface LaunchApi {
+  /** Next waiting request, or null when none is left. */
+  take: () => Promise<LaunchTarget | null>;
+  /** Registers the folder of the last `outside` request. */
+  register: () => Promise<Project>;
+  /** Calls `onRequest` whenever another launch hands over a file. */
+  listen: (onRequest: () => void) => Promise<() => void>;
+}
+export const launchApi: LaunchApi = {
+  take: () => invoke("take_launch_request"),
+  register: () => invoke("register_launch_folder"),
+  listen: (onRequest) => listen("launch-request", onRequest),
+};
 export interface RecoveryDocument {
   path: string;
   content: string;

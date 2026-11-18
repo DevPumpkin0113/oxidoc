@@ -26,7 +26,8 @@ export interface ProjectSlice {
   projects: Project[];
   project: Project | null;
   sessions: Record<string, Session>;
-  initialize: (desktop: boolean) => Promise<void>;
+  /** `startProject` replaces the last-used project on startup. */
+  initialize: (desktop: boolean, startProject?: string) => Promise<void>;
   choose: () => Promise<Project | null>;
   activate: (project: Project) => Promise<boolean>;
   persist: () => Promise<void>;

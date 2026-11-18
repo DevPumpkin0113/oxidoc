@@ -12,6 +12,7 @@ mod advanced;
 mod cache;
 mod images;
 mod index;
+mod launch;
 mod links;
 mod monitor;
 mod query;
@@ -25,6 +26,7 @@ pub use advanced::*;
 pub use cache::*;
 pub use images::*;
 pub use index::*;
+pub use launch::*;
 pub use links::*;
 pub use monitor::*;
 pub use query::*;
@@ -207,33 +209,39 @@ pub async fn pick_project(app: AppHandle) -> Result<Option<Project>, String> {
         let Some(selected) = dialog.blocking_pick_folder() else {
             return Ok(None);
         };
-        let path = fs::canonicalize(selected.into_path().map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-        if !path.is_dir() {
-            return Err("프로젝트 폴더를 선택해 주세요.".into());
-        }
-        let project = Project {
-            name: path
-                .file_name()
-                .map(|s| s.to_string_lossy().into_owned())
-                .unwrap_or_else(|| path.display().to_string()),
-            path: path.to_string_lossy().into_owned(),
-            ..Project::default()
-        };
-        let gate = app.state::<RegistryGate>();
-        let _guard = gate.0.lock().map_err(|e| e.to_string())?;
-        let mut all = projects(&app)?;
-        if let Some(existing) = all.iter().find(|existing| {
-            advanced::path_key(&existing.path) == advanced::path_key(&project.path)
-        }) {
-            return Ok(Some(advanced::with_status(existing.clone())));
-        }
-        all.push(project.clone());
-        advanced::persist_projects(&app, &all)?;
-        Ok(Some(project))
+        register_folder(&app, &selected.into_path().map_err(|e| e.to_string())?).map(Some)
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Registers a folder the user chose through the OS (dialog or file launch);
+/// returns the existing entry when it is already registered.
+fn register_folder(app: &AppHandle, folder: &Path) -> Result<Project, String> {
+    let path = fs::canonicalize(folder).map_err(|e| e.to_string())?;
+    if !path.is_dir() {
+        return Err("프로젝트 폴더를 선택해 주세요.".into());
+    }
+    let project = Project {
+        name: path
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.display().to_string()),
+        path: path.to_string_lossy().into_owned(),
+        ..Project::default()
+    };
+    let gate = app.state::<RegistryGate>();
+    let _guard = gate.0.lock().map_err(|e| e.to_string())?;
+    let mut all = projects(app)?;
+    if let Some(existing) = all
+        .iter()
+        .find(|existing| advanced::path_key(&existing.path) == advanced::path_key(&project.path))
+    {
+        return Ok(advanced::with_status(existing.clone()));
+    }
+    all.push(project.clone());
+    advanced::persist_projects(app, &all)?;
+    Ok(project)
 }
 
 #[tauri::command]

@@ -65,7 +65,7 @@ export function createProjectSlice(context: SliceContext): ProjectSlice {
     projects: [],
     project: null,
     sessions: {},
-    initialize: async (desktop) => {
+    initialize: async (desktop, startProject) => {
       if (get().initialized) return;
       set({ initialized: true, desktop, busy: desktop, error: "" });
       if (!desktop) {
@@ -89,9 +89,10 @@ export function createProjectSlice(context: SliceContext): ProjectSlice {
         if (api.advanced) {
           const saved = record(await api.advanced.loadApp());
           set({ layout: parseLayout(saved.layout) });
-          const project = projects.find(
-            (project) => project.path === saved.lastProject,
-          );
+          // A file opened through the OS starts in its own project.
+          const project =
+            projects.find((project) => project.path === startProject) ??
+            projects.find((project) => project.path === saved.lastProject);
           set({ busy: false });
           if (project) {
             if (project.status && project.status !== "available") {

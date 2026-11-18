@@ -3,7 +3,7 @@ use base64::Engine;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri_plugin_opener::OpenerExt;
 
-async fn io<T: Send + 'static>(
+pub(super) async fn io<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(f)
@@ -726,7 +726,7 @@ fn explorer_target(root: &Path, path: &str) -> Result<PathBuf, String> {
     }
     Ok(path)
 }
-fn display_path(path: &Path) -> String {
+pub(super) fn display_path(path: &Path) -> String {
     let value = path.to_string_lossy();
     if let Some(unc) = value.strip_prefix(r"\\?\UNC\") {
         format!(r"\\{unc}")

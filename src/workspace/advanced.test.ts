@@ -420,6 +420,18 @@ describe("프로젝트·문서 상태 보존", () => {
     expect(store.getState().activeId).toBe("ok.md");
     expect(store.getState().error).toContain("gone.md");
   });
+  it("시작 프로젝트를 지정하면 마지막 프로젝트 대신 그 프로젝트로 시작", async () => {
+    const { store, project, api, advanced } = fixture();
+    const other = { name: "Other", path: "C:/other" };
+    vi.mocked(api.projects).mockResolvedValue([project, other]);
+    vi.mocked(advanced.loadApp).mockResolvedValue({
+      lastProject: project.path,
+    });
+    await store.getState().initialize(true, other.path);
+    expect(store.getState().project?.path).toBe(other.path);
+    expect(api.entries).toHaveBeenCalledWith(other.path, "");
+    expect(api.entries).not.toHaveBeenCalledWith(project.path, "");
+  });
   it("접근 불가 마지막 프로젝트는 열지 않고 매니저 표시", async () => {
     const { store, project, api, advanced } = fixture();
     vi.mocked(api.projects).mockResolvedValue([

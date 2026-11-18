@@ -13,6 +13,7 @@ import { useWorkspace } from "../workspace/store";
 import { blockExternalFileDrop } from "../workspace/treeDrag";
 import { confirmDocuments } from "./dialogs";
 import { handleContextMenu, handleKeydown } from "./globalEvents";
+import { startWorkspace } from "./launch";
 import { isModalOpen, useUi } from "./uiStore";
 
 const UPDATE_CHECK_DELAY_MS = 3000;
@@ -70,9 +71,7 @@ export function useWorkbench() {
   const desktop = useWorkspace((state) => state.desktop);
   const root = useWorkspace((state) => state.project?.path);
   const status = useWorkspace((state) => state.project?.status);
-  useEffect(() => {
-    void useWorkspace.getState().initialize(isTauri());
-  }, []);
+  useEffect(() => startWorkspace(isTauri()), []);
   useEffect(() => {
     if (desktop && root && (!status || status === "available"))
       return startWorkspaceMonitor(root);

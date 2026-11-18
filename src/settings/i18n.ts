@@ -465,6 +465,14 @@ export const english: Record<string, string> = {
   "프로젝트 폴더를 선택해 주세요.": "Select a project folder.",
   "프로젝트 목록 저장 실패": "Unable to save project registry",
   "유효하지 않은 설정 값입니다.": "Invalid settings value.",
+  "열려는 파일을 찾을 수 없습니다.": "The file to open was not found.",
+  "파일만 열 수 있습니다.": "Only files can be opened.",
+  "등록할 폴더가 없습니다.": "There is no folder to register.",
+  "등록된 프로젝트 밖의 파일입니다": "This file is outside your projects",
+  "{0}\n\n폴더를 프로젝트로 등록하고 열까요?\n{1}":
+    "{0}\n\nRegister its folder as a project and open it?\n{1}",
+  "폴더 등록 후 열기": "Register folder and open",
+  "파일을 열지 못했습니다": "Unable to open the file",
 };
 export function translate(
   text: string,
