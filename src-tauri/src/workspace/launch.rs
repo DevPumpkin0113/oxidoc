@@ -1,31 +1,32 @@
 //! Files opened through the OS: file association, "Open with" or the command line.
 //!
-//! Only a path the OS handed to this process can be opened or have its folder
-//! registered; the frontend never names the file, keeping the registered-path
-//! boundary intact.
+//! Files outside every registered project open in the External workspace
+//! (`EXTERNAL_ROOT`). Its documents are identified by absolute paths, and only
+//! the files the OS handed to this process (plus raster images under their
+//! folders, for the preview) can be accessed. The frontend never adds paths,
+//! keeping the registered-path boundary intact.
 use super::{Project, advanced, projects, register_folder};
 use serde::Serialize;
 use std::{
-    collections::VecDeque,
+    collections::{BTreeSet, VecDeque},
     ffi::OsString,
     fs,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     sync::Mutex,
 };
 use tauri::{AppHandle, Emitter, Manager};
 
 /// Event telling the frontend that a launch request is waiting.
 const LAUNCH_EVENT: &str = "launch-request";
+/// Root of the External workspace; never a valid folder path.
+pub const EXTERNAL_ROOT: &str = "external:";
 
 #[derive(Default)]
-pub struct LaunchState(Mutex<Launch>);
+pub struct LaunchState(Mutex<VecDeque<PathBuf>>);
 
+/// Canonical files opened through the OS outside every project, for this run.
 #[derive(Default)]
-struct Launch {
-    pending: VecDeque<PathBuf>,
-    /// Folder of the last request outside every project, which the user may register.
-    offered: Option<PathBuf>,
-}
+pub struct ExternalFiles(Mutex<BTreeSet<PathBuf>>);
 
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -37,9 +38,9 @@ pub enum LaunchTarget {
         path: String,
         name: String,
     },
-    /// No registered project contains the file.
+    /// No registered project contains the file; `path` is its External id.
     #[serde(rename_all = "camelCase")]
-    Outside { folder: String, name: String },
+    External { path: String, name: String },
 }
 
 /// The first non-flag argument after the executable, resolved against `cwd`.
@@ -58,24 +59,55 @@ where
 /// Queues a launched path and wakes the frontend.
 pub fn queue_launch(app: &AppHandle, path: PathBuf) {
     if let Some(state) = app.try_state::<LaunchState>()
-        && let Ok(mut launch) = state.0.lock()
+        && let Ok(mut pending) = state.0.lock()
     {
-        launch.pending.push_back(path);
+        pending.push_back(path);
     }
     let _ = app.emit(LAUNCH_EVENT, ());
 }
 
-/// Picks the innermost registered project containing the file.
-fn resolve(projects: &[Project], file: &Path) -> Result<(LaunchTarget, Option<PathBuf>), String> {
+/// The External id of a path: its display form with `/` separators.
+pub(super) fn external_id(path: &Path) -> String {
+    advanced::display_path(path).replace('\\', "/")
+}
+
+/// Resolves an External id to a canonical absolute path.
+pub(super) fn external_path(id: &str) -> Result<PathBuf, String> {
+    let path = Path::new(id);
+    if !path.is_absolute()
+        || path
+            .components()
+            .any(|part| matches!(part, Component::ParentDir | Component::CurDir))
+    {
+        return Err("프로젝트 외부 경로에는 접근할 수 없습니다.".into());
+    }
+    fs::canonicalize(path).map_err(|e| {
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        super::access_error(&e, &name)
+    })
+}
+
+/// Files opened in the External workspace during this run.
+pub(super) fn external_files(app: &AppHandle) -> BTreeSet<PathBuf> {
+    app.try_state::<ExternalFiles>()
+        .and_then(|state| state.0.lock().ok().map(|files| files.clone()))
+        .unwrap_or_default()
+}
+
+/// Folders holding External files, which list and preview their contents.
+pub(super) fn external_folders(files: &BTreeSet<PathBuf>) -> BTreeSet<PathBuf> {
+    files
+        .iter()
+        .filter_map(|file| file.parent().map(Path::to_path_buf))
+        .collect()
+}
+
+/// Picks the innermost registered project containing the file, if any.
+fn resolve(projects: &[Project], file: &Path) -> Result<Result<LaunchTarget, PathBuf>, String> {
     let file = fs::canonicalize(file).map_err(|_| "열려는 파일을 찾을 수 없습니다.".to_string())?;
     if !file.is_file() {
         return Err("파일만 열 수 있습니다.".into());
     }
-    let name = file
-        .file_name()
-        .ok_or("파일 이름이 없습니다.")?
-        .to_string_lossy()
-        .into_owned();
     let owner = projects
         .iter()
         .filter_map(|project| {
@@ -84,61 +116,87 @@ fn resolve(projects: &[Project], file: &Path) -> Result<(LaunchTarget, Option<Pa
             Some((project, root.components().count(), relative))
         })
         .max_by_key(|(_, depth, _)| *depth);
-    if let Some((project, _, relative)) = owner {
-        return Ok((
-            LaunchTarget::Project {
-                root: project.path.clone(),
-                path: relative.to_string_lossy().replace('\\', "/"),
-                name,
-            },
-            None,
-        ));
-    }
-    let folder = file.parent().ok_or("상위 폴더가 없습니다.")?.to_owned();
-    Ok((
-        LaunchTarget::Outside {
-            folder: advanced::display_path(&folder),
-            name,
-        },
-        Some(folder),
-    ))
+    Ok(match owner {
+        Some((project, _, relative)) => Ok(LaunchTarget::Project {
+            root: project.path.clone(),
+            path: relative.to_string_lossy().replace('\\', "/"),
+            name: file_name(&file),
+        }),
+        None => Err(file),
+    })
+}
+
+fn file_name(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+/// Adds a canonical file to the External workspace.
+fn grant(files: &ExternalFiles, file: PathBuf) -> Result<LaunchTarget, String> {
+    let target = LaunchTarget::External {
+        path: external_id(&file),
+        name: file_name(&file),
+    };
+    files.0.lock().map_err(|e| e.to_string())?.insert(file);
+    Ok(target)
 }
 
 #[tauri::command]
 pub async fn take_launch_request(app: AppHandle) -> Result<Option<LaunchTarget>, String> {
     advanced::io(move || {
-        let state = app.state::<LaunchState>();
-        let Some(file) = state
-            .0
-            .lock()
-            .map_err(|e| e.to_string())?
-            .pending
-            .pop_front()
-        else {
-            return Ok(None);
-        };
-        let resolved = resolve(&projects(&app)?, &file);
-        let mut launch = state.0.lock().map_err(|e| e.to_string())?;
-        launch.offered = None;
-        let (target, offered) = resolved?;
-        launch.offered = offered;
-        Ok(Some(target))
-    })
-    .await
-}
-
-/// Registers the folder offered by the last launch request outside every project.
-#[tauri::command]
-pub async fn register_launch_folder(app: AppHandle) -> Result<Project, String> {
-    advanced::io(move || {
-        let folder = app
+        let Some(file) = app
             .state::<LaunchState>()
             .0
             .lock()
             .map_err(|e| e.to_string())?
-            .offered
-            .take()
-            .ok_or("등록할 폴더가 없습니다.")?;
+            .pop_front()
+        else {
+            return Ok(None);
+        };
+        match resolve(&projects(&app)?, &file)? {
+            Ok(target) => Ok(Some(target)),
+            Err(file) => grant(&app.state::<ExternalFiles>(), file).map(Some),
+        }
+    })
+    .await
+}
+
+/// The file a link in an opened External document points to. Following the
+/// link is the user's choice, as with opening it from the OS.
+fn linked_file(files: &BTreeSet<PathBuf>, source: &str, target: &str) -> Result<PathBuf, String> {
+    if !files.contains(&external_path(source)?) {
+        return Err(super::unregistered_file(Path::new(source)));
+    }
+    let target = external_path(target)?;
+    if !target.is_file() {
+        return Err("파일만 열 수 있습니다.".into());
+    }
+    Ok(target)
+}
+
+/// Adds a file linked from an External document to External.
+#[tauri::command]
+pub async fn open_external_link(
+    app: AppHandle,
+    source: String,
+    target: String,
+) -> Result<LaunchTarget, String> {
+    advanced::io(move || {
+        let file = linked_file(&external_files(&app), &source, &target)?;
+        grant(&app.state::<ExternalFiles>(), file)
+    })
+    .await
+}
+
+/// Registers a folder of the External workspace as a project.
+#[tauri::command]
+pub async fn register_external_folder(app: AppHandle, folder: String) -> Result<Project, String> {
+    advanced::io(move || {
+        let folder = external_path(&folder)?;
+        if !external_folders(&external_files(&app)).contains(&folder) {
+            return Err("등록할 폴더가 없습니다.".into());
+        }
         register_folder(&app, &folder)
     })
     .await
@@ -172,35 +230,73 @@ mod tests {
     }
 
     #[test]
-    fn resolve_prefers_innermost_project_and_offers_outside_folder() {
+    fn resolve_prefers_innermost_project_and_collects_outside_files() {
         let directory = tempfile::tempdir().unwrap();
         let root = fs::canonicalize(directory.path()).unwrap();
         fs::create_dir_all(root.join("outer/inner/docs")).unwrap();
-        fs::create_dir(root.join("other")).unwrap();
+        fs::create_dir(root.join("one")).unwrap();
+        fs::create_dir(root.join("two")).unwrap();
         let file = root.join("outer/inner/docs/a.md");
         fs::write(&file, "# a").unwrap();
-        fs::write(root.join("other/b.md"), "# b").unwrap();
+        for path in ["one/b.md", "one/c.md", "two/d.md"] {
+            fs::write(root.join(path), "#").unwrap();
+        }
         let projects = [
             project(&root.join("outer")),
             project(&root.join("outer/inner")),
         ];
 
-        let (target, offered) = resolve(&projects, &file).unwrap();
         assert_eq!(
-            target,
-            LaunchTarget::Project {
+            resolve(&projects, &file).unwrap(),
+            Ok(LaunchTarget::Project {
                 root: projects[1].path.clone(),
                 path: "docs/a.md".into(),
                 name: "a.md".into(),
-            }
+            })
         );
-        assert_eq!(offered, None);
 
-        let (target, offered) = resolve(&projects, &root.join("other/b.md")).unwrap();
-        assert!(matches!(target, LaunchTarget::Outside { ref name, .. } if name == "b.md"));
-        assert_eq!(offered, Some(root.join("other")));
+        let files = ExternalFiles::default();
+        for path in ["one/b.md", "two/d.md", "one/c.md", "one/b.md"] {
+            let outside = resolve(&projects, &root.join(path)).unwrap().unwrap_err();
+            let target = grant(&files, outside).unwrap();
+            let LaunchTarget::External { path: id, .. } = target else {
+                panic!("expected an External target");
+            };
+            assert_eq!(external_path(&id).unwrap(), root.join(path));
+        }
+        let granted = files.0.lock().unwrap().clone();
+        assert_eq!(granted.len(), 3);
+        assert_eq!(
+            external_folders(&granted),
+            BTreeSet::from([root.join("one"), root.join("two")])
+        );
 
         assert!(resolve(&projects, &root.join("outer")).is_err());
         assert!(resolve(&projects, &root.join("missing.md")).is_err());
+        assert!(external_path("one/b.md").is_err());
+        assert!(external_path(&format!("{}/one/../two/d.md", external_id(&root))).is_err());
+    }
+
+    #[test]
+    fn links_open_existing_files_only_from_opened_documents() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(directory.path()).unwrap();
+        fs::create_dir(root.join("docs")).unwrap();
+        fs::write(root.join("readme.md"), "#").unwrap();
+        fs::write(root.join("docs/notes.md"), "#").unwrap();
+        let id = |path: &str| external_id(&root.join(path));
+        let files = BTreeSet::from([root.join("readme.md")]);
+
+        assert_eq!(
+            linked_file(&files, &id("readme.md"), &id("docs/notes.md")).unwrap(),
+            root.join("docs/notes.md")
+        );
+        assert_eq!(
+            linked_file(&files, &id("readme.md"), &id("missing.md")).unwrap_err(),
+            "파일을 찾을 수 없습니다: missing.md"
+        );
+        assert!(linked_file(&files, &id("readme.md"), &id("docs")).is_err());
+        // Only an opened document can grant its links.
+        assert!(linked_file(&files, &id("docs/notes.md"), &id("readme.md")).is_err());
     }
 }

@@ -107,7 +107,7 @@ export default function DocumentView({
                   documentPath={id}
                   root={projectPath}
                   desktop={desktop}
-                  onNavigate={(target) => void followLink(target)}
+                  onNavigate={(target) => void followLink(target, id)}
                   navigation={navigation}
                   syncTarget={syncTarget}
                   onScrollLine={(line, edge) => scroll("preview", line, edge)}

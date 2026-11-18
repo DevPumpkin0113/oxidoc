@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { t, translateError } from "../settings/i18n";
 import { useWorkspace } from "../workspace/store";
 import type { DocumentSummary } from "../workspace/selectors";
@@ -77,11 +78,31 @@ export function DiskNotice({ document }: { document: DocumentSummary }) {
   );
 }
 
+/** How long an error toast stays when the pointer and focus are elsewhere. */
+const ERROR_TOAST_MS = 6000;
+
 export function ErrorNotice() {
   const error = useWorkspace((state) => state.error);
+  const [held, setHeld] = useState(false);
+  useEffect(() => {
+    if (!error || held) return;
+    const timer = setTimeout(
+      () => useWorkspace.getState().clearError(),
+      ERROR_TOAST_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [error, held]);
   if (!error) return null;
   return (
-    <div className={styles.workspaceError} role="alert">
+    <div
+      className={styles.workspaceError}
+      role="alert"
+      onMouseEnter={() => setHeld(true)}
+      onMouseLeave={() => setHeld(false)}
+      onFocus={() => setHeld(true)}
+      onBlur={() => setHeld(false)}
+    >
+      <Icon name="warning" size={15} />
       <span>{translateError(error)}</span>
       <button
         aria-label={t("알림 닫기")}

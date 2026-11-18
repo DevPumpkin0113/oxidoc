@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { shortPath } from "./model";
 import {
   defaultLayout,
   isDirty,
@@ -40,4 +41,16 @@ describe("작업 공간 모델", () => {
     expect(isDirty({ ...document, diskContent: null })).toBe(true);
     expect(isDirty({ ...document, content: "y" })).toBe(true);
   });
+});
+
+it("짧은 경로는 드라이브와 마지막 두 폴더만 남기고 확장 경로 접두사를 뗀다", () => {
+  expect(shortPath(String.raw`\\?\C:\Users\me\Downloads\notes`)).toBe(
+    String.raw`C:\…\Downloads\notes`,
+  );
+  expect(shortPath(String.raw`\\?\C:\docs\notes`)).toBe(
+    String.raw`C:\docs\notes`,
+  );
+  expect(shortPath(String.raw`\\?\UNC\server\share\team\docs\notes`)).toBe(
+    String.raw`\\server\…\docs\notes`,
+  );
 });

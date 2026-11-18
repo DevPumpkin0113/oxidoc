@@ -31,7 +31,6 @@
   line-height: 1.9;
   color: var(--text);
   overflow-wrap: anywhere;
-  white-space: pre-line;
 }
 
 .dialogActions {

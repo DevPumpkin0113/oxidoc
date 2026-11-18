@@ -9,6 +9,8 @@ export interface Project {
   tags?: string[];
   lastOpened?: number;
   status?: "available" | "missing" | "denied" | "unavailable";
+  /** The External workspace of files opened through the OS. */
+  kind?: "external";
 }
 export interface Entry {
   name: string;
@@ -138,18 +140,22 @@ export interface AdvancedApi {
 /** A file the OS asked Oxidoc to open (file association or command line). */
 export type LaunchTarget =
   | { kind: "project"; root: string; path: string; name: string }
-  | { kind: "outside"; folder: string; name: string };
+  /** Outside every project; `path` is the External document id. */
+  | { kind: "external"; path: string; name: string };
 export interface LaunchApi {
   /** Next waiting request, or null when none is left. */
   take: () => Promise<LaunchTarget | null>;
-  /** Registers the folder of the last `outside` request. */
-  register: () => Promise<Project>;
+  /** Registers a folder of the External workspace (its id) as a project. */
+  register: (folder: string) => Promise<Project>;
+  /** Adds the file a link in an opened External document points to. */
+  link: (source: string, target: string) => Promise<LaunchTarget>;
   /** Calls `onRequest` whenever another launch hands over a file. */
   listen: (onRequest: () => void) => Promise<() => void>;
 }
 export const launchApi: LaunchApi = {
   take: () => invoke("take_launch_request"),
-  register: () => invoke("register_launch_folder"),
+  register: (folder) => invoke("register_external_folder", { folder }),
+  link: (source, target) => invoke("open_external_link", { source, target }),
   listen: (onRequest) => listen("launch-request", onRequest),
 };
 export interface RecoveryDocument {

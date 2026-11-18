@@ -6,7 +6,9 @@ pub struct EntryStamp {
     stamp: Option<String>,
 }
 fn stamp_at(root: &Path, path: &str) -> Option<String> {
-    let path = contained_path(root, path).ok()?;
+    stamp_of(&contained_path(root, path).ok()?)
+}
+fn stamp_of(path: &Path) -> Option<String> {
     let metadata = fs::metadata(path).ok()?;
     let modified = metadata
         .modified()
@@ -30,14 +32,26 @@ pub async fn probe_entries(
         return Err("감지할 항목이 너무 많습니다.".into());
     }
     tauri::async_runtime::spawn_blocking(move || {
-        let root = authorized_root(&app, &root)?;
-        Ok(paths
-            .into_iter()
-            .map(|path| EntryStamp {
-                stamp: stamp_at(&root, &path),
-                path,
-            })
-            .collect())
+        Ok(match scope(&app, &root)? {
+            Scope::Project(root) => paths
+                .into_iter()
+                .map(|path| EntryStamp {
+                    stamp: stamp_at(&root, &path),
+                    path,
+                })
+                .collect(),
+            // Only the opened files are watched; folder rows never change.
+            Scope::External(files) => paths
+                .into_iter()
+                .map(|path| EntryStamp {
+                    stamp: launch::external_path(&path)
+                        .ok()
+                        .filter(|file| files.contains(file))
+                        .and_then(|file| stamp_of(&file)),
+                    path,
+                })
+                .collect(),
+        })
     })
     .await
     .map_err(|e| e.to_string())?

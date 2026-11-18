@@ -1,6 +1,6 @@
 import type { DragEvent as ReactDragEvent } from "react";
 import { create } from "zustand";
-import { useWorkspace } from "./store";
+import { isExternal, useWorkspace } from "./store";
 import type { Entry } from "./api";
 
 export const dragType = "application/x-oxidoc-file";
@@ -21,7 +21,13 @@ export function endFileDrag() {
 }
 export function startFileDrag(event: ReactDragEvent, entry: Entry) {
   const { desktop, busy, project } = useWorkspace.getState();
-  if (!desktop || busy || !project || entry.isDirectory) {
+  if (
+    !desktop ||
+    busy ||
+    !project ||
+    isExternal(project) ||
+    entry.isDirectory
+  ) {
     event.preventDefault();
     return;
   }

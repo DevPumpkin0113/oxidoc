@@ -468,10 +468,15 @@ export const english: Record<string, string> = {
   "열려는 파일을 찾을 수 없습니다.": "The file to open was not found.",
   "파일만 열 수 있습니다.": "Only files can be opened.",
   "등록할 폴더가 없습니다.": "There is no folder to register.",
-  "등록된 프로젝트 밖의 파일입니다": "This file is outside your projects",
-  "{0}\n\n폴더를 프로젝트로 등록하고 열까요?\n{1}":
-    "{0}\n\nRegister its folder as a project and open it?\n{1}",
-  "폴더 등록 후 열기": "Register folder and open",
+  "폴더를 프로젝트로 등록": "Register folder as project",
+  "열린 파일": "Opened files",
+  "External에서는 프로젝트 검색을 쓸 수 없습니다. 폴더를 프로젝트로 등록하면 쓸 수 있습니다.":
+    "Project search is unavailable in External. Register the folder as a project to use it.",
+  "External에서는 사용할 수 없는 기능입니다.":
+    "This feature is unavailable in External.",
+  "폴더를 프로젝트로 등록해야 열 수 있는 파일입니다":
+    "Register the folder as a project to open this file",
+  "파일을 찾을 수 없습니다": "File not found",
   "파일을 열지 못했습니다": "Unable to open the file",
 };
 export function translate(

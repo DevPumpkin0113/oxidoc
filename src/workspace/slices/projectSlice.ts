@@ -3,6 +3,7 @@ import type { Entry, Project, RecoveryDocument } from "../api";
 import {
   documentFrom,
   isDirty,
+  isExternal,
   parseLayout,
   parseSession,
   record,
@@ -65,7 +66,7 @@ export function createProjectSlice(context: SliceContext): ProjectSlice {
     projects: [],
     project: null,
     sessions: {},
-    initialize: async (desktop, startProject) => {
+    initialize: async (desktop, start) => {
       if (get().initialized) return;
       set({ initialized: true, desktop, busy: desktop, error: "" });
       if (!desktop) {
@@ -90,9 +91,10 @@ export function createProjectSlice(context: SliceContext): ProjectSlice {
           const saved = record(await api.advanced.loadApp());
           set({ layout: parseLayout(saved.layout) });
           // A file opened through the OS starts in its own project.
-          const project =
-            projects.find((project) => project.path === startProject) ??
-            projects.find((project) => project.path === saved.lastProject);
+          const project = isExternal(start)
+            ? start
+            : (projects.find((project) => project.path === start?.path) ??
+              projects.find((project) => project.path === saved.lastProject));
           set({ busy: false });
           if (project) {
             if (project.status && project.status !== "available") {
@@ -200,7 +202,8 @@ export function createProjectSlice(context: SliceContext): ProjectSlice {
             unavailable ||
             (missing.length ? `복원하지 못한 문서: ${missing.join(", ")}` : ""),
         }));
-        if (api.advanced && !unavailable)
+        // Single-file workspaces are not in the project list.
+        if (api.advanced && !unavailable && !isExternal(project))
           try {
             const projects = await api.advanced.update(project.path, {
               touch: true,

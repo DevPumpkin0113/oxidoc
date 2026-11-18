@@ -24,7 +24,20 @@ fn recovery_path(directory: &Path, root: &str) -> PathBuf {
         });
     directory.join(format!("{hash:016x}.json"))
 }
-fn validate(documents: &[RecoveryDocument]) -> Result<(), String> {
+/// Project documents use relative paths; External documents use absolute ids.
+fn valid_path(root: &str, path: &str) -> bool {
+    let path = Path::new(path);
+    if root == launch::EXTERNAL_ROOT {
+        path.is_absolute()
+            && !path
+                .components()
+                .any(|part| matches!(part, Component::ParentDir | Component::CurDir))
+    } else {
+        path.components()
+            .all(|part| matches!(part, Component::Normal(_)))
+    }
+}
+fn validate(root: &str, documents: &[RecoveryDocument]) -> Result<(), String> {
     let mut total = 0usize;
     let mut paths = std::collections::HashSet::new();
     if documents.len() > 100 {
@@ -33,9 +46,7 @@ fn validate(documents: &[RecoveryDocument]) -> Result<(), String> {
     for document in documents {
         if document.path.is_empty()
             || document.path.len() > 4096
-            || Path::new(&document.path)
-                .components()
-                .any(|part| !matches!(part, Component::Normal(_)))
+            || !valid_path(root, &document.path)
             || !paths.insert(advanced::path_key(&document.path))
         {
             return Err("복구 문서 경로가 올바르지 않습니다.".into());
@@ -70,11 +81,11 @@ fn read_at(path: &Path, root: &str) -> Result<Vec<RecoveryDocument>, String> {
     if file.root != root {
         return Err("복구 데이터 프로젝트 불일치".into());
     }
-    validate(&file.documents)?;
+    validate(root, &file.documents)?;
     Ok(file.documents)
 }
 fn write_at(directory: &Path, root: &str, documents: Vec<RecoveryDocument>) -> Result<(), String> {
-    validate(&documents)?;
+    validate(root, &documents)?;
     let path = recovery_path(directory, root);
     if documents.is_empty() {
         return match fs::remove_file(path) {
@@ -120,7 +131,7 @@ pub(super) fn remove_relinked(directory: &Path, root: &str) {
     let _ = fs::remove_file(recovery_path(directory, root));
 }
 fn directory(app: &AppHandle, root: &str) -> Result<PathBuf, String> {
-    if !projects(app)?.iter().any(|project| project.path == root) {
+    if root != launch::EXTERNAL_ROOT && !projects(app)?.iter().any(|project| project.path == root) {
         return Err("등록되지 않은 프로젝트입니다.".into());
     }
     Ok(app
@@ -129,12 +140,48 @@ fn directory(app: &AppHandle, root: &str) -> Result<PathBuf, String> {
         .map_err(|error| error.to_string())?
         .join("recovery"))
 }
+fn opened_external(app: &AppHandle) -> impl Fn(&str) -> bool + use<> {
+    let files = launch::external_files(app);
+    move |id| {
+        launch::external_path(id)
+            .map(|path| files.contains(&path))
+            .unwrap_or(false)
+    }
+}
+/// External snapshots only cover opened files; keep the others' recovery data.
+fn keep_unopened(
+    stored: Vec<RecoveryDocument>,
+    mut documents: Vec<RecoveryDocument>,
+    opened: impl Fn(&str) -> bool,
+) -> Vec<RecoveryDocument> {
+    let kept: Vec<_> = stored
+        .into_iter()
+        .filter(|stored| {
+            !opened(&stored.path)
+                && !documents.iter().any(|document| {
+                    advanced::path_key(&document.path) == advanced::path_key(&stored.path)
+                })
+        })
+        .collect();
+    documents.extend(kept);
+    documents
+}
 #[tauri::command]
 pub async fn load_recovery(app: AppHandle, root: String) -> Result<Vec<RecoveryDocument>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let gate = app.state::<RegistryGate>();
         let _lock = gate.0.lock().map_err(|error| error.to_string())?;
-        read_at(&recovery_path(&directory(&app, &root)?, &root), &root)
+        let documents = read_at(&recovery_path(&directory(&app, &root)?, &root), &root)?;
+        // External edits are offered once their file is opened again.
+        Ok(if root == launch::EXTERNAL_ROOT {
+            let opened = opened_external(&app);
+            documents
+                .into_iter()
+                .filter(|document| opened(&document.path))
+                .collect()
+        } else {
+            documents
+        })
     })
     .await
     .map_err(|error| error.to_string())?
@@ -148,7 +195,17 @@ pub async fn save_recovery(
     tauri::async_runtime::spawn_blocking(move || {
         let gate = app.state::<RegistryGate>();
         let _lock = gate.0.lock().map_err(|error| error.to_string())?;
-        write_at(&directory(&app, &root)?, &root, documents)
+        let directory = directory(&app, &root)?;
+        let documents = if root == launch::EXTERNAL_ROOT {
+            keep_unopened(
+                read_at(&recovery_path(&directory, &root), &root)?,
+                documents,
+                opened_external(&app),
+            )
+        } else {
+            documents
+        };
+        write_at(&directory, &root, documents)
     })
     .await
     .map_err(|error| error.to_string())?
@@ -184,5 +241,31 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), "invalid JSON");
         write_at(dir.path(), root, vec![]).unwrap();
         assert!(!path.exists());
+    }
+    #[test]
+    fn external_recovery_uses_absolute_ids_and_keeps_unopened_files() {
+        let doc = |path: &str, content: &str| RecoveryDocument {
+            path: path.into(),
+            content: content.into(),
+            saved_content: "saved".into(),
+        };
+        let external = launch::EXTERNAL_ROOT;
+        let absolute = std::env::temp_dir()
+            .join("a.md")
+            .to_string_lossy()
+            .into_owned();
+        assert!(valid_path(external, &absolute));
+        assert!(!valid_path(external, "docs/a.md"));
+        assert!(!valid_path("C:/notes", &absolute));
+
+        let merged = keep_unopened(
+            vec![doc("C:/one/a.md", "old a"), doc("C:/two/b.md", "keep b")],
+            vec![doc("C:/one/a.md", "new a")],
+            |id| id == "C:/one/a.md",
+        );
+        let contents: Vec<_> = merged.iter().map(|d| d.content.as_str()).collect();
+        assert_eq!(contents, ["new a", "keep b"]);
+        // An opened file without unsaved edits drops its stored snapshot.
+        assert!(keep_unopened(vec![doc("C:/one/a.md", "old")], vec![], |_| true).is_empty());
     }
 }

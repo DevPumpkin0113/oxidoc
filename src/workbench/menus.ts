@@ -3,7 +3,12 @@ import type { EditorContext } from "../components/MarkdownEditor";
 import { t } from "../settings/i18n";
 import { workspaceApi, type Entry, type Project } from "../workspace/api";
 import { scopeMenu, type CommandTarget } from "../workspace/commands";
-import { isDirty, isDocumentUnder, useWorkspace } from "../workspace/store";
+import {
+  isDirty,
+  isDocumentUnder,
+  isExternal,
+  useWorkspace,
+} from "../workspace/store";
 import { copyText } from "../workspace/textContext";
 import { moveWithLinks } from "./linkUpdates";
 import {
@@ -11,6 +16,7 @@ import {
   closeDocuments,
   createEntry,
   editorAction,
+  registerExternalFolder,
   revealDocument,
   saveAll,
   searchFolder,
@@ -159,6 +165,21 @@ export function manageTab(id: string, x: number, y: number) {
 
 export function manageExplorer(x: number, y: number) {
   const current = workspace().project;
+  if (isExternal(current)) {
+    showContext(
+      current!.name,
+      [
+        {
+          label: t("새로고침"),
+          icon: "refresh",
+          run: () => workspace().refresh(),
+        },
+      ],
+      x,
+      y,
+    );
+    return;
+  }
   if (!current) {
     showContext(
       t("탐색기"),
@@ -257,6 +278,24 @@ export function manageEditor(context: EditorContext) {
 export function entryMenuItems(entry: Entry): MenuItem[] {
   const root = workspace().project?.path;
   if (!root) return [];
+  if (isExternal(workspace().project))
+    // External ids are absolute, so the relative path copy is left out.
+    return scopeMenu(
+      [
+        ...(entry.isDirectory
+          ? [
+              {
+                label: t("폴더를 프로젝트로 등록"),
+                icon: "folder",
+                run: () => registerExternalFolder(entry.path),
+              } satisfies MenuItem,
+              { type: "separator", id: "external-register" } as const,
+            ]
+          : []),
+        ...locationActions(root, entry.path).slice(0, 2),
+      ],
+      { kind: "entry", root, path: entry.path },
+    );
   const items: MenuItem[] = entryClipboardActions(entry);
   items.push(...locationActions(root, entry.path), {
     type: "separator",

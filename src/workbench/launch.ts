@@ -1,13 +1,16 @@
-import { t } from "../settings/i18n";
 import {
   launchApi,
-  workspaceApi,
   type LaunchApi,
   type LaunchTarget,
+  type Project,
 } from "../workspace/api";
-import { sameDocumentPath, useWorkspace } from "../workspace/store";
+import {
+  EXTERNAL_PROJECT,
+  sameDocumentPath,
+  useWorkspace,
+} from "../workspace/store";
 import { revealDocument, setSettingsOpen } from "./actions";
-import { confirmDocuments, requestAction } from "./dialogs";
+import { confirmDocuments } from "./dialogs";
 import { isModalOpen, useUi } from "./uiStore";
 
 const workspace = () => useWorkspace.getState();
@@ -33,41 +36,42 @@ function whenIdle() {
   });
 }
 
-/** Switches to the file's project (registering its folder if the user agrees) and opens it. */
-async function openTarget(target: LaunchTarget, api: LaunchApi) {
+/** The workspace a launched file opens in: its project, or External. */
+function targetProject(target: LaunchTarget): Project {
+  if (target.kind === "external") return EXTERNAL_PROJECT;
+  return (
+    workspace().projects.find((project) => project.path === target.root) ?? {
+      name: target.name,
+      path: target.root,
+    }
+  );
+}
+
+/** Switches to the file's workspace and opens the file. */
+async function openTarget(target: LaunchTarget) {
   await whenIdle();
-  let root: string;
-  let path: string;
-  if (target.kind === "outside") {
-    const accepted = await requestAction({
-      title: t("등록된 프로젝트 밖의 파일입니다"),
-      body: t(
-        "{0}\n\n폴더를 프로젝트로 등록하고 열까요?\n{1}",
-        target.name,
-        target.folder,
-      ),
-      label: t("폴더 등록 후 열기"),
-    });
-    if (accepted === null) return;
-    root = (await api.register()).path;
-    path = target.name;
-    useWorkspace.setState({ projects: await workspaceApi.projects() });
-    await whenIdle();
-  } else ({ root, path } = target);
   const state = workspace();
-  if (state.project?.path !== root) {
-    const project = state.projects.find((project) => project.path === root);
+  const project = targetProject(target);
+  if (
+    state.project?.path !== project.path ||
+    state.project.kind !== project.kind
+  ) {
     if (
-      !project ||
       !(await confirmDocuments(state.documents)) ||
       !(await workspace().activate(project))
     )
       return;
-  }
+  } else if (target.kind === "external")
+    // Another file for the open External workspace: list it in the explorer.
+    await workspace().refresh();
   setSettingsOpen(false);
-  await workspace().open({ name: target.name, path, isDirectory: false });
+  await workspace().open({
+    name: target.name,
+    path: target.path,
+    isDirectory: false,
+  });
   const { activeId } = workspace();
-  if (activeId && sameDocumentPath(activeId, path))
+  if (activeId && sameDocumentPath(activeId, target.path))
     await revealDocument(activeId);
 }
 
@@ -92,17 +96,17 @@ export function startWorkspace(desktop: boolean, api: LaunchApi = launchApi) {
     }
     await workspace().initialize(
       true,
-      first?.kind === "project" ? first.root : undefined,
+      first ? targetProject(first) : undefined,
     );
     if (failure !== undefined) report(failure);
-    if (first) await openTarget(first, api);
+    if (first) await openTarget(first);
   })().catch(report);
   // Requests are handled one at a time so dialogs and project switches never overlap.
   const drain = () => {
     queue = queue
       .then(async () => {
         for (let target = await api.take(); target; target = await api.take())
-          await openTarget(target, api).catch(report);
+          await openTarget(target).catch(report);
       })
       .catch(report);
   };

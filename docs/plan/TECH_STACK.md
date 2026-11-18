@@ -54,7 +54,7 @@
 
 - 미리보기: 원시 HTML은 rehype-raw로 파싱한 뒤 rehype-sanitize 허용 목록(`workspace/previewHtml.ts`, GitHub 기본 정제에서 `picture`·`source`·폼 속성·`class`·`style` 제외)만 통과. `script`·`style`·`iframe`·`object`·`embed`·`svg`·`math`·`textarea` 등은 내용째 제거, 그 밖의 태그는 글자만 남김, 이벤트 속성·`javascript:` 링크 제거, `input`은 작업 목록 체크 상자만. HTML의 `a`·`img`도 Markdown과 같은 링크·이미지 컴포넌트를 거친다. 로컬은 등록 경로 내부 래스터 이미지(SVG 제외)와 상대 문서 링크만 허용하고, 원격 이미지는 https만 `referrerpolicy=no-referrer`·지연 로딩으로 표시(설정 `원격 이미지 표시`로 끔, CSP `img-src https:`), http 이미지는 차단. `<img>`의 `width`·`height`는 숫자·퍼센트만 반영. HTTP/HTTPS 링크는 기본 브라우저로 연다. `<`가 없는 블록은 HTML 파싱을 건너뛴다.
 - Mermaid: 원시 SVG 삽입 대신 DOMPurify로 정제한 SVG 이미지로 격리, 외부 링크·HTML 동작 비활성.
-- OS에서 연 파일: 실행 인자는 Rust가 읽어 대기열에 두고, 프런트엔드는 경로를 지정하지 않고 다음 요청을 받기만 한다. 프로젝트 밖 파일의 폴더 등록도 Rust가 마지막 요청에서 계산한 폴더만 허용해 등록 경로 경계를 유지한다. 두 번째 실행은 `tauri-plugin-single-instance`로 기존 창에 넘겨 같은 앱 데이터를 두 프로세스가 동시에 쓰지 않게 한다.
+- OS에서 연 파일: 실행 인자는 Rust가 읽어 대기열에 두고, 프런트엔드는 경로를 지정하지 않고 다음 요청을 받기만 한다. 프로젝트 밖 파일은 Rust가 실행 중에만 유지하는 External 목록에 넣고, External 루트(`external:`)에서는 문서를 절대 경로로 식별하되 OS가 넘긴 파일과 그 파일에서 사용자가 누른 링크 대상 파일(링크를 가진 문서가 목록에 있어야 추가)의 읽기·쓰기·감지와 그 파일들의 폴더 아래 래스터 이미지 읽기만 허용한다(그 밖의 프로젝트 명령은 거부). 폴더의 프로젝트 등록도 이 목록에 있는 폴더만 허용한다. 두 번째 실행은 `tauri-plugin-single-instance`로 기존 창에 넘겨 같은 앱 데이터를 두 프로세스가 동시에 쓰지 않게 한다.
 - 타이틀바 제어 권한은 해당 Tauri 창 명령으로 제한.
 - 업데이트: 앱에 포함된 공개 키로 서명을 검증한 뒤에만 설치. 비밀 키는 Git 제외 `.local/keys/oxidoc-updater.key`에 두고 별도 백업한다.
 

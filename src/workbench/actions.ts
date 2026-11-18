@@ -3,10 +3,17 @@ import type { ScrollTarget } from "../components/MarkdownPreview";
 import { t } from "../settings/i18n";
 import { useSettings } from "../settings/store";
 import { useUpdater } from "../settings/updater";
-import { workspaceApi, type Project, type SearchMatch } from "../workspace/api";
+import {
+  launchApi,
+  workspaceApi,
+  type Project,
+  type SearchMatch,
+} from "../workspace/api";
 import { headings, type LinkTarget } from "../workspace/markdown";
 import {
   isDirty,
+  isDocumentUnder,
+  isExternal,
   sameDocumentPath,
   useWorkspace,
   type Layout,
@@ -46,6 +53,45 @@ export async function chooseProject() {
     await workspace().activate(selected);
 }
 
+/**
+ * Registers an External folder (its id) as a project and switches to it,
+ * reopening the External tabs from that folder.
+ */
+export async function registerExternalFolder(folder: string) {
+  const state = workspace();
+  if (!isExternal(state.project) || state.busy) return;
+  // Switching closes every External tab, so edits must be settled first.
+  if (!(await confirmDocuments(state.documents))) return;
+  try {
+    const project = await launchApi.register(folder);
+    const { documents, activeId, layout } = workspace();
+    const relative = (id: string | null) =>
+      id && isDocumentUnder(id, folder) && !sameDocumentPath(id, folder)
+        ? id.slice(folder.length + 1)
+        : null;
+    const paths = documents
+      .map((document) => relative(document.id))
+      .filter((path): path is string => path !== null);
+    useWorkspace.setState((state) => ({
+      projects: [
+        ...state.projects.filter((item) => item.path !== project.path),
+        project,
+      ],
+      sessions: {
+        ...state.sessions,
+        [project.path]: {
+          paths,
+          activeId: relative(activeId) ?? paths[0] ?? null,
+          layout,
+        },
+      },
+    }));
+    await workspace().activate(project);
+  } catch (error) {
+    useWorkspace.setState({ error: String(error) });
+  }
+}
+
 export async function activateProject(selected: Project) {
   const state = workspace();
   if (state.busy) return;
@@ -81,9 +127,13 @@ export async function revealDocument(id: string) {
   const root = currentRoot();
   workspace().setLayout({ sidebar: true, activity: "files" });
   const parts = id.split("/").slice(0, -1);
-  for (let index = 1; index <= parts.length; index++) {
+  // External lists each folder of opened files as one top-level row.
+  const folders = isExternal(workspace().project)
+    ? [parts.join("/")]
+    : parts.map((_, index) => parts.slice(0, index + 1).join("/"));
+  for (const folder of folders) {
     if (currentRoot() !== root) return;
-    await workspace().expand(parts.slice(0, index).join("/"));
+    await workspace().expand(folder);
   }
   if (currentRoot() === root) useUi.setState({ revealTarget: id });
 }
@@ -176,7 +226,20 @@ export function navigateTo(documentId: string, line: number) {
   });
 }
 
-export async function followLink(target: LinkTarget) {
+/**
+ * External opens only granted files, so a followed link first adds its target
+ * (named by the document holding the link) and lists it in the explorer.
+ */
+async function linkedPath(source: string | undefined, path: string) {
+  if (!isExternal(workspace().project) || !source) return path;
+  const root = currentRoot();
+  const target = await launchApi.link(source, path);
+  if (currentRoot() !== root) return null;
+  await workspace().refresh();
+  return target.path;
+}
+
+export async function followLink(target: LinkTarget, source?: string) {
   if (target.kind === "external") {
     if (workspace().desktop)
       try {
@@ -186,13 +249,21 @@ export async function followLink(target: LinkTarget) {
       }
     else window.open(target.url, "_blank", "noopener,noreferrer");
   } else if (target.kind === "local") {
+    let path: string | null;
+    try {
+      path = await linkedPath(source, target.path);
+    } catch (error) {
+      useWorkspace.setState({ error: String(error) });
+      return;
+    }
+    if (path === null) return;
     await workspace().open({
-      path: target.path,
-      name: target.path.split("/").pop() ?? target.path,
+      path,
+      name: path.split("/").pop() ?? path,
       isDirectory: false,
     });
     const document = workspace().documents.find((document) =>
-      sameDocumentPath(document.id, target.path),
+      sameDocumentPath(document.id, path),
     );
     if (!document || workspace().activeId !== document.id) return;
     const heading = headings(document.content).find(

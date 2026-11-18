@@ -72,11 +72,94 @@ fn projects(app: &AppHandle) -> Result<Vec<Project>, String> {
             .join("projects.json"),
     )
 }
-fn authorized_root(app: &AppHandle, root: &str) -> Result<PathBuf, String> {
+/// What a root grants: a whole registered project, or only the files the OS
+/// opened in the External workspace (see `launch`).
+enum Scope {
+    Project(PathBuf),
+    External(std::collections::BTreeSet<PathBuf>),
+}
+
+fn scope(app: &AppHandle, root: &str) -> Result<Scope, String> {
+    if root == launch::EXTERNAL_ROOT {
+        return Ok(Scope::External(launch::external_files(app)));
+    }
     if !projects(app)?.iter().any(|project| project.path == root) {
         return Err("등록되지 않은 프로젝트입니다. 폴더를 먼저 선택해 주세요.".into());
     }
-    fs::canonicalize(root).map_err(|_| "프로젝트 폴더를 찾거나 접근할 수 없습니다.".into())
+    fs::canonicalize(root)
+        .map(Scope::Project)
+        .map_err(|_| "프로젝트 폴더를 찾거나 접근할 수 없습니다.".into())
+}
+
+/// A registered project root; the External workspace cannot use project-wide commands.
+fn authorized_root(app: &AppHandle, root: &str) -> Result<PathBuf, String> {
+    match scope(app, root)? {
+        Scope::Project(root) => Ok(root),
+        Scope::External(_) => Err("External에서는 사용할 수 없는 기능입니다.".into()),
+    }
+}
+
+/// A document inside a project, or one of the files opened in the External workspace.
+fn document_path(app: &AppHandle, root: &str, path: &str) -> Result<PathBuf, String> {
+    match scope(app, root)? {
+        Scope::Project(root) => contained_path(&root, path),
+        Scope::External(files) => {
+            let path = launch::external_path(path)?;
+            if files.contains(&path) {
+                Ok(path)
+            } else {
+                Err(unregistered_file(&path))
+            }
+        }
+    }
+}
+
+/// External folder rows, or the opened files of one folder.
+fn external_entries(
+    files: &std::collections::BTreeSet<PathBuf>,
+    folder: &str,
+) -> Result<Vec<Entry>, String> {
+    let entry = |path: &Path, name: String, is_directory: bool| Entry {
+        path: launch::external_id(path),
+        name,
+        is_directory,
+        has_children: is_directory.then_some(true),
+        has_documents: is_directory.then_some(true),
+    };
+    let existing = files.iter().filter(|file| file.is_file());
+    if folder.is_empty() {
+        return Ok(launch::external_folders(&existing.cloned().collect())
+            .iter()
+            .map(|folder| entry(folder, advanced::display_path(folder), true))
+            .collect());
+    }
+    let folder = launch::external_path(folder)?;
+    Ok(existing
+        .filter(|file| file.parent() == Some(folder.as_path()))
+        .map(|file| {
+            let name = file
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            entry(file, name, false)
+        })
+        .collect())
+}
+
+/// Error for a path that failed to resolve; a missing target (such as a broken
+/// document link) names the path so the user can tell which one.
+pub(super) fn access_error(error: &std::io::Error, path: &str) -> String {
+    if error.kind() == std::io::ErrorKind::NotFound {
+        format!("파일을 찾을 수 없습니다: {path}")
+    } else {
+        format!("경로 접근 실패: {error}")
+    }
+}
+
+/// An existing file outside the files External was granted by OS launches.
+pub(super) fn unregistered_file(path: &Path) -> String {
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    format!("폴더를 프로젝트로 등록해야 열 수 있는 파일입니다: {name}")
 }
 
 fn contained_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
@@ -86,8 +169,7 @@ fn contained_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
     {
         return Err("프로젝트 외부 경로에는 접근할 수 없습니다.".into());
     }
-    let resolved =
-        fs::canonicalize(root.join(relative)).map_err(|e| format!("경로 접근 실패: {e}"))?;
+    let resolved = fs::canonicalize(root.join(relative)).map_err(|e| access_error(&e, relative))?;
     if !resolved.starts_with(root) {
         return Err("프로젝트 외부 경로에는 접근할 수 없습니다.".into());
     }
@@ -250,8 +332,9 @@ pub async fn list_entries(
     root: String,
     path: String,
 ) -> Result<Vec<Entry>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        directory_entries(&authorized_root(&app, &root)?, &path)
+    tauri::async_runtime::spawn_blocking(move || match scope(&app, &root)? {
+        Scope::Project(root) => directory_entries(&root, &path),
+        Scope::External(files) => external_entries(&files, &path),
     })
     .await
     .map_err(|e| e.to_string())?
@@ -260,8 +343,7 @@ pub async fn list_entries(
 #[tauri::command]
 pub async fn read_document(app: AppHandle, root: String, path: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        read_text(&contained_path(&authorized_root(&app, &root)?, &path)?)
-            .map(|(content, _)| content)
+        read_text(&document_path(&app, &root, &path)?).map(|(content, _)| content)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -276,11 +358,7 @@ pub async fn save_document(
     expected: String,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        write_text(
-            &contained_path(&authorized_root(&app, &root)?, &path)?,
-            &content,
-            &expected,
-        )
+        write_text(&document_path(&app, &root, &path)?, &content, &expected)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -310,6 +388,20 @@ mod tests {
                 .unwrap()
                 .0,
             "# Idea"
+        );
+    }
+    #[test]
+    fn missing_link_targets_name_the_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(directory.path()).unwrap();
+        assert_eq!(
+            contained_path(&root, "docs/notes.md").unwrap_err(),
+            "파일을 찾을 수 없습니다: docs/notes.md"
+        );
+        let missing = root.join("notes.md").to_string_lossy().replace('\\', "/");
+        assert_eq!(
+            launch::external_path(&missing).unwrap_err(),
+            "파일을 찾을 수 없습니다: notes.md"
         );
     }
     #[test]

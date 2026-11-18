@@ -80,16 +80,31 @@
   border-radius: 3px;
 }
 
+/* Toast above the status bar; it never pushes the document down. */
 .workspaceError {
+  position: fixed;
+  right: 16px;
+  bottom: 36px;
+  z-index: 90;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  padding: 10px 14px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 10px 10px 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-left: 3px solid var(--warning);
+  border-radius: 6px;
   color: var(--text);
-  background: var(--hover);
-  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 8px 28px #0005;
   font-size: calc(var(--ui-font-size, 13px) * 12 / 13);
   line-height: 1.6;
+}
+
+.workspaceError > svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--warning);
 }
 
 .workspaceError > span {
@@ -99,9 +114,15 @@
 
 .workspaceError button {
   display: grid;
+  flex: none;
   width: 22px;
   height: 22px;
   place-items: center;
+  border-radius: 4px;
+}
+
+.workspaceError button:hover {
+  background: var(--hover);
 }
 
 .externalNotice {
@@ -122,10 +143,4 @@
   padding: 3px 7px;
   border: 1px solid currentColor;
   border-radius: 4px;
-}
-
-.workspaceError {
-  color: var(--warning);
-  background: var(--warning-bg);
-  border-color: var(--border);
 }

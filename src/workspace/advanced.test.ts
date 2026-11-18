@@ -1,3 +1,4 @@
+import { EXTERNAL_PROJECT } from "./model";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkspaceStore, defaultLayout, isDirty } from "./store";
 import type { AdvancedApi, WorkspaceApi } from "./api";
@@ -427,10 +428,20 @@ describe("프로젝트·문서 상태 보존", () => {
     vi.mocked(advanced.loadApp).mockResolvedValue({
       lastProject: project.path,
     });
-    await store.getState().initialize(true, other.path);
+    await store.getState().initialize(true, other);
     expect(store.getState().project?.path).toBe(other.path);
     expect(api.entries).toHaveBeenCalledWith(other.path, "");
     expect(api.entries).not.toHaveBeenCalledWith(project.path, "");
+  });
+  it("External은 목록에 없어도 열고, 최근 사용·세션은 기록하지 않음", async () => {
+    const { store, api, advanced } = fixture();
+    const files = EXTERNAL_PROJECT;
+    await store.getState().initialize(true, files);
+    expect(store.getState().project).toEqual(files);
+    expect(api.entries).toHaveBeenCalledWith(files.path, "");
+    expect(advanced.update).not.toHaveBeenCalled();
+    await store.getState().persist();
+    expect(advanced.saveSession).not.toHaveBeenCalled();
   });
   it("접근 불가 마지막 프로젝트는 열지 않고 매니저 표시", async () => {
     const { store, project, api, advanced } = fixture();

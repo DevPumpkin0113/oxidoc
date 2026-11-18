@@ -1,4 +1,30 @@
+import type { Project } from "./api";
 import { isImageFile } from "./documentTypes";
+
+/**
+ * Workspace of files opened through the OS outside every project. Its document
+ * ids are absolute `/`-separated paths; project-wide features are off.
+ */
+export const EXTERNAL_PROJECT: Project = {
+  name: "External",
+  path: "external:",
+  kind: "external",
+};
+export const isExternal = (project: Project | null | undefined) =>
+  project?.kind === "external";
+
+/** Windows path without the `\\?\` prefix Rust canonicalization adds. */
+const displayPath = (path: string) =>
+  path.replace(/^\\\\\?\\UNC\\/, "\\\\").replace(/^\\\\\?\\/, "");
+
+/** Drive (or share) and the last two folders, e.g. `C:\…\docs\notes`. */
+export function shortPath(path: string) {
+  const display = displayPath(path);
+  const parts = display.split(/[\\/]/).filter(Boolean);
+  if (parts.length <= 3) return display;
+  const head = display.startsWith("\\\\") ? `\\\\${parts[0]}` : parts[0];
+  return [head, "…", ...parts.slice(-2)].join("\\");
+}
 export interface Document {
   id: string;
   name: string;

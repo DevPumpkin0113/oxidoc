@@ -39,6 +39,7 @@ pub fn run() {
         .manage(workspace::RegistryGate(std::sync::Mutex::new(())))
         .manage(workspace::WatcherState(std::sync::Mutex::new(None)))
         .manage(workspace::LaunchState::default())
+        .manage(workspace::ExternalFiles::default())
         .setup(|app| {
             let cwd = std::env::current_dir().unwrap_or_default();
             if let Some(path) = workspace::launch_path(std::env::args_os(), &cwd) {
@@ -86,7 +87,8 @@ pub fn run() {
             workspace::read_image,
             workspace::open_external,
             workspace::take_launch_request,
-            workspace::register_launch_folder
+            workspace::register_external_folder,
+            workspace::open_external_link
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Oxidoc");

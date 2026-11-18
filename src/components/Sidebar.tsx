@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { t } from "../settings/i18n";
 import {
   isDocumentUnder,
+  isExternal,
   sameDocumentPath,
   useWorkspace,
   type Layout,
@@ -104,6 +105,7 @@ function ExplorerPanel() {
   const busy = useWorkspace((state) => state.busy);
   const rootEmpty = useWorkspace((state) => state.tree[""]?.length === 0);
   useRevealTarget();
+  const external = isExternal(project);
   const ExplorerRoot = rootEmpty ? "div" : "details";
   const folderName =
     project?.path === "sample"
@@ -118,7 +120,7 @@ function ExplorerPanel() {
           </strong>
           {!desktop ? <span>{t("브라우저 샘플")}</span> : null}
         </div>
-        {project ? <ExplorerToolbar /> : null}
+        {project && !external ? <ExplorerToolbar /> : null}
       </div>
       {!project ? (
         <>
@@ -164,28 +166,36 @@ function ExplorerPanel() {
             ) : (
               <Icon name="down" size={12} />
             )}
-            <span title={project.path}>{folderName}</span>
+            {external ? (
+              <span>{t("열린 파일")}</span>
+            ) : (
+              <span title={project.path}>{folderName}</span>
+            )}
             {desktop ? (
               <span
                 className={styles.explorerTools}
                 onClick={(event) => event.stopPropagation()}
               >
-                <button
-                  title={t("새 문서")}
-                  aria-label={t("새 문서")}
-                  disabled={busy}
-                  onClick={() => runAppCommand("new-file")}
-                >
-                  <Icon name="add" size={14} />
-                </button>
-                <button
-                  title={t("새 폴더")}
-                  aria-label={t("새 폴더")}
-                  disabled={busy}
-                  onClick={() => runAppCommand("new-folder")}
-                >
-                  <Icon name="folder" size={14} />
-                </button>
+                {external ? null : (
+                  <>
+                    <button
+                      title={t("새 문서")}
+                      aria-label={t("새 문서")}
+                      disabled={busy}
+                      onClick={() => runAppCommand("new-file")}
+                    >
+                      <Icon name="add" size={14} />
+                    </button>
+                    <button
+                      title={t("새 폴더")}
+                      aria-label={t("새 폴더")}
+                      disabled={busy}
+                      onClick={() => runAppCommand("new-folder")}
+                    >
+                      <Icon name="folder" size={14} />
+                    </button>
+                  </>
+                )}
                 <button
                   title={t("새로고침")}
                   aria-label={t("새로고침")}
@@ -209,7 +219,16 @@ function ExplorerPanel() {
 
 function SearchPanel() {
   const root = useWorkspace((state) => state.project?.path);
+  const external = useWorkspace((state) => isExternal(state.project));
   const scope = useUi((state) => state.searchScope);
+  if (external)
+    return (
+      <p className={panelStyles.projectNote} style={{ padding: "0 16px" }}>
+        {t(
+          "External에서는 프로젝트 검색을 쓸 수 없습니다. 폴더를 프로젝트로 등록하면 쓸 수 있습니다.",
+        )}
+      </p>
+    );
   return (
     <ProjectSearch
       onReplace={() => useUi.setState({ replaceOpen: true })}

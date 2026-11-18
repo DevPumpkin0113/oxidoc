@@ -495,7 +495,10 @@ pub async fn load_workspace_state(app: AppHandle) -> Result<serde_json::Value, S
 #[tauri::command]
 pub async fn load_session(app: AppHandle, root: String) -> Result<serde_json::Value, String> {
     io(move || {
-        authorized_root(&app, &root)?;
+        // The External workspace keeps no session.
+        if let Scope::External(_) = scope(&app, &root)? {
+            return Ok(serde_json::json!({}));
+        }
         let store = app.store("sessions.json").map_err(|e| e.to_string())?;
         Ok(store.get(&root).unwrap_or(serde_json::json!({})))
     })
@@ -674,7 +677,22 @@ pub async fn search_project(
 #[tauri::command]
 pub async fn read_image(app: AppHandle, root: String, path: String) -> Result<String, String> {
     io(move || {
-        let path = contained_path(&authorized_root(&app, &root)?, &path)?;
+        // A single-file workspace previews images under its folder, like the
+        // relative images of a project document.
+        let path = match scope(&app, &root)? {
+            Scope::Project(root) => contained_path(&root, &path)?,
+            // External documents preview images under their own folders.
+            Scope::External(files) => {
+                let image = launch::external_path(&path)?;
+                if !launch::external_folders(&files)
+                    .iter()
+                    .any(|folder| image.starts_with(folder))
+                {
+                    return Err("프로젝트 외부 경로에는 접근할 수 없습니다.".into());
+                }
+                image
+            }
+        };
         let ext = path
             .extension()
             .and_then(|e| e.to_str())
@@ -719,6 +737,20 @@ pub async fn open_external(app: AppHandle, url: String) -> Result<(), String> {
         .open_url(url, None::<&str>)
         .map_err(|e| e.to_string())
 }
+fn explorer_path(app: &AppHandle, root: &str, path: &str) -> Result<PathBuf, String> {
+    match scope(app, root)? {
+        Scope::Project(root) => explorer_target(&root, path),
+        // An opened file, or the folder row holding one.
+        Scope::External(files) => {
+            let target = launch::external_path(path)?;
+            if files.contains(&target) || launch::external_folders(&files).contains(&target) {
+                Ok(target)
+            } else {
+                Err(unregistered_file(&target))
+            }
+        }
+    }
+}
 fn explorer_target(root: &Path, path: &str) -> Result<PathBuf, String> {
     let path = contained_path(root, path)?;
     if !path.is_file() && !path.is_dir() {
@@ -736,15 +768,12 @@ pub(super) fn display_path(path: &Path) -> String {
 }
 #[tauri::command]
 pub async fn entry_path(app: AppHandle, root: String, path: String) -> Result<String, String> {
-    io(move || {
-        explorer_target(&authorized_root(&app, &root)?, &path).map(|path| display_path(&path))
-    })
-    .await
+    io(move || explorer_path(&app, &root, &path).map(|path| display_path(&path))).await
 }
 #[tauri::command]
 pub async fn open_in_explorer(app: AppHandle, root: String, path: String) -> Result<(), String> {
     io(move || {
-        let path = explorer_target(&authorized_root(&app, &root)?, &path)?;
+        let path = explorer_path(&app, &root, &path)?;
         if path.is_dir() {
             app.opener().open_path(display_path(&path), None::<&str>)
         } else {

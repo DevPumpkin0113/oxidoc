@@ -4,7 +4,12 @@ import { visibleEntries } from "../workspace/documentTypes";
 import { FolderIcon, FileIcon } from "./FileIcon";
 import Icon from "./Icon";
 import { useShallow } from "zustand/react/shallow";
-import { useWorkspace, isDirty } from "../workspace/store";
+import {
+  isDirty,
+  isExternal,
+  shortPath,
+  useWorkspace,
+} from "../workspace/store";
 import styles from "./WorkspaceTree.module.css";
 import panelStyles from "./panel.module.css";
 import treeStyles from "./tree.module.css";
@@ -32,6 +37,9 @@ function FolderRow({
   const desktop = useWorkspace((state) => state.desktop);
   const busy = useWorkspace((state) => state.busy);
   const generation = useWorkspace((state) => state.generation);
+  // External folder rows carry the full folder path as their name.
+  const external = useWorkspace((state) => isExternal(state.project));
+  const label = external && depth === 0 ? shortPath(entry.name) : entry.name;
   const [opened, setOpened] = useState(false);
   // Reload whenever an open folder has no entries, including after a refresh
   // or a file operation dropped a load that was still in flight.
@@ -56,7 +64,7 @@ function FolderRow({
         <Icon name="chevron" size={12} />
       )}
       <FolderIcon />
-      <span>{entry.name}</span>
+      <span title={label === entry.name ? undefined : entry.name}>{label}</span>
       {desktop ? (
         <button
           className={treeStyles.treeAction}
@@ -105,6 +113,7 @@ export default function WorkspaceTree({
   const entries = useWorkspace((state) => state.tree[path]);
   const tree = useWorkspace((state) => state.tree);
   const view = useWorkspace((state) => state.layout.explorerView);
+  const external = useWorkspace((state) => isExternal(state.project));
   const dirtyIds = useWorkspace(
     useShallow((state) =>
       state.documents.filter(isDirty).map((document) => document.id),
@@ -143,57 +152,59 @@ export default function WorkspaceTree({
         {t("불러오는 중…")}
       </p>
     );
-  return visibleEntries(entries, tree, view).map((entry) =>
-    entry.isDirectory ? (
-      <FolderRow
-        key={entry.path}
-        entry={entry}
-        depth={depth}
-        className={cutClass(entry)}
-        manage={manage}
-        onManage={onManage}
-        onOpen={onOpen}
-      />
-    ) : (
-      <div
-        className={`${treeStyles.treeItem} ${cutClass(entry)}`}
-        data-tree-path={entry.path}
-        key={entry.path}
-        onContextMenu={(event) => manage(entry, event)}
-      >
-        <button
-          className={`${treeStyles.file} ${activeId === entry.path ? styles.selectedFile : ""}`}
-          style={{ paddingLeft: 24 + depth * 14 }}
-          disabled={busy}
-          title={entry.path}
-          draggable={desktop && !busy}
-          onDragStart={(event) => startFileDrag(event, entry)}
-          onDragEnd={endFileDrag}
-          onClick={() => {
-            onOpen?.();
-            void open(entry);
-          }}
-          aria-current={activeId === entry.path ? "page" : undefined}
+  // External lists exactly the files opened through the OS.
+  return (external ? entries : visibleEntries(entries, tree, view)).map(
+    (entry) =>
+      entry.isDirectory ? (
+        <FolderRow
+          key={entry.path}
+          entry={entry}
+          depth={depth}
+          className={cutClass(entry)}
+          manage={manage}
+          onManage={onManage}
+          onOpen={onOpen}
+        />
+      ) : (
+        <div
+          className={`${treeStyles.treeItem} ${cutClass(entry)}`}
+          data-tree-path={entry.path}
+          key={entry.path}
+          onContextMenu={(event) => manage(entry, event)}
         >
-          <FileIcon name={entry.name} />
-          <span>{entry.name}</span>
-          {dirtyIds.includes(entry.path) ? (
-            <span className={styles.dirtyDot} aria-label={t("변경 있음")}>
-              ●
-            </span>
-          ) : null}
-        </button>
-        {desktop ? (
           <button
-            className={treeStyles.treeAction}
-            aria-label={t("{0} 관리", entry.name)}
+            className={`${treeStyles.file} ${activeId === entry.path ? styles.selectedFile : ""}`}
+            style={{ paddingLeft: 24 + depth * 14 }}
             disabled={busy}
-            onClick={(event) => manage(entry, event)}
+            title={entry.path}
+            draggable={desktop && !busy}
+            onDragStart={(event) => startFileDrag(event, entry)}
+            onDragEnd={endFileDrag}
+            onClick={() => {
+              onOpen?.();
+              void open(entry);
+            }}
+            aria-current={activeId === entry.path ? "page" : undefined}
           >
-            <Icon name="more" size={13} />
+            <FileIcon name={entry.name} />
+            <span>{entry.name}</span>
+            {dirtyIds.includes(entry.path) ? (
+              <span className={styles.dirtyDot} aria-label={t("변경 있음")}>
+                ●
+              </span>
+            ) : null}
           </button>
-        ) : null}
-      </div>
-    ),
+          {desktop ? (
+            <button
+              className={treeStyles.treeAction}
+              aria-label={t("{0} 관리", entry.name)}
+              disabled={busy}
+              onClick={(event) => manage(entry, event)}
+            >
+              <Icon name="more" size={13} />
+            </button>
+          ) : null}
+        </div>
+      ),
   );
 }

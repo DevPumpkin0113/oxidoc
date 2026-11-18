@@ -1,7 +1,7 @@
 import type { PaletteCommand } from "../components/CommandPalette";
 import { t } from "../settings/i18n";
 import { executeCommand, type CommandTarget } from "../workspace/commands";
-import { useWorkspace } from "../workspace/store";
+import { isExternal, useWorkspace } from "../workspace/store";
 import {
   activateProject,
   chooseProject,
@@ -24,6 +24,11 @@ export function buildPaletteCommands(): PaletteCommand[] {
     useWorkspace.getState();
   const { settingsOpen } = useUi.getState();
   const activeDocument = documents.find((document) => document.id === activeId);
+  // Single-file workspaces only edit the opened files.
+  const projectWide = () => {
+    const current = useWorkspace.getState().project;
+    return Boolean(current) && !isExternal(current);
+  };
   const documentTarget: CommandTarget | undefined =
     activeDocument && project
       ? {
@@ -54,7 +59,7 @@ export function buildPaletteCommands(): PaletteCommand[] {
       id: "quick-open",
       label: t("빠른 파일 열기"),
       detail: "Ctrl P",
-      enabled: () => Boolean(useWorkspace.getState().project),
+      enabled: projectWide,
       run: () => useUi.setState({ quickOpen: true }),
     },
     {
@@ -62,7 +67,7 @@ export function buildPaletteCommands(): PaletteCommand[] {
       label: t("프로젝트 전체 바꾸기"),
       shortcut: "Ctrl+Shift+H",
       requiresDesktop: true,
-      enabled: () => Boolean(useWorkspace.getState().project),
+      enabled: projectWide,
       run: () => useUi.setState({ replaceOpen: true }),
     },
     {
@@ -81,7 +86,7 @@ export function buildPaletteCommands(): PaletteCommand[] {
       allowBusy: true,
       run: () => searchFolder(""),
     },
-    ...(project && desktop
+    ...(project && desktop && !isExternal(project)
       ? [
           {
             id: "new-file",
@@ -112,15 +117,19 @@ export function buildPaletteCommands(): PaletteCommand[] {
             target: documentTarget,
             run: () => useWorkspace.getState().save(activeDocument.id),
           },
-          {
-            id: "save-as",
-            label: t("다른 이름으로 저장"),
-            detail: "Ctrl Shift S",
-            shortcut: "Ctrl+Shift+S",
-            requiresDesktop: true,
-            target: documentTarget,
-            run: () => useWorkspace.getState().saveAs(activeDocument.id),
-          },
+          ...(isExternal(project)
+            ? []
+            : [
+                {
+                  id: "save-as",
+                  label: t("다른 이름으로 저장"),
+                  detail: "Ctrl Shift S",
+                  shortcut: "Ctrl+Shift+S",
+                  requiresDesktop: true,
+                  target: documentTarget,
+                  run: () => useWorkspace.getState().saveAs(activeDocument.id),
+                },
+              ]),
           {
             id: "find",
             label: t("문서 내 찾기"),
