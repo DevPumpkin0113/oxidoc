@@ -6,11 +6,13 @@ import { useUpdater } from "../settings/updater";
 import {
   launchApi,
   workspaceApi,
+  type LaunchTarget,
   type Project,
   type SearchMatch,
 } from "../workspace/api";
 import { headings, type LinkTarget } from "../workspace/markdown";
 import {
+  EXTERNAL_PROJECT,
   isDirty,
   isDocumentUnder,
   isExternal,
@@ -18,7 +20,7 @@ import {
   useWorkspace,
   type Layout,
 } from "../workspace/store";
-import { confirmDocuments, requestAction } from "./dialogs";
+import { askUnsaved, confirmDocuments, requestAction } from "./dialogs";
 import { isModalOpen, outlineTrigger, searchInput, useUi } from "./uiStore";
 
 const workspace = () => useWorkspace.getState();
@@ -45,33 +47,36 @@ export function closeOutline() {
   outlineTrigger.current?.focus();
 }
 
+/** Opens a picked folder as a project tab; the current tab stays open. */
 export async function chooseProject() {
   const state = workspace();
-  if (state.busy || !(await confirmDocuments(state.documents))) return;
+  if (state.busy) return;
   const selected = await state.choose();
   if (selected && selected.path !== currentRoot())
     await workspace().activate(selected);
 }
 
 /**
- * Registers an External folder (its id) as a project and switches to it,
- * reopening the External tabs from that folder.
+ * Registers an External folder (its id) as a project and opens it in its own
+ * tab with the External tabs from that folder, which close in External.
  */
 export async function registerExternalFolder(folder: string) {
   const state = workspace();
   if (!isExternal(state.project) || state.busy) return;
-  // Switching closes every External tab, so edits must be settled first.
-  if (!(await confirmDocuments(state.documents))) return;
+  const relative = (id: string | null) =>
+    id && isDocumentUnder(id, folder) && !sameDocumentPath(id, folder)
+      ? id.slice(folder.length + 1)
+      : null;
+  const moving = state.documents.filter(
+    (document) => relative(document.id) !== null,
+  );
+  // The folder's tabs reopen from disk in the project, so edits must be settled.
+  if (!(await confirmDocuments(moving))) return;
   try {
     const project = await launchApi.register(folder);
-    const { documents, activeId, layout } = workspace();
-    const relative = (id: string | null) =>
-      id && isDocumentUnder(id, folder) && !sameDocumentPath(id, folder)
-        ? id.slice(folder.length + 1)
-        : null;
-    const paths = documents
-      .map((document) => relative(document.id))
-      .filter((path): path is string => path !== null);
+    const { activeId, layout } = workspace();
+    const paths = moving.map((document) => relative(document.id)!);
+    for (const document of moving) workspace().close(document.id);
     useWorkspace.setState((state) => ({
       projects: [
         ...state.projects.filter((item) => item.path !== project.path),
@@ -82,16 +87,18 @@ export async function registerExternalFolder(folder: string) {
         [project.path]: {
           paths,
           activeId: relative(activeId) ?? paths[0] ?? null,
-          layout,
+          layout: { ...layout, activity: "files" },
         },
       },
     }));
+    await workspace().refresh();
     await workspace().activate(project);
   } catch (error) {
     useWorkspace.setState({ error: String(error) });
   }
 }
 
+/** Shows a project in its tab, opening the tab when needed. */
 export async function activateProject(selected: Project) {
   const state = workspace();
   if (state.busy) return;
@@ -99,8 +106,59 @@ export async function activateProject(selected: Project) {
     setActivity("files");
     return;
   }
-  if (await confirmDocuments(state.documents))
-    await workspace().activate(selected);
+  await workspace().activate(selected);
+}
+
+/** Unsaved documents of every tab, with the tab's root. */
+function unsavedTabs() {
+  const state = workspace();
+  return [
+    ...(state.project && state.documents.some(isDirty)
+      ? [{ project: state.project, documents: state.documents.filter(isDirty) }]
+      : []),
+    ...Object.values(state.parked)
+      .map((tab) => ({
+        project: tab.project,
+        documents: tab.documents.filter(isDirty),
+      }))
+      .filter((tab) => tab.documents.length),
+  ];
+}
+
+/**
+ * Settles unsaved edits of the tabs at `paths` (every tab by default) with
+ * one save/discard/cancel choice. False when cancelled or a save fails.
+ */
+export async function confirmTabs(paths?: string[]) {
+  const tabs = unsavedTabs().filter(
+    (tab) => !paths || paths.includes(tab.project.path),
+  );
+  const several = tabs.length > 1 || tabs[0]?.project !== workspace().project;
+  const choice = await askUnsaved(
+    tabs.flatMap((tab) =>
+      tab.documents.map((document) =>
+        several ? `${tab.project.name} · ${document.name}` : document.name,
+      ),
+    ),
+  );
+  if (choice === "cancel") return false;
+  for (const tab of tabs) {
+    const active = tab.project.path === currentRoot();
+    if (choice === "save") {
+      if (active) {
+        for (const document of tab.documents)
+          if (!(await workspace().save(document.id))) return false;
+      } else if (!(await workspace().saveParked(tab.project.path)))
+        return false;
+    } else if (!active) await workspace().discardParked(tab.project.path);
+  }
+  return true;
+}
+
+/** Closes a project tab after settling its unsaved edits. */
+export async function closeProjectTab(path: string) {
+  if (workspace().busy || !(await confirmTabs([path]))) return;
+  await workspace().closeProject(path);
 }
 
 export async function closeDocuments(ids: string[]) {
@@ -226,17 +284,72 @@ export function navigateTo(documentId: string, line: number) {
   });
 }
 
+/** The workspace a launch or link target opens in: its project, or External. */
+export function targetProject(target: LaunchTarget): Project {
+  if (target.kind === "external") return EXTERNAL_PROJECT;
+  return (
+    workspace().projects.find((project) => project.path === target.root) ?? {
+      name: target.root.split(/[\\/]/).filter(Boolean).pop() ?? target.root,
+      path: target.root,
+    }
+  );
+}
+
 /**
- * External opens only granted files, so a followed link first adds its target
- * (named by the document holding the link) and lists it in the explorer.
+ * Shows the target's project tab (opening it when needed; the current tab
+ * stays open) and opens the target there. Resolves to the opened document id.
  */
-async function linkedPath(source: string | undefined, path: string) {
-  if (!isExternal(workspace().project) || !source) return path;
+export async function openTarget(target: LaunchTarget) {
+  const state = workspace();
+  const project = targetProject(target);
+  if (
+    state.project?.path !== project.path ||
+    state.project.kind !== project.kind
+  ) {
+    if (!(await workspace().activate(project))) return null;
+  }
+  // A new External file must be listed in the explorer.
+  if (target.kind === "external") await workspace().refresh();
+  setSettingsOpen(false);
+  await workspace().open({
+    name: target.name,
+    path: target.path,
+    isDirectory: false,
+  });
+  const { activeId } = workspace();
+  if (!activeId || !sameDocumentPath(activeId, target.path)) return null;
+  await revealDocument(activeId);
+  return activeId;
+}
+
+/**
+ * Opens a local link from `source`. Links inside a project open here; Rust
+ * resolves the others (and every External link) to the target's project tab
+ * or External.
+ */
+async function openLink(
+  target: Extract<LinkTarget, { kind: "local" | "outside" }>,
+  source: string | undefined,
+) {
   const root = currentRoot();
-  const target = await launchApi.link(source, path);
-  if (currentRoot() !== root) return null;
-  await workspace().refresh();
-  return target.path;
+  if (target.kind === "local" && !isExternal(workspace().project)) {
+    await workspace().open({
+      path: target.path,
+      name: target.path.split("/").pop() ?? target.path,
+      isDirectory: false,
+    });
+    const { activeId } = workspace();
+    return activeId && sameDocumentPath(activeId, target.path)
+      ? activeId
+      : null;
+  }
+  if (
+    !root ||
+    !source ||
+    (isExternal(workspace().project) && target.kind === "outside")
+  )
+    throw t("지원하지 않는 링크 또는 프로젝트 외부 경로입니다.");
+  return openTarget(await launchApi.follow(root, source, target.path));
 }
 
 export async function followLink(target: LinkTarget, source?: string) {
@@ -248,22 +361,16 @@ export async function followLink(target: LinkTarget, source?: string) {
         useWorkspace.setState({ error: String(error) });
       }
     else window.open(target.url, "_blank", "noopener,noreferrer");
-  } else if (target.kind === "local") {
-    let path: string | null;
+  } else if (target.kind === "local" || target.kind === "outside") {
+    let id: string | null;
     try {
-      path = await linkedPath(source, target.path);
+      id = await openLink(target, source);
     } catch (error) {
       useWorkspace.setState({ error: String(error) });
       return;
     }
-    if (path === null) return;
-    await workspace().open({
-      path,
-      name: path.split("/").pop() ?? path,
-      isDirectory: false,
-    });
-    const document = workspace().documents.find((document) =>
-      sameDocumentPath(document.id, path),
+    const document = workspace().documents.find(
+      (document) => document.id === id,
     );
     if (!document || workspace().activeId !== document.id) return;
     const heading = headings(document.content).find(
@@ -308,8 +415,7 @@ export async function installUpdate() {
         body: t("설치 중 앱이 종료되고 완료 후 다시 시작됩니다."),
         label: t("계속"),
       });
-      if (accepted === null || !(await confirmDocuments(workspace().documents)))
-        return false;
+      if (accepted === null || !(await confirmTabs())) return false;
       if (workspace().busy) return false;
       useWorkspace.setState({ busy: true });
       locked = true;

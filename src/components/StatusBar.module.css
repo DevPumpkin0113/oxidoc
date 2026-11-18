@@ -28,6 +28,16 @@
   align-items: stretch;
 }
 
+/* Project tabs take the free space and scroll; the right side keeps its width. */
+.statusLeft {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.statusRight {
+  flex-shrink: 0;
+}
+
 .statusLeft > span,
 .statusRight > span {
   display: flex;

@@ -478,6 +478,11 @@ export const english: Record<string, string> = {
     "Register the folder as a project to open this file",
   "파일을 찾을 수 없습니다": "File not found",
   "파일을 열지 못했습니다": "Unable to open the file",
+  "열린 프로젝트": "Open projects",
+  "프로젝트 밖에서 연 파일": "Files opened outside projects",
+  "끌거나 Alt+Shift+←/→로 순서 변경": "Drag or press Alt+Shift+←/→ to reorder",
+  "프로젝트 탭 추가": "Add project tab",
+  "외부 변경을 먼저 확인해 주세요": "Review the external changes first",
 };
 export function translate(
   text: string,

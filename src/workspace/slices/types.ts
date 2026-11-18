@@ -22,15 +22,39 @@ export interface BaseSlice {
   setLayout: (patch: Partial<Layout>) => void;
 }
 
+/** A project tab's state, kept in memory while another tab is shown. */
+export interface ParkedWorkspace {
+  project: Project;
+  documents: Document[];
+  activeId: string | null;
+  tree: Record<string, Entry[]>;
+  layout: Layout;
+  recoveryCandidates: RecoveryDocument[];
+  recoveryError: string;
+  recoveryReady: boolean;
+}
+
 export interface ProjectSlice {
   projects: Project[];
   project: Project | null;
   sessions: Record<string, Session>;
+  /** Project tabs at the bottom of the window, in order; includes `project`. */
+  openProjects: Project[];
+  /** Tabs other than the active one, by project path. */
+  parked: Record<string, ParkedWorkspace>;
   /** `start` (registered or single-file) replaces the last-used project on startup. */
   initialize: (desktop: boolean, start?: Project) => Promise<void>;
   choose: () => Promise<Project | null>;
+  /** Shows a project tab, opening it when needed; the current tab is kept. */
   activate: (project: Project) => Promise<boolean>;
   persist: () => Promise<void>;
+  /** Closes a project tab whose unsaved edits were already settled. */
+  closeProject: (path: string) => Promise<void>;
+  moveProject: (path: string, index: number) => void;
+  /** Saves the unsaved documents of a background tab. */
+  saveParked: (path: string) => Promise<boolean>;
+  /** Drops the recovery snapshot of a background tab's discarded edits. */
+  discardParked: (path: string) => Promise<void>;
   updateProject: (path: string, patch: ProjectPatch) => Promise<void>;
   removeProject: (path: string) => Promise<void>;
   relocateProject: (path: string) => Promise<void>;

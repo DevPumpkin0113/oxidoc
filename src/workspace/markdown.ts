@@ -175,6 +175,8 @@ export function blockHeadings(split: SplitResult, limit?: number): Heading[] {
 }
 export type LinkTarget =
   | { kind: "local"; path: string; hash: string }
+  /** Leaves the workspace root; `path` is root-relative and starts with `../`. */
+  | { kind: "outside"; path: string; hash: string }
   | { kind: "anchor"; hash: string }
   | { kind: "external"; url: string }
   | { kind: "blocked" };
@@ -217,17 +219,19 @@ export function resolveLink(documentPath: string, href: string): LinkTarget {
   )
     return { kind: "blocked" };
   const parts = documentPath.split("/").slice(0, -1);
+  let above = 0;
   for (const part of decoded.split("/")) {
     if (!part || part === ".") continue;
     if (part === "..") {
-      if (!parts.length) return { kind: "blocked" };
-      parts.pop();
+      if (parts.length) parts.pop();
+      else above++;
     } else parts.push(part);
   }
+  if (!parts.length) return { kind: "blocked" };
   try {
     return {
-      kind: "local",
-      path: parts.join("/"),
+      kind: above ? "outside" : "local",
+      path: [...Array<string>(above).fill(".."), ...parts].join("/"),
       hash: decodeURIComponent(hash),
     };
   } catch {

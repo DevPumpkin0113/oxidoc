@@ -122,6 +122,8 @@ export interface AdvancedApi {
   remove: (path: string) => Promise<Project[]>;
   relocate: (path: string) => Promise<Project[] | null>;
   loadApp: () => Promise<unknown>;
+  /** Saves the registered project tabs, in order. */
+  saveOpenProjects: (paths: string[]) => Promise<void>;
   loadSession: (root: string) => Promise<unknown>;
   saveSession: (
     root: string,
@@ -147,15 +149,23 @@ export interface LaunchApi {
   take: () => Promise<LaunchTarget | null>;
   /** Registers a folder of the External workspace (its id) as a project. */
   register: (folder: string) => Promise<Project>;
-  /** Adds the file a link in an opened External document points to. */
-  link: (source: string, target: string) => Promise<LaunchTarget>;
+  /**
+   * Resolves a link that leaves the workspace of `root` (every link in
+   * External) from its document `source`: the target's project, or External.
+   */
+  follow: (
+    root: string,
+    source: string,
+    target: string,
+  ) => Promise<LaunchTarget>;
   /** Calls `onRequest` whenever another launch hands over a file. */
   listen: (onRequest: () => void) => Promise<() => void>;
 }
 export const launchApi: LaunchApi = {
   take: () => invoke("take_launch_request"),
   register: (folder) => invoke("register_external_folder", { folder }),
-  link: (source, target) => invoke("open_external_link", { source, target }),
+  follow: (root, source, target) =>
+    invoke("follow_link", { root, source, target }),
   listen: (onRequest) => listen("launch-request", onRequest),
 };
 export interface RecoveryDocument {
@@ -222,6 +232,7 @@ export const workspaceApi: WorkspaceApi = {
     remove: (path) => invoke("remove_project", { path }),
     relocate: (path) => invoke("relocate_project", { path }),
     loadApp: () => invoke("load_workspace_state"),
+    saveOpenProjects: (paths) => invoke("save_open_projects", { paths }),
     loadSession: (root) => invoke("load_session", { root }),
     saveSession: (root, session, layout) =>
       invoke("save_session", { root, session, layout }),

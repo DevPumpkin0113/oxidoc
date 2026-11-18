@@ -1,0 +1,113 @@
+/* Lives in the 25px status bar between the panel buttons and the status text. */
+.dock {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.tabs {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 200px;
+  border-right: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.tab:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.tab > button:first-child {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 2px 0 10px;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selected {
+  background: var(--hover);
+  color: var(--text);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+/* The dragged tab stays in place, dimmed; the bar marks where it will land. */
+.dragging {
+  opacity: 0.4;
+}
+
+.dropBefore::before,
+.dropAfter::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  z-index: 1;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.dropBefore::before {
+  left: -1px;
+}
+
+.dropAfter::after {
+  right: -2px;
+}
+
+.dirty {
+  font-size: calc(var(--ui-font-size, 13px) * 8 / 13);
+}
+
+.close,
+.add {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.close {
+  width: 16px;
+  height: 16px;
+  margin: 0 5px 0 1px;
+  border-radius: 3px;
+  opacity: 0;
+}
+
+.selected .close,
+.tab:hover .close,
+.tab:focus-within .close {
+  opacity: 1;
+}
+
+.add {
+  width: 26px;
+}
+
+.close:hover,
+.add:hover {
+  color: var(--text);
+  background: var(--hover);
+}

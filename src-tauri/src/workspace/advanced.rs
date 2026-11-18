@@ -488,7 +488,35 @@ pub async fn relocate_project(
 pub async fn load_workspace_state(app: AppHandle) -> Result<serde_json::Value, String> {
     io(move || {
         let store = app.store("sessions.json").map_err(|e| e.to_string())?;
-        Ok(store.get("app").unwrap_or(serde_json::json!({})))
+        let mut state = store.get("app").unwrap_or(serde_json::json!({}));
+        if let (Some(state), Some(open)) = (state.as_object_mut(), store.get(OPEN_PROJECTS_KEY)) {
+            state.insert("openProjects".into(), open);
+        }
+        Ok(state)
+    })
+    .await
+}
+
+/// Session key of the project tabs; project keys are absolute paths.
+const OPEN_PROJECTS_KEY: &str = "openProjects";
+/// Same limit as the open project tabs in the window.
+const MAX_OPEN_PROJECTS: usize = 40;
+
+/// Saves the project tabs, in order; only registered projects are kept.
+#[tauri::command]
+pub async fn save_open_projects(app: AppHandle, paths: Vec<String>) -> Result<(), String> {
+    io(move || {
+        let gate = app.state::<RegistryGate>();
+        let _guard = gate.0.lock().map_err(|e| e.to_string())?;
+        let registered = projects(&app)?;
+        let paths: Vec<String> = paths
+            .into_iter()
+            .filter(|path| registered.iter().any(|project| &project.path == path))
+            .take(MAX_OPEN_PROJECTS)
+            .collect();
+        let store = app.store("sessions.json").map_err(|e| e.to_string())?;
+        store.set(OPEN_PROJECTS_KEY, serde_json::json!(paths));
+        store.save().map_err(|e| e.to_string())
     })
     .await
 }

@@ -11,7 +11,7 @@ import { useUpdater } from "../settings/updater";
 import { startWorkspaceMonitor } from "../workspace/monitor";
 import { useWorkspace } from "../workspace/store";
 import { blockExternalFileDrop } from "../workspace/treeDrag";
-import { confirmDocuments } from "./dialogs";
+import { confirmTabs } from "./actions";
 import { handleContextMenu, handleKeydown } from "./globalEvents";
 import { startWorkspace } from "./launch";
 import { isModalOpen, useUi } from "./uiStore";
@@ -101,7 +101,7 @@ export function useWorkbench() {
         if (confirming || state.busy || isModalOpen(useUi.getState())) return;
         confirming = true;
         try {
-          if (await confirmDocuments(state.documents)) {
+          if (await confirmTabs()) {
             await useWorkspace.getState().persist();
             await useSettings.getState().flush();
             await useWorkspace.getState().flushRecovery(true);

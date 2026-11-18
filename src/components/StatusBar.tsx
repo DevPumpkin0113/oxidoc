@@ -9,6 +9,7 @@ import {
 import { setSettingsOpen, setSidebar } from "../workbench/actions";
 import { CursorStatus, TextStatus } from "./DocumentPanes";
 import Icon from "./Icon";
+import ProjectDock from "./ProjectDock";
 import styles from "./StatusBar.module.css";
 
 const UPDATE_NOTICE_PHASES = ["available", "downloading", "ready", "error"];
@@ -29,6 +30,7 @@ function saveState(document: DocumentSummary): SaveState {
 export default function StatusBar() {
   const sidebar = useWorkspace((state) => state.layout.sidebar);
   const projectName = useWorkspace((state) => state.project?.name);
+  const desktop = useWorkspace((state) => state.desktop);
   const busy = useWorkspace((state) => state.busy);
   const activeId = useWorkspace((state) => state.activeId);
   const documents = useDocumentSummaries();
@@ -57,10 +59,14 @@ export default function StatusBar() {
         >
           <Icon name="panel" size={14} />
         </button>
-        <span className={styles.statusProject}>
-          <Icon name="projects" size={13} />
-          {projectName ?? t("프로젝트 없음")}
-        </span>
+        {desktop ? (
+          <ProjectDock />
+        ) : (
+          <span className={styles.statusProject}>
+            <Icon name="projects" size={13} />
+            {projectName ?? t("프로젝트 없음")}
+          </span>
+        )}
         {busy || anyDirty ? (
           <span className={styles.statusMessage}>
             <Icon name="check" size={12} />

@@ -16,18 +16,19 @@ export function resolveAction(value: string | null) {
 }
 
 /** Asks to save or discard modified targets; resolves false when cancelled. */
+/** Asks to save or discard the named unsaved documents; none needs no answer. */
+export async function askUnsaved(names: string[]): Promise<UnsavedChoice> {
+  if (!names.length) return "discard";
+  pendingChoice.current ??= new Promise<UnsavedChoice>((resolve) =>
+    useUi.setState({ confirmation: { names, resolve } }),
+  );
+  return pendingChoice.current;
+}
+
 export async function confirmDocuments(targets: Document[]) {
   const modified = targets.filter(isDirty);
   if (!modified.length) return true;
-  pendingChoice.current ??= new Promise<UnsavedChoice>((resolve) =>
-    useUi.setState({
-      confirmation: {
-        names: modified.map((document) => document.name),
-        resolve,
-      },
-    }),
-  );
-  const choice = await pendingChoice.current;
+  const choice = await askUnsaved(modified.map((document) => document.name));
   if (choice === "cancel") return false;
   if (choice === "save")
     for (const document of modified)

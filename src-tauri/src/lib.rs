@@ -88,7 +88,8 @@ pub fn run() {
             workspace::open_external,
             workspace::take_launch_request,
             workspace::register_external_folder,
-            workspace::open_external_link
+            workspace::follow_link,
+            workspace::save_open_projects
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Oxidoc");

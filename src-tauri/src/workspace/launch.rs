@@ -162,29 +162,49 @@ pub async fn take_launch_request(app: AppHandle) -> Result<Option<LaunchTarget>,
     .await
 }
 
-/// The file a link in an opened External document points to. Following the
-/// link is the user's choice, as with opening it from the OS.
-fn linked_file(files: &BTreeSet<PathBuf>, source: &str, target: &str) -> Result<PathBuf, String> {
+/// The file a link in an opened External document points to.
+fn external_link(files: &BTreeSet<PathBuf>, source: &str, target: &str) -> Result<PathBuf, String> {
     if !files.contains(&external_path(source)?) {
         return Err(super::unregistered_file(Path::new(source)));
     }
-    let target = external_path(target)?;
-    if !target.is_file() {
-        return Err("파일만 열 수 있습니다.".into());
-    }
-    Ok(target)
+    external_path(target)
 }
 
-/// Adds a file linked from an External document to External.
+/// The file a link in a project document points to. `target` is relative to
+/// the project root and may leave it through `..`.
+fn project_link(root: &Path, source: &str, target: &str) -> Result<PathBuf, String> {
+    super::contained_path(root, source)?;
+    if Path::new(target)
+        .components()
+        .any(|part| !matches!(part, Component::Normal(_) | Component::ParentDir))
+    {
+        return Err("지원하지 않는 링크입니다.".into());
+    }
+    let name = file_name(Path::new(target));
+    fs::canonicalize(root.join(target)).map_err(|e| super::access_error(&e, &name))
+}
+
+/// The workspace and document a link in `source`, a document of `root`,
+/// opens: the innermost project holding the target, otherwise External (the
+/// target is added to it). Following a link is the user's choice, as with
+/// opening a file from the OS.
 #[tauri::command]
-pub async fn open_external_link(
+pub async fn follow_link(
     app: AppHandle,
+    root: String,
     source: String,
     target: String,
 ) -> Result<LaunchTarget, String> {
     advanced::io(move || {
-        let file = linked_file(&external_files(&app), &source, &target)?;
-        grant(&app.state::<ExternalFiles>(), file)
+        let file = if root == EXTERNAL_ROOT {
+            external_link(&external_files(&app), &source, &target)?
+        } else {
+            project_link(&super::authorized_root(&app, &root)?, &source, &target)?
+        };
+        match resolve(&projects(&app)?, &file)? {
+            Ok(target) => Ok(target),
+            Err(file) => grant(&app.state::<ExternalFiles>(), file),
+        }
     })
     .await
 }
@@ -197,7 +217,14 @@ pub async fn register_external_folder(app: AppHandle, folder: String) -> Result<
         if !external_folders(&external_files(&app)).contains(&folder) {
             return Err("등록할 폴더가 없습니다.".into());
         }
-        register_folder(&app, &folder)
+        let project = register_folder(&app, &folder)?;
+        // The folder's files now open in its project tab instead.
+        app.state::<ExternalFiles>()
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .retain(|file| !file.starts_with(&folder));
+        Ok(project)
     })
     .await
 }
@@ -278,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    fn links_open_existing_files_only_from_opened_documents() {
+    fn external_links_need_an_opened_source() {
         let directory = tempfile::tempdir().unwrap();
         let root = fs::canonicalize(directory.path()).unwrap();
         fs::create_dir(root.join("docs")).unwrap();
@@ -288,15 +315,39 @@ mod tests {
         let files = BTreeSet::from([root.join("readme.md")]);
 
         assert_eq!(
-            linked_file(&files, &id("readme.md"), &id("docs/notes.md")).unwrap(),
+            external_link(&files, &id("readme.md"), &id("docs/notes.md")).unwrap(),
             root.join("docs/notes.md")
         );
         assert_eq!(
-            linked_file(&files, &id("readme.md"), &id("missing.md")).unwrap_err(),
+            external_link(&files, &id("readme.md"), &id("missing.md")).unwrap_err(),
             "파일을 찾을 수 없습니다: missing.md"
         );
-        assert!(linked_file(&files, &id("readme.md"), &id("docs")).is_err());
         // Only an opened document can grant its links.
-        assert!(linked_file(&files, &id("docs/notes.md"), &id("readme.md")).is_err());
+        assert!(external_link(&files, &id("docs/notes.md"), &id("readme.md")).is_err());
+    }
+
+    #[test]
+    fn project_links_may_leave_the_root_but_name_missing_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let base = fs::canonicalize(directory.path()).unwrap();
+        fs::create_dir_all(base.join("project/docs")).unwrap();
+        fs::create_dir(base.join("other")).unwrap();
+        fs::write(base.join("project/docs/a.md"), "#").unwrap();
+        fs::write(base.join("other/b.md"), "#").unwrap();
+        let root = base.join("project");
+
+        assert_eq!(
+            project_link(&root, "docs/a.md", "../other/b.md").unwrap(),
+            base.join("other/b.md")
+        );
+        assert_eq!(
+            project_link(&root, "docs/a.md", "../other/missing.md").unwrap_err(),
+            "파일을 찾을 수 없습니다: missing.md"
+        );
+        assert!(project_link(&root, "docs/a.md", "C:/other/b.md").is_err());
+        assert!(project_link(&root, "../other/b.md", "docs/a.md").is_err());
+        // A folder target resolves but is not a file to open.
+        let other = project_link(&root, "docs/a.md", "../other").unwrap();
+        assert!(resolve(&[], &other).is_err());
     }
 }

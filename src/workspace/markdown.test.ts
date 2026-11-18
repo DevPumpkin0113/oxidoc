@@ -35,9 +35,21 @@ describe("Markdown 위치와 링크 경계", () => {
     });
     expect(resolveLink("a.md", "https://example.com").kind).toBe("external");
   });
+  it("작업 공간 밖으로 나가는 링크는 열 탭을 Rust가 정하도록 따로 구분", () => {
+    for (const href of ["../secret", "%2e%2e/secret"])
+      expect(resolveLink("a.md", href)).toEqual({
+        kind: "outside",
+        path: "../secret",
+        hash: "",
+      });
+    expect(resolveLink("docs/a.md", "../../x/../../y.md#h")).toEqual({
+      kind: "outside",
+      path: "../../y.md",
+      hash: "h",
+    });
+    expect(resolveLink("docs/a.md", "..").kind).toBe("blocked");
+  });
   it.each([
-    "../secret",
-    "%2e%2e/secret",
     "/etc/passwd",
     "file:///C:/secret",
     "javascript:alert(1)",

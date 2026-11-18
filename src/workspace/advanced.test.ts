@@ -40,6 +40,7 @@ function fixture() {
     loadApp: vi.fn().mockResolvedValue({}),
     loadSession: vi.fn().mockResolvedValue({}),
     saveSession: vi.fn().mockResolvedValue(undefined),
+    saveOpenProjects: vi.fn().mockResolvedValue(undefined),
     search: vi
       .fn()
       .mockResolvedValue({ matches: [], truncated: false, skipped: 0 }),
@@ -524,5 +525,81 @@ describe("프로젝트·문서 상태 보존", () => {
     expect(advanced.remove).toHaveBeenCalledWith(project.path);
     expect(advanced.trash).not.toHaveBeenCalled();
     expect(store.getState().project).toBeNull();
+  });
+});
+
+describe("하단 프로젝트 탭", () => {
+  it("탭을 바꿔도 미저장 문서를 확인 없이 메모리에 두고 돌아오면 그대로 복원", async () => {
+    const { store, project, other, entry, api, advanced } = fixture();
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    await store.getState().open(entry);
+    store.getState().edit(entry.path, "draft");
+    await store.getState().activate(other);
+    expect(store.getState().project).toBe(other);
+    expect(store.getState().openProjects).toEqual([project, other]);
+    expect(store.getState().parked[project.path].documents[0]).toMatchObject({
+      content: "draft",
+    });
+    expect(api.save).not.toHaveBeenCalled();
+    expect(advanced.saveOpenProjects).toHaveBeenLastCalledWith([
+      project.path,
+      other.path,
+    ]);
+    const reads = vi.mocked(api.read).mock.calls.length;
+    await store.getState().activate(project);
+    expect(vi.mocked(api.read).mock.calls.length).toBe(reads);
+    expect(store.getState().activeId).toBe(entry.path);
+    expect(store.getState().documents[0].content).toBe("draft");
+    expect(store.getState().parked[project.path]).toBeUndefined();
+    expect(store.getState().parked[other.path]).toBeDefined();
+  });
+  it("백그라운드 탭의 미저장 문서를 저장하거나 버린 뒤 닫기", async () => {
+    const { store, project, other, entry, api, advanced } = fixture();
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    await store.getState().open(entry);
+    store.getState().edit(entry.path, "draft");
+    await store.getState().activate(other);
+    expect(await store.getState().saveParked(project.path)).toBe(true);
+    expect(api.save).toHaveBeenCalledWith(
+      project.path,
+      entry.path,
+      "draft",
+      "# Original",
+    );
+    expect(store.getState().parked[project.path].documents.some(isDirty)).toBe(
+      false,
+    );
+    await store.getState().closeProject(project.path);
+    expect(store.getState().openProjects).toEqual([other]);
+    expect(store.getState().parked[project.path]).toBeUndefined();
+    expect(advanced.saveOpenProjects).toHaveBeenLastCalledWith([other.path]);
+  });
+  it("활성 탭을 닫으면 옆 탭으로 전환하고 마지막 탭이면 빈 화면", async () => {
+    const { store, project, other } = fixture();
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    await store.getState().activate(other);
+    await store.getState().closeProject(other.path);
+    expect(store.getState().project).toBe(project);
+    expect(store.getState().openProjects).toEqual([project]);
+    await store.getState().closeProject(project.path);
+    expect(store.getState().project).toBeNull();
+    expect(store.getState().openProjects).toEqual([]);
+  });
+  it("탭 순서 변경과 저장된 열린 탭 복원은 등록된 프로젝트만 유지", async () => {
+    const { store, project, other, advanced } = fixture();
+    vi.mocked(advanced.loadApp).mockResolvedValueOnce({
+      openProjects: [other.path, "C:/gone", project.path],
+    });
+    await store.getState().initialize(true);
+    expect(store.getState().openProjects).toEqual([other, project]);
+    store.getState().moveProject(project.path, 0);
+    expect(store.getState().openProjects).toEqual([project, other]);
+    expect(advanced.saveOpenProjects).toHaveBeenLastCalledWith([
+      project.path,
+      other.path,
+    ]);
   });
 });

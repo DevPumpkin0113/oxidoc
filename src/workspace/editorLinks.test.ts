@@ -33,11 +33,8 @@ it("코드 제외·참조 링크·이미지·해시·인코딩 경로·외부 �
     "assets/a(b).png",
     "docs/missing.md",
   ]);
-  expect(result.map((link) => link.href)).toEqual([
-    "missing.md",
-    "../../escape.md",
-    "#absent",
-  ]);
+  // Links leaving the project may open in another tab, so they are not flagged.
+  expect(result.map((link) => link.href)).toEqual(["missing.md", "#absent"]);
   expect(
     documentLinks(content).links.some((link) => link.href.includes("ignore")),
   ).toBe(false);
