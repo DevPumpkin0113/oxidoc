@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-18
+
+여러 프로젝트를 한 창에서 오가는 상태 표시줄 프로젝트 탭과, 프로젝트 밖 문서를 등록 없이 여는 `External` 추가. 문서 링크가 프로젝트 폴더 밖(`../`)을 가리켜도 열 수 있도록 바뀌었다(링크를 누른 대상 파일 하나만 접근 허용, 대상이 등록 프로젝트 안이면 그 프로젝트 탭에서 열림).
+
 - Windows에서 Oxidoc을 기본 프로그램으로 지정한 문서를 열면 마지막 작업 공간 대신 그 문서가 속한 프로젝트로 열기. 등록 프로젝트 밖의 문서는 폴더 등록 없이 `External`에 모아 열고(폴더별로 프로젝트 등록 가능), 앱이 실행 중이면 새 창 대신 기존 창에서 열기
 - 상태 표시줄 프로젝트 탭: 여러 프로젝트와 `External`을 한 창에서 열어 두고 저장 확인 없이 오가기(탭마다 열린 문서·미저장 편집 유지, 열린 탭 목록 복원). 프로젝트 밖을 가리키는 문서 링크는 대상 프로젝트 탭이나 External에서 열기
 
@@ -79,7 +83,8 @@
 
 업데이트 확인·다운로드·자동 설치 및 설치 파일 배포는 이번 릴리즈 범위 외.
 
-[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.5.0...develop
+[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.6.0...develop
+[0.6.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.6.0
 [0.5.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.5.0
 [0.4.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.4.0
 [0.3.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.3.0
