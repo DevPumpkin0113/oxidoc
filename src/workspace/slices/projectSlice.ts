@@ -123,7 +123,7 @@ export function createProjectSlice(context: SliceContext): ProjectSlice {
       documents: parked.documents,
       activeId: parked.activeId,
       tree: parked.tree,
-      layout: parked.layout,
+      layout: { ...parked.layout, sidebarWidth: get().layout.sidebarWidth },
       recoveryCandidates: parked.recoveryCandidates,
       recoveryError: parked.recoveryError,
       recoveryReady: parked.recoveryReady,
@@ -289,7 +289,8 @@ export function createProjectSlice(context: SliceContext): ProjectSlice {
             )?.id ??
             restored[0]?.id ??
             null,
-          layout: saved.layout,
+          // The sidebar width is app-wide, not part of a project's layout.
+          layout: { ...saved.layout, sidebarWidth: get().layout.sidebarWidth },
           generation: state.generation + 1,
           error:
             unavailable ||

@@ -14,7 +14,9 @@ import type {
 } from "./slices/types";
 
 export {
+  clampSidebarWidth,
   defaultLayout,
+  SIDEBAR_WIDTH,
   isDirty,
   isDocumentUnder,
   EXTERNAL_PROJECT,

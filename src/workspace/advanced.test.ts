@@ -588,6 +588,17 @@ describe("하단 프로젝트 탭", () => {
     expect(store.getState().project).toBeNull();
     expect(store.getState().openProjects).toEqual([]);
   });
+  it("사이드바 너비는 탭을 바꾸거나 새 프로젝트를 열어도 유지", async () => {
+    const { store, project, other } = fixture();
+    await store.getState().initialize(true);
+    await store.getState().activate(project);
+    store.getState().setLayout({ sidebarWidth: 320 });
+    await store.getState().activate(other);
+    expect(store.getState().layout.sidebarWidth).toBe(320);
+    store.getState().setLayout({ sidebarWidth: 400 });
+    await store.getState().activate(project);
+    expect(store.getState().layout.sidebarWidth).toBe(400);
+  });
   it("탭 순서 변경과 저장된 열린 탭 복원은 등록된 프로젝트만 유지", async () => {
     const { store, project, other, advanced } = fixture();
     vi.mocked(advanced.loadApp).mockResolvedValueOnce({

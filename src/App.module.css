@@ -10,8 +10,10 @@
 .workbench {
   min-height: 0;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 6px;
+  /* The sidebar keeps at least 360px for the content on narrow windows. */
+  grid-template-columns:
+    min(var(--sidebar-width, 240px), max(180px, calc(100vw - 372px)))
+    6px minmax(0, 1fr);
   padding: 6px 6px 4px;
 }
 
@@ -23,6 +25,15 @@
 
 .sidebarHidden {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* Preview while the resize handle is dragged far enough left to close the sidebar. */
+.workbench[data-sidebar-collapsing] {
+  grid-template-columns: 0 6px minmax(0, 1fr);
+}
+
+.workbench[data-sidebar-collapsing] > aside {
+  visibility: hidden;
 }
 
 .main {
@@ -45,24 +56,6 @@
 
 .main:has([role="tab"]) .contentPanel {
   border-top-left-radius: 0;
-}
-
-@media (max-width: 1050px) {
-  .workbench {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-  .sidebarHidden {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 760px) {
-  .workbench {
-    grid-template-columns: 190px minmax(0, 1fr);
-  }
-  .sidebarHidden {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* Settings and common theme surfaces. */

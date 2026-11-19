@@ -482,6 +482,9 @@ export const english: Record<string, string> = {
   "프로젝트 밖에서 연 파일": "Files opened outside projects",
   "끌거나 Alt+Shift+←/→로 순서 변경": "Drag or press Alt+Shift+←/→ to reorder",
   "프로젝트 탭 추가": "Add project tab",
+  "사이드바 너비": "Sidebar width",
+  "끌어서 사이드바 너비 조절, 왼쪽 끝까지 끌면 닫기 (더블클릭: 기본값)":
+    "Drag to resize the sidebar, all the way left to close it (double-click: default)",
   "외부 변경을 먼저 확인해 주세요": "Review the external changes first",
 };
 export function translate(

@@ -1,9 +1,11 @@
+import type { CSSProperties } from "react";
 import DocumentView from "./components/DocumentView";
 import ImageView from "./components/ImageView";
 import { isImageFile } from "./workspace/documentTypes";
 import ScrollArea from "./components/ScrollArea";
 import SettingsPanel from "./components/SettingsPanel";
 import Sidebar from "./components/Sidebar";
+import SidebarResizer from "./components/SidebarResizer";
 import StatusBar from "./components/StatusBar";
 import TabBar from "./components/TabBar";
 import WorkbenchOverlays from "./components/WorkbenchOverlays";
@@ -57,15 +59,18 @@ export default function App() {
   useAppearance();
   useWorkbench();
   const sidebar = useWorkspace((state) => state.layout.sidebar);
+  const sidebarWidth = useWorkspace((state) => state.layout.sidebarWidth);
   const modal = useUi(isModalOpen);
   return (
     <>
       <div className={styles.app} inert={modal}>
         <div
           className={`${styles.workbench} ${!sidebar ? styles.sidebarHidden : ""}`}
+          style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
           data-tauri-drag-region
         >
           {sidebar ? <Sidebar /> : null}
+          {sidebar ? <SidebarResizer /> : null}
           <main className={styles.main}>
             <TabBar />
             <ContentPanel />

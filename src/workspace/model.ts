@@ -40,7 +40,12 @@ export interface Layout {
   view: "edit" | "split" | "preview";
   outline: boolean;
   sync: boolean;
+  /** Sidebar width in CSS pixels; shared by every project tab. */
+  sidebarWidth: number;
 }
+export const SIDEBAR_WIDTH = { min: 180, max: 600, default: 240 } as const;
+export const clampSidebarWidth = (width: number) =>
+  Math.round(Math.min(SIDEBAR_WIDTH.max, Math.max(SIDEBAR_WIDTH.min, width)));
 export const defaultLayout: Layout = {
   explorerView: "documents",
   sidebar: true,
@@ -48,6 +53,7 @@ export const defaultLayout: Layout = {
   view: "split",
   outline: false,
   sync: true,
+  sidebarWidth: SIDEBAR_WIDTH.default,
 };
 export interface Session {
   paths: string[];
@@ -76,6 +82,11 @@ export function parseLayout(value: unknown): Layout {
       : "split",
     outline: data.outline === true,
     sync: data.sync !== false,
+    sidebarWidth:
+      typeof data.sidebarWidth === "number" &&
+      Number.isFinite(data.sidebarWidth)
+        ? clampSidebarWidth(data.sidebarWidth)
+        : SIDEBAR_WIDTH.default,
   };
 }
 

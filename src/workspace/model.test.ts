@@ -15,6 +15,10 @@ describe("작업 공간 모델", () => {
       ...defaultLayout,
       sync: false,
     });
+    expect(parseLayout({ sidebarWidth: 9999 }).sidebarWidth).toBe(600);
+    expect(parseLayout({ sidebarWidth: 10 }).sidebarWidth).toBe(180);
+    expect(parseLayout({ sidebarWidth: "300" }).sidebarWidth).toBe(240);
+    expect(parseLayout({ sidebarWidth: 312.6 }).sidebarWidth).toBe(313);
     const session = parseSession(
       { paths: ["a/B.md", "A\\b.md", 3, "c.md"], activeId: 7 },
       defaultLayout,
