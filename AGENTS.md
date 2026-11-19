@@ -5,7 +5,7 @@
 ## 프로젝트
 
 - 목적: VS Code 스타일 UI 기반 로컬 Markdown 에디터 및 프로젝트 관리 도구, Windows 우선
-- 상태: v0.6.0 공개. 작업 계획은 `.agent/plan.md`, 세션 인계는 `.agent/handoff.md`로 관리
+- 상태: 공개 중(공개 버전은 Git 태그·GitHub Release 기준). 작업 계획은 `.agent/plan.md`, 세션 인계는 `.agent/handoff.md`로 관리
 
 ## 기술 환경
 
