@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-19
+
+사이드바와 본문 사이를 끌어 사이드바 너비를 조절할 수 있다.
+
 - 사이드바와 본문 사이를 끌어 사이드바 너비 조절(왼쪽 끝까지 끌면 닫기, 더블클릭으로 기본값, 키보드 조절, 재실행 시 유지)
 
 ## [0.6.0] - 2026-11-18
@@ -85,7 +89,8 @@
 
 업데이트 확인·다운로드·자동 설치 및 설치 파일 배포는 이번 릴리즈 범위 외.
 
-[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.6.0...develop
+[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.7.0...develop
+[0.7.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.7.0
 [0.6.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.6.0
 [0.5.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.5.0
 [0.4.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.4.0
