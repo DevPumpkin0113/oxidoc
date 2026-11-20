@@ -12,9 +12,12 @@
   flex: 0 1 auto;
 }
 
+/* Fill the bar height so the active tab reaches the panel even when it is the
+   only tab (other tabs' bottom margin used to set the row height). */
 .tabs {
   display: flex;
   min-width: 0;
+  height: 100%;
 }
 
 .tab {
