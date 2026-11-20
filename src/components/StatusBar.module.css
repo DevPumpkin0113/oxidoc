@@ -12,9 +12,23 @@
   display: grid;
   width: 32px;
   flex-shrink: 0;
+  position: relative;
   place-items: center;
   border-right: 1px solid var(--border);
   color: var(--muted);
+}
+
+/* Red dot on the settings button while an update waits to be installed. */
+.updateDot {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f14c4c;
+  box-shadow: 0 0 0 1.5px var(--canvas);
+  pointer-events: none;
 }
 
 .sidebarToggle:hover {

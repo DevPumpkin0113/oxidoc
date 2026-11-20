@@ -195,7 +195,17 @@ export default function TabBar() {
         }}
       >
         {settingsOpen ? (
-          <div className={`${styles.tab} ${styles.activeTab}`}>
+          <div
+            className={`${styles.tab} ${styles.activeTab}`}
+            onMouseDown={(event) => {
+              if (event.button === MIDDLE_BUTTON) event.preventDefault();
+            }}
+            onAuxClick={(event) => {
+              if (event.button !== MIDDLE_BUTTON) return;
+              event.preventDefault();
+              setSettingsOpen(false);
+            }}
+          >
             <button
               role="tab"
               aria-selected

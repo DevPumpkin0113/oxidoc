@@ -8,6 +8,7 @@ import {
 import { beforeEach, expect, it, vi } from "vitest";
 import TabBar from "./TabBar";
 import { useWorkspace, type Document } from "../workspace/store";
+import { useUi } from "../workbench/uiStore";
 
 vi.mock("./Titlebar", () => ({ default: () => null }));
 
@@ -91,4 +92,13 @@ it("가운데 클릭으로 탭 닫기", async () => {
   fireEvent.mouseDown(tab, { button: 1 });
   fireEvent(tab, new MouseEvent("auxclick", { bubbles: true, button: 1 }));
   await waitFor(() => expect(order()).not.toContain("a.md"));
+});
+
+it("설정 탭을 가운데 클릭하면 닫힘", () => {
+  useUi.setState({ settingsOpen: true });
+  render(<TabBar />);
+  const tab = screen.getByRole("tab", { name: "설정" }).parentElement!;
+  fireEvent.mouseDown(tab, { button: 1 });
+  fireEvent(tab, new MouseEvent("auxclick", { bubbles: true, button: 1 }));
+  expect(useUi.getState().settingsOpen).toBe(false);
 });

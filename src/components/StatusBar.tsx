@@ -7,6 +7,7 @@ import {
   type DocumentSummary,
 } from "../workspace/selectors";
 import { setSettingsOpen, setSidebar } from "../workbench/actions";
+import { useUi } from "../workbench/uiStore";
 import { CursorStatus, TextStatus } from "./DocumentPanes";
 import Icon from "./Icon";
 import ProjectDock from "./ProjectDock";
@@ -36,8 +37,11 @@ export default function StatusBar() {
   const documents = useDocumentSummaries();
   const anyDirty = documents.some((document) => document.dirty);
   const active = documents.find((document) => document.id === activeId);
+  const settingsOpen = useUi((state) => state.settingsOpen);
   const updatePhase = useUpdater((state) => state.phase);
   const updateVersion = useUpdater((state) => state.version);
+  const updateNotice =
+    !!updateVersion && UPDATE_NOTICE_PHASES.includes(updatePhase);
   const sidebarLabel = sidebar ? t("사이드바 닫기") : t("사이드바 열기");
   return (
     <footer className={styles.statusbar}>
@@ -45,10 +49,18 @@ export default function StatusBar() {
         <button
           className={styles.sidebarToggle}
           aria-label={t("설정")}
-          title={t("설정 (Ctrl ,)")}
-          onClick={() => setSettingsOpen(true)}
+          aria-pressed={settingsOpen}
+          title={
+            updateNotice
+              ? t("설정 (Ctrl ,) · 업데이트 {0}", updateVersion!)
+              : t("설정 (Ctrl ,)")
+          }
+          onClick={() => setSettingsOpen(!settingsOpen)}
         >
           <Icon name="settings" size={14} />
+          {updateNotice ? (
+            <span className={styles.updateDot} aria-hidden="true" />
+          ) : null}
         </button>
         <button
           className={styles.sidebarToggle}
@@ -75,7 +87,7 @@ export default function StatusBar() {
         ) : null}
       </div>
       <div className={styles.statusRight}>
-        {updateVersion && UPDATE_NOTICE_PHASES.includes(updatePhase) ? (
+        {updateNotice ? (
           <button
             onClick={() => setSettingsOpen(true)}
             title={t("업데이트 설정 열기")}
