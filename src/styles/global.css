@@ -71,3 +71,17 @@ select,
 textarea {
   font: inherit;
 }
+
+/* Front matter decorations (workspace/editorFrontMatter.ts): YAML instead of
+   Markdown colours, with muted delimiters and accented keys. */
+.monaco-editor .view-line .oxidoc-front-matter {
+  color: var(--text);
+  font-weight: normal;
+}
+.monaco-editor .view-line .oxidoc-front-matter-delimiter {
+  color: var(--muted);
+  font-weight: normal;
+}
+.monaco-editor .view-line .oxidoc-front-matter-key {
+  color: var(--accent);
+}

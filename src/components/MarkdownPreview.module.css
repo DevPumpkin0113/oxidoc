@@ -151,6 +151,44 @@
   margin-bottom: 0;
 }
 
+/* Front matter properties: collapsed, muted and compact. */
+.preview .frontMatter {
+  padding: 4px 12px;
+  color: var(--muted);
+  font-size: calc(var(--ui-font-size, 13px) * 11 / 13);
+}
+
+.preview .frontMatter summary {
+  font-weight: 500;
+}
+
+.preview .frontMatter summary small {
+  margin-left: 6px;
+  opacity: 0.8;
+}
+
+.preview .frontMatter th {
+  width: 1%;
+  white-space: nowrap;
+  font-weight: 500;
+  vertical-align: top;
+}
+
+.preview .frontMatter td {
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.preview .frontMatter tr:last-child > * {
+  border-bottom: 0;
+}
+
+.preview .frontMatter pre {
+  margin: 0;
+  padding: 8px;
+  white-space: pre-wrap;
+}
+
 .preview pre {
   padding: 15px;
   overflow: auto;

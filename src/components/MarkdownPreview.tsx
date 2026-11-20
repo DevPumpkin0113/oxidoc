@@ -36,6 +36,7 @@ import {
   type MarkdownBlock,
 } from "../workspace/markdownBlocks";
 import { scrollEdge, type ScrollEdge } from "../workspace/scroll";
+import type { FrontMatter } from "../workspace/frontMatter";
 export interface ScrollTarget {
   source: "editor" | "preview";
   line: number;
@@ -326,6 +327,41 @@ const previewComponents = {
   a: PreviewLink,
   img: PreviewImage,
 };
+/**
+ * Front matter as a collapsed property table, so its YAML is not rendered as a
+ * thematic break and headings. Shows the raw text when no `key: value` pairs
+ * are found.
+ */
+const FrontMatterBlock = memo(function FrontMatterBlock({
+  frontMatter,
+}: {
+  frontMatter: FrontMatter;
+}) {
+  const { entries, body } = frontMatter;
+  return (
+    <details className={styles.frontMatter} data-source-line={1}>
+      <summary>
+        {t("속성")}
+        {entries.length ? <small>{entries.length}</small> : null}
+      </summary>
+      {entries.length ? (
+        <table>
+          <tbody>
+            {entries.map((entry, index) => (
+              <tr key={index}>
+                <th scope="row">{entry.key}</th>
+                <td>{entry.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <pre>{body}</pre>
+      )}
+    </details>
+  );
+});
+
 /** Blocks rendered at once when a document opens; the rest follow in batches. */
 const INITIAL_BLOCKS = 40;
 const BLOCK_BATCH = 40;
@@ -656,18 +692,23 @@ export default function MarkdownPreview({
         {standalone ? (
           <MermaidDiagram source={content} line={1} />
         ) : (
-          blocks.slice(0, count).map((block) => (
-            <div
-              key={block.key}
-              className={styles.block}
-              data-line-offset={block.line - 1}
-            >
-              <PreviewBlock
-                source={blockSource(block, definitions)}
-                headingIds={blockHeadings.get(block.key) ?? ""}
-              />
-            </div>
-          ))
+          <>
+            {split.frontMatter ? (
+              <FrontMatterBlock frontMatter={split.frontMatter} />
+            ) : null}
+            {blocks.slice(0, count).map((block) => (
+              <div
+                key={block.key}
+                className={styles.block}
+                data-line-offset={block.line - 1}
+              >
+                <PreviewBlock
+                  source={blockSource(block, definitions)}
+                  headingIds={blockHeadings.get(block.key) ?? ""}
+                />
+              </div>
+            ))}
+          </>
         )}
       </ScrollArea>
     </PreviewContext>

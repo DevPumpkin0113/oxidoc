@@ -23,6 +23,7 @@ import { scrollEdge, type ScrollEdge } from "../workspace/scroll";
 import { editorTextAction } from "../workspace/editorTextActions";
 import { pasteEditorImage } from "../workspace/editorImages";
 import { attachMarkdownLinks } from "../workspace/editorLinks";
+import { attachFrontMatter } from "../workspace/editorFrontMatter";
 import { isMermaidFile } from "../workspace/documentTypes";
 import type { TextAction } from "../workspace/textContext";
 import { useWorkspace } from "../workspace/store";
@@ -166,6 +167,9 @@ export default function MarkdownEditor({
     const stopLinkTools = isMermaidFile(documentId)
       ? () => {}
       : attachMarkdownLinks(monaco, instance, projectPath, documentId);
+    const stopFrontMatter = isMermaidFile(documentId)
+      ? () => {}
+      : attachFrontMatter(instance);
     const pasteImage = (event: ClipboardEvent) => {
       if (event.target instanceof HTMLInputElement) return;
       const item = Array.from(event.clipboardData?.items ?? []).find(
@@ -256,6 +260,7 @@ export default function MarkdownEditor({
       stopLocalizing();
       changes.dispose();
       stopLinkTools();
+      stopFrontMatter();
       cursor.dispose();
       selection.dispose();
       scrolling.dispose();

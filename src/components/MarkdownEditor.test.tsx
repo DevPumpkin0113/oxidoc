@@ -7,18 +7,20 @@ const monacoMock = vi.hoisted(() => {
   const normalize = (value: string) => value.replace(/\r\n|\r/g, "\n");
   const createModel = vi.fn((initial: string) => {
     let value = normalize(initial);
-    const listeners = new Set<() => void>();
+    const listeners = new Set<(event: { changes: [] }) => void>();
     return {
       getValue: () => value,
+      getLineCount: () => value.split("\n").length,
+      getLineContent: (line: number) => value.split("\n")[line - 1] ?? "",
       setValue: (next: string) => {
         value = normalize(next);
-        listeners.forEach((listener) => listener());
+        listeners.forEach((listener) => listener({ changes: [] }));
       },
       updateOptions: vi.fn(),
       isDisposed: () => false,
       dispose: vi.fn(),
       listeners,
-      onDidChangeContent: (listener: () => void) => {
+      onDidChangeContent: (listener: (event: { changes: [] }) => void) => {
         listeners.add(listener);
         return { dispose: () => listeners.delete(listener) };
       },
@@ -34,7 +36,7 @@ const monacoMock = vi.hoisted(() => {
       getValue: () => options.model.getValue(),
       updateOptions: vi.fn(),
       onContextMenu: disposable,
-      onDidChangeModelContent: (listener: () => void) => {
+      onDidChangeModelContent: (listener: (event: { changes: [] }) => void) => {
         options.model.listeners.add(listener);
         return { dispose: () => options.model.listeners.delete(listener) };
       },
@@ -42,6 +44,7 @@ const monacoMock = vi.hoisted(() => {
       onDidChangeCursorSelection: disposable,
       getSelections: () => [],
       onDidScrollChange: disposable,
+      createDecorationsCollection: () => ({ set: vi.fn(), clear: vi.fn() }),
       saveViewState: () => ({}),
       restoreViewState: vi.fn(),
       dispose: vi.fn(),

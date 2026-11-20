@@ -129,4 +129,44 @@ describe("블록 단위 미리보기", () => {
     ).toBe(5);
     expect(container.querySelector("h1")).toHaveAttribute("id", "one");
   });
+
+  it("front matter는 접힌 속성 표로 보이고 구분선·제목이 되지 않음", () => {
+    const { container } = render(
+      <MarkdownPreview
+        content={[
+          "---",
+          "title: 문서",
+          "tags: a",
+          "---",
+          "",
+          "# 본문",
+          "",
+          "문단",
+        ].join("\n")}
+      />,
+    );
+    const details = container.querySelector("details")!;
+    expect(details).not.toHaveAttribute("open");
+    expect(details).toHaveAttribute("data-source-line", "1");
+    expect(details.querySelector("summary")).toHaveTextContent("속성2");
+    expect(
+      [...details.querySelectorAll("tr")].map((row) => row.textContent),
+    ).toEqual(["title문서", "tagsa"]);
+    expect(container.querySelector("hr")).toBeNull();
+    expect(container.querySelectorAll("h1, h2")).toHaveLength(1);
+    const heading = container.querySelector("h1")!;
+    const wrapper = heading.parentElement as HTMLElement;
+    expect(
+      Number(wrapper.dataset.lineOffset) + Number(heading.dataset.sourceLine),
+    ).toBe(6);
+  });
+
+  it("키가 없는 front matter는 원문을 표시", () => {
+    const { container } = render(
+      <MarkdownPreview
+        content={["---", "- a", "- b", "---", "본문"].join("\n")}
+      />,
+    );
+    expect(container.querySelector("details pre")).toHaveTextContent("- a - b");
+  });
 });

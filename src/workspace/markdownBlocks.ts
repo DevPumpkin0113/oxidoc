@@ -1,3 +1,5 @@
+import { parseFrontMatter, type FrontMatter } from "./frontMatter";
+
 /**
  * Splits Markdown into top-level blocks that parse to the same result
  * independently, so parsing and rendering cost follows the edited block rather
@@ -19,6 +21,8 @@ export interface SplitResult {
    * when parsed so reference links resolve across blocks.
    */
   definitions: string;
+  /** Leading YAML front matter, kept out of the blocks. */
+  frontMatter?: FrontMatter;
 }
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
@@ -46,13 +50,20 @@ const canStartBlock = (next: string) =>
   !BLANK.test(next) && !/^[ \t]/.test(next) && !LIST_ITEM.test(next);
 
 export function splitBlocks(content: string): SplitResult {
-  // Footnotes render a document-level section; keep such documents whole.
-  if (content.includes("[^"))
-    return {
-      blocks: content ? [{ text: content, line: 1, key: content }] : [],
-      definitions: "",
-    };
+  const frontMatter = parseFrontMatter(content) ?? undefined;
   const lines = content.split("\n");
+  // Lines before `first` belong to the front matter or blank lines after it.
+  let first = frontMatter?.endLine ?? 0;
+  while (first < lines.length && BLANK.test(lines[first])) first++;
+  // Footnotes render a document-level section; keep such documents whole.
+  if (content.includes("[^")) {
+    const text = lines.slice(first).join("\n");
+    return {
+      blocks: text ? [{ text, line: first + 1, key: text }] : [],
+      definitions: "",
+      frontMatter,
+    };
+  }
   // Next non-blank line after each index, computed once to keep the scan linear.
   const nextText: (string | undefined)[] = new Array(lines.length);
   for (
@@ -78,7 +89,7 @@ export function splitBlocks(content: string): SplitResult {
     blocks.push({ text, line: start + 1, key: `${count}:${text}` });
     start = -1;
   };
-  for (let index = 0; index < lines.length; index++) {
+  for (let index = first; index < lines.length; index++) {
     const line = lines[index];
     if (fence) {
       const close = FENCE.exec(line);
@@ -109,7 +120,7 @@ export function splitBlocks(content: string): SplitResult {
     else htmlDepth = Math.max(0, htmlDepth + htmlDepthChange(line));
   }
   push(lines.length);
-  return { blocks, definitions: definitions.join("\n") };
+  return { blocks, definitions: definitions.join("\n"), frontMatter };
 }
 
 /** Text to parse for a block: the block plus document-wide definitions. */
