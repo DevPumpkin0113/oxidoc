@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-21
+
+새 버전 알림이 설정 버튼에도 보이고, 설정을 더 빨리 닫을 수 있다.
+
 - 새 버전이 있으면 상태 표시줄 설정 버튼에 빨간 점 표시
 - 설정 버튼을 다시 누르거나 설정 탭을 가운데 클릭하면 설정 닫기
 
@@ -98,7 +102,8 @@
 
 업데이트 확인·다운로드·자동 설치 및 설치 파일 배포는 이번 릴리즈 범위 외.
 
-[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.8.0...develop
+[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.9.0...develop
+[0.9.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.9.0
 [0.8.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.8.0
 [0.7.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.7.0
 [0.6.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.6.0
