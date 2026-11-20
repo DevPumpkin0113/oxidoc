@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-21
+
 - 문서 탭이 하나뿐일 때 탭이 본문과 떨어져 떠 보이던 문제 수정
 
 ## [0.9.0] - 2026-11-21
@@ -104,7 +106,8 @@
 
 업데이트 확인·다운로드·자동 설치 및 설치 파일 배포는 이번 릴리즈 범위 외.
 
-[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.9.0...develop
+[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.9.1...develop
+[0.9.1]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.9.1
 [0.9.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.9.0
 [0.8.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.8.0
 [0.7.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.7.0
