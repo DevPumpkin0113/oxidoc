@@ -37,6 +37,7 @@ import {
 } from "../workspace/markdownBlocks";
 import { scrollEdge, type ScrollEdge } from "../workspace/scroll";
 import type { FrontMatter } from "../workspace/frontMatter";
+import PreviewFind from "./PreviewFind";
 export interface ScrollTarget {
   source: "editor" | "preview";
   line: number;
@@ -459,6 +460,8 @@ export default function MarkdownPreview({
   onScrollLine,
   syncTarget,
   navigation,
+  findToken = 0,
+  findEnabled = false,
 }: {
   content: string;
   documentPath?: string;
@@ -468,8 +471,15 @@ export default function MarkdownPreview({
   onScrollLine?: (line: number, edge?: ScrollEdge) => void;
   syncTarget?: ScrollTarget;
   navigation?: Navigation;
+  /** Increments to open (or refocus) the find bar. */
+  findToken?: number;
+  /** The find bar shows only in preview-only view. */
+  findEnabled?: boolean;
 }) {
   const article = useRef<HTMLElement>(null);
+  // A token present at mount belongs to an earlier request, so start closed.
+  const [findClosedAt, setFindClosedAt] = useState(findToken);
+  const finding = findEnabled && findToken > findClosedAt;
   const suppress = useRef(false);
   const frame = useRef(0);
   const standalone = isMermaidFile(documentPath);
@@ -485,8 +495,12 @@ export default function MarkdownPreview({
     path: documentPath,
     count: INITIAL_BLOCKS,
   });
-  const count =
-    rendered.path === documentPath ? rendered.count : INITIAL_BLOCKS;
+  // Find searches the rendered text, so every block is rendered while it is open.
+  const count = finding
+    ? blocks.length
+    : rendered.path === documentPath
+      ? rendered.count
+      : INITIAL_BLOCKS;
   const complete = count >= blocks.length;
   // Only rendered blocks need heading ids, and ids depend on earlier headings only.
   const blockHeadings = useMemo(
@@ -681,36 +695,45 @@ export default function MarkdownPreview({
   );
   return (
     <PreviewContext value={context}>
-      <ScrollArea
-        as="article"
-        className={styles.previewArea}
-        viewportClassName={styles.preview}
-        viewportRef={article}
-        aria-label={t(standalone ? "Mermaid 미리보기" : "Markdown 미리보기")}
-        onScroll={onScroll}
-      >
-        {standalone ? (
-          <MermaidDiagram source={content} line={1} />
-        ) : (
-          <>
-            {split.frontMatter ? (
-              <FrontMatterBlock frontMatter={split.frontMatter} />
-            ) : null}
-            {blocks.slice(0, count).map((block) => (
-              <div
-                key={block.key}
-                className={styles.block}
-                data-line-offset={block.line - 1}
-              >
-                <PreviewBlock
-                  source={blockSource(block, definitions)}
-                  headingIds={blockHeadings.get(block.key) ?? ""}
-                />
-              </div>
-            ))}
-          </>
-        )}
-      </ScrollArea>
+      <div className={styles.previewFrame}>
+        {finding ? (
+          <PreviewFind
+            container={article}
+            focusToken={findToken}
+            onClose={() => setFindClosedAt(findToken)}
+          />
+        ) : null}
+        <ScrollArea
+          as="article"
+          className={styles.previewArea}
+          viewportClassName={styles.preview}
+          viewportRef={article}
+          aria-label={t(standalone ? "Mermaid 미리보기" : "Markdown 미리보기")}
+          onScroll={onScroll}
+        >
+          {standalone ? (
+            <MermaidDiagram source={content} line={1} />
+          ) : (
+            <>
+              {split.frontMatter ? (
+                <FrontMatterBlock frontMatter={split.frontMatter} />
+              ) : null}
+              {blocks.slice(0, count).map((block) => (
+                <div
+                  key={block.key}
+                  className={styles.block}
+                  data-line-offset={block.line - 1}
+                >
+                  <PreviewBlock
+                    source={blockSource(block, definitions)}
+                    headingIds={blockHeadings.get(block.key) ?? ""}
+                  />
+                </div>
+              ))}
+            </>
+          )}
+        </ScrollArea>
+      </div>
     </PreviewContext>
   );
 }

@@ -115,6 +115,12 @@
   backdrop-filter: blur(12px);
 }
 
+/* Below the preview find bar (pane label + bar) when both are open. */
+.documentBody:has([role="search"]) .outlineBox {
+  top: 84px;
+  max-height: calc(100% - 94px);
+}
+
 .outlinePanel {
   padding: 0 5px 6px;
 }

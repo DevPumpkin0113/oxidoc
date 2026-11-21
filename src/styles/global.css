@@ -85,3 +85,12 @@ textarea {
 .monaco-editor .view-line .oxidoc-front-matter-key {
   color: var(--accent);
 }
+
+/* Preview find matches (components/PreviewFind.tsx). */
+::highlight(oxidoc-find) {
+  background-color: color-mix(in srgb, #f2c94c 35%, transparent);
+}
+::highlight(oxidoc-find-current) {
+  background-color: color-mix(in srgb, #f29b4c 75%, transparent);
+  color: var(--text);
+}

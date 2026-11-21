@@ -39,6 +39,7 @@ export default function DocumentView({
       Boolean(state.recoveryError),
   );
   const command = useUi((state) => state.command);
+  const previewFind = useUi((state) => state.previewFind);
   const navigation = useUi((state) =>
     state.navigation?.documentId === id ? state.navigation : undefined,
   );
@@ -111,6 +112,8 @@ export default function DocumentView({
                   navigation={navigation}
                   syncTarget={syncTarget}
                   onScrollLine={(line, edge) => scroll("preview", line, edge)}
+                  findToken={previewFind}
+                  findEnabled={view === "preview"}
                 />
               </Suspense>
             </section>

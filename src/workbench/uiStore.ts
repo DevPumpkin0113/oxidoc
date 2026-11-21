@@ -56,6 +56,8 @@ export interface UiState {
   linkUpdate: LinkUpdateRequest | null;
   projectFilters: ProjectFilters;
   command?: EditorCommand;
+  /** Increments to open the preview find bar in preview-only view. */
+  previewFind: number;
   navigation?: Navigation & { documentId: string };
   scrollTarget?: ScrollTarget & { documentId: string };
   revealTarget: string | null;
@@ -64,6 +66,7 @@ export interface UiState {
 
 export const useUi = create<UiState>(() => ({
   settingsOpen: false,
+  previewFind: 0,
   palette: false,
   paletteCommands: [],
   quickOpen: false,

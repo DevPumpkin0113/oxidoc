@@ -227,6 +227,11 @@ export function openDocument(id: string) {
 
 export function editorAction(id: EditorCommand["id"]) {
   setSettingsOpen(false);
+  if (workspace().layout.view === "preview" && id === "find") {
+    // Search the rendered preview instead of switching to the editor.
+    useUi.setState(({ previewFind }) => ({ previewFind: previewFind + 1 }));
+    return;
+  }
   if (workspace().layout.view === "preview") setView("split");
   useUi.setState(({ command }) => ({
     command: { id, token: (command?.token ?? 0) + 1 },

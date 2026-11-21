@@ -7,6 +7,8 @@ export const spriteIcons = {
   settings: "settings-gear",
   chevron: "chevron-right",
   down: "chevron-down",
+  up: "arrow-up",
+  downArrow: "arrow-down",
   close: "close",
   minus: "chrome-minimize",
   maximize: "chrome-maximize",

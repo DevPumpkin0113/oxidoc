@@ -484,6 +484,12 @@ export const english: Record<string, string> = {
   "프로젝트 탭 추가": "Add project tab",
   "사이드바 너비": "Sidebar width",
   속성: "Properties",
+  "미리보기에서 찾기": "Find in preview",
+  찾기: "Find",
+  "이전 결과": "Previous match",
+  "다음 결과": "Next match",
+  "찾기 닫기": "Close find",
+  "결과 없음": "No results",
   "설정 (Ctrl ,) · 업데이트 {0}": "Settings (Ctrl ,) · Update {0}",
   "끌어서 사이드바 너비 조절, 왼쪽 끝까지 끌면 닫기 (더블클릭: 기본값)":
     "Drag to resize the sidebar, all the way left to close it (double-click: default)",

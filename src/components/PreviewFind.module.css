@@ -1,0 +1,61 @@
+/* Floating find bar at the top right of the preview, like the editor's. */
+.find {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: min(340px, calc(100% - 28px));
+  padding: 4px 4px 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px #0004;
+  background: var(--surface);
+  font-size: calc(var(--ui-font-size, 13px) * 11 / 13);
+}
+
+.find input {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  outline: none;
+  color: var(--text);
+  background: var(--editor);
+}
+
+.find input:focus {
+  border-color: var(--accent);
+}
+
+.status {
+  flex-shrink: 0;
+  min-width: 52px;
+  padding: 0 4px;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.find button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.find button:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.find button:disabled {
+  opacity: 0.4;
+}
