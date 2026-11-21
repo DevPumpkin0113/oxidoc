@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-22
+
+미리보기만 보는 상태에서도 문서 안을 찾을 수 있다.
+
 - 미리보기만 보는 상태에서 `Ctrl F`로 편집 화면으로 바꾸지 않고 미리보기 안에서 찾기
 
 ## [0.9.1] - 2026-11-21
@@ -108,7 +112,8 @@
 
 업데이트 확인·다운로드·자동 설치 및 설치 파일 배포는 이번 릴리즈 범위 외.
 
-[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.9.1...develop
+[Unreleased]: https://github.com/DevPumpkin0113/oxidoc/compare/v0.10.0...develop
+[0.10.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.10.0
 [0.9.1]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.9.1
 [0.9.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.9.0
 [0.8.0]: https://github.com/DevPumpkin0113/oxidoc/releases/tag/v0.8.0
